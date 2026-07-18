@@ -56,7 +56,7 @@ const state = {
   character: owns(save, save.selectedCharacter) ? save.selectedCharacter : "raccoon",
   score: 0, combo: 0, delivered: 0, timeLeft: 120, roundSeconds: 120, wrongPlacements: 0,
   droppedItems: 0, maxCombo: 0, deliveredDumbbells: 0, heldItems: [], nearestItem: null, nearestZone: null,
-  keys: new Set(), interactPressed: false, elapsed: 0, hudAccumulator: 0, cameraManualUntil: 0,
+  keys: new Set(), interactPressed: false, elapsed: 0, hudAccumulator: 0,
   velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 },
   touch: { x: 0, z: 0, sprint: false, pointerId: null },
   toastTimer: null, speechTimer: null, achievementTimer: null, tutorialResumeMode: null,
@@ -611,11 +611,6 @@ function updateCamera(dt) {
   if (!camera || !player) return;
   const desired = player.position.add(new B.Vector3(0, 0.78, 0));
   camera.target = B.Vector3.Lerp(camera.target, desired, 1 - Math.exp(-9 * dt));
-  const moving = state.velocity.lengthSquared() > 0.4;
-  const cameraSettled = Math.abs(camera.inertialAlphaOffset) < 0.001 && Math.abs(camera.inertialBetaOffset) < 0.001;
-  if (state.playing && moving && cameraSettled && performance.now() > state.cameraManualUntil) {
-    camera.alpha = lerpAngle(camera.alpha, player.rotation.y + Math.PI / 2, Math.min(1, dt * 1.35));
-  }
 }
 
 function resetCamera(showFeedback = true) {
@@ -624,7 +619,6 @@ function resetCamera(showFeedback = true) {
   camera.beta = 1.03;
   camera.radius = 7.2;
   camera.target = player.position.add(new B.Vector3(0, 0.78, 0));
-  state.cameraManualUntil = performance.now() + 900;
   if (showFeedback && state.playing && !state.paused) showToast("Kamera ausgerichtet", "");
 }
 
@@ -663,13 +657,14 @@ function updatePlayer(dt) {
   const sprinting = wantsSprint && !carryingHeavy();
   const character = currentCharacter();
 
+  const cameraForward = new B.Vector3(-Math.cos(camera.alpha), 0, -Math.sin(camera.alpha));
+  const cameraRight = new B.Vector3(-Math.sin(camera.alpha), 0, Math.cos(camera.alpha));
+
   let desiredVelocity = B.Vector3.Zero();
   let moveDirection = null;
   if (isMoving) {
     inputX /= Math.max(1, inputLength);
     inputZ /= Math.max(1, inputLength);
-    const cameraForward = camera.target.subtract(camera.position); cameraForward.y = 0; cameraForward.normalize();
-    const cameraRight = B.Vector3.Cross(B.Axis.Y, cameraForward).normalize();
     moveDirection = cameraForward.scale(inputZ).add(cameraRight.scale(inputX));
     if (moveDirection.lengthSquared() > 0.001) moveDirection.normalize();
     let penalty = 1;
@@ -685,8 +680,9 @@ function updatePlayer(dt) {
   if (state.velocity.lengthSquared() > 0.001) {
     const next = player.position.add(state.velocity.scale(dt));
     resolvePlayerPosition(next);
-    const facing = moveDirection || state.velocity.normalizeToNew();
-    player.rotation.y = lerpAngle(player.rotation.y, Math.atan2(facing.x, -facing.z), Math.min(1, dt * 11));
+  }
+  if (moveDirection) {
+    player.rotation.y = lerpAngle(player.rotation.y, Math.atan2(moveDirection.x, -moveDirection.z), Math.min(1, dt * 11));
   }
 
   animateCharacter(dt, isMoving || state.velocity.lengthSquared() > 0.08, sprinting);
@@ -890,8 +886,7 @@ function updateNavigator() {
   if (!targetPosition) { ui.navigator.classList.add("hidden"); return; }
   const toTarget = targetPosition.subtract(player.position); toTarget.y = 0;
   const distance = toTarget.length(); if (distance > 0.001) toTarget.normalize();
-  const cameraForward = camera.target.subtract(camera.position); cameraForward.y = 0; if (cameraForward.lengthSquared() > 0.001) cameraForward.normalize();
-  const relativeAngle = normalizeAngle(Math.atan2(toTarget.x, -toTarget.z) - Math.atan2(cameraForward.x, -cameraForward.z));
+  const relativeAngle = normalizeAngle(Math.atan2(toTarget.x, -toTarget.z) - (camera.alpha - Math.PI / 2));
   ui.navArrow.style.transform = `rotate(${relativeAngle}rad)`;
   ui.navTarget.textContent = targetLabel;
   ui.navDistance.textContent = `${Math.max(0, Math.round(distance))} m entfernt`;
@@ -1454,11 +1449,6 @@ window.addEventListener("keyup", (event) => state.keys.delete(event.code));
 window.addEventListener("blur", () => state.keys.clear());
 window.addEventListener("resize", () => { engine.resize(); updateOrientationHint(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && state.playing && !state.ended) setPaused(true); });
-const markCameraManual = () => { state.cameraManualUntil = performance.now() + 1800; };
-ui.canvas.addEventListener("pointerdown", markCameraManual, { passive: true });
-ui.canvas.addEventListener("pointermove", (event) => { if (event.buttons) markCameraManual(); }, { passive: true });
-ui.canvas.addEventListener("wheel", markCameraManual, { passive: true });
-
 ui.joystick.addEventListener("pointerdown", (event) => { if (!state.playing || state.paused) return; state.touch.pointerId = event.pointerId; ui.joystick.setPointerCapture(event.pointerId); updateJoystick(event); event.preventDefault(); });
 ui.joystick.addEventListener("pointermove", (event) => { if (state.touch.pointerId !== event.pointerId) return; updateJoystick(event); event.preventDefault(); });
 const releaseJoystick = (event) => { if (state.touch.pointerId !== event.pointerId) return; state.touch.pointerId = null; state.touch.x = 0; state.touch.z = 0; ui.joystickKnob.style.transform = "translate(0px, 0px)"; };
