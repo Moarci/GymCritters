@@ -13,6 +13,7 @@ import { B } from "./babylon.js";
 import { createMaterial } from "./materials.js";
 import { buildEnvironment, setActiveLevelDecor } from "./environment/index.js";
 import { comboMultiplier, formatTime, horizontalDistance, lerpAngle, normalizeAngle, rankValue, shuffle } from "./utils.js";
+import { scoreTarget } from "./targeting.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -613,12 +614,16 @@ function updateInteraction() {
   const actionKey = isTouchDevice ? "Aktion" : "E";
   state.nearestItem = null;
   state.nearestZone = null;
-  let closestItemDistance = Infinity;
+  let bestItemScore = Infinity;
   for (const item of items) {
     if (item.delivered || state.heldItems.includes(item)) continue;
-    const distance = horizontalDistance(player.position, item.root.getAbsolutePosition());
-    if (distance < closestItemDistance && distance <= CONFIG.interactDistance) {
-      closestItemDistance = distance;
+    const itemPosition = item.root.getAbsolutePosition();
+    const distance = horizontalDistance(player.position, itemPosition);
+    const angleToItem = Math.atan2(itemPosition.x - player.position.x, -(itemPosition.z - player.position.z));
+    const angleDelta = normalizeAngle(angleToItem - player.rotation.y);
+    const score = scoreTarget(distance, angleDelta, CONFIG.interactDistance);
+    if (score < bestItemScore) {
+      bestItemScore = score;
       state.nearestItem = item;
     }
   }
