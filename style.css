@@ -464,3 +464,25 @@ button { font: inherit; cursor: pointer; }
 
 .joystick { transform: scale(var(--control-scale, 1)); transform-origin: left bottom; }
 .mobile-buttons { transform: scale(var(--control-scale, 1)); transform-origin: right bottom; }
+
+/* Hochformat auf Touch-Geräten: Breite ist knapp, Höhe reichlich. Die HUD-Elemente
+   rücken deshalb nach oben zusammen, die Controls bekommen unten mehr Luft, weil der
+   Daumen im Hochformat tiefer greift. */
+@media (orientation: portrait) and (hover: none) and (pointer: coarse) {
+  .hud { inset-inline: 8px; }
+  .stats { grid-template-columns: repeat(4, auto); }
+  .stats > div { padding: 6px 8px; border-bottom: 0; }
+  .stats > div:nth-child(-n+3) { border-right: 1px solid var(--line); }
+  .stats strong { font-size: 13px; }
+
+  .objective { top: 96px; font-size: 12px; max-width: 92vw; }
+  .progress-track { top: 128px; width: min(320px, 86vw); }
+  .navigator { top: 146px; transform: translateX(-50%) scale(.82); }
+  .toast { top: 196px; }
+  .speech-bubble { top: 168px; }
+  .prompt { bottom: 232px; max-width: 90vw; white-space: normal; text-align: center; }
+
+  .mobile-controls { bottom: max(30px, env(safe-area-inset-bottom)); align-items: flex-end; }
+  .mobile-buttons { gap: 9px; }
+  .tutorial-coach { bottom: max(206px, calc(env(safe-area-inset-bottom) + 206px)); width: calc(100vw - 24px); }
+}
