@@ -30,6 +30,7 @@ export function createDefaultSave() {
       totalRounds: 0,
       totalDelivered: 0,
       totalDumbbells: 0,
+      byType: {},
       maxCombo: 0,
       perfectRounds: 0,
       totalCoinsEarned: 0,
@@ -68,6 +69,7 @@ export function loadSave() {
         ...(legacy.stats || {}),
         totalRounds: legacy.stats?.totalRounds ?? legacy.totalRounds ?? defaults.stats.totalRounds,
         totalDelivered: legacy.stats?.totalDelivered ?? legacy.totalDelivered ?? defaults.stats.totalDelivered,
+        byType: { ...(legacy.stats?.byType || {}) },
       },
       modeStats: mergeModeStats(legacy.modeStats),
       achievements: { ...defaults.achievements, ...(legacy.achievements || {}) },
@@ -82,6 +84,13 @@ export function loadSave() {
         if (migrated.modeStats[mode]) migrated.modeStats[mode].bestTime = bestTime;
       }
     }
+    // V4-Migration: der Hantel-Sonderzähler wandert in den Zähler je Typ, damit
+    // vorhandener Fortschritt Richtung "Schwerarbeiter" erhalten bleibt. Ein
+    // bereits gesetzter byType-Wert ist der genauere und gewinnt.
+    if (migrated.stats.byType.dumbbell === undefined && migrated.stats.totalDumbbells > 0) {
+      migrated.stats.byType.dumbbell = migrated.stats.totalDumbbells;
+    }
+
     if (!migrated.owned.includes(migrated.selectedCharacter)) migrated.selectedCharacter = "raccoon";
     return migrated;
   } catch (error) {
@@ -118,6 +127,42 @@ export function buyOrEquip(save, item) {
   return { ok: true };
 }
 
+const STARTER_KIT = ["raccoon", "headband-lime"];
+
+function countedFor(save, progress) {
+  const byType = save.stats.byType || {};
+  switch (progress.kind) {
+    case "itemType": return byType[progress.type] || 0;
+    case "distinctTypes": return Object.values(byType).filter((anzahl) => anzahl > 0).length;
+    case "totalDelivered": return save.stats.totalDelivered || 0;
+    case "ownedExtras": return save.owned.filter((id) => !STARTER_KIT.includes(id)).length;
+    default: return 0;
+  }
+}
+
+// Verlauf eines Ziels, oder null bei Ja/Nein-Bedingungen ohne zählbaren Stand.
+export function achievementProgress(save, achievement) {
+  if (!achievement?.progress) return null;
+  const { target } = achievement.progress;
+  return { aktuell: Math.min(target, countedFor(save, achievement.progress)), ziel: target };
+}
+
+// Das offene Ziel, das anteilig am weitesten fortgeschritten ist — der Anstoß
+// für die nächste Runde. Null, wenn nichts Zählbares mehr offen ist.
+export function nextGoal(save) {
+  let bestes = null;
+  for (const achievement of ACHIEVEMENTS) {
+    if (save.achievements[achievement.id]) continue;
+    const stand = achievementProgress(save, achievement);
+    if (!stand) continue;
+    const anteil = stand.aktuell / stand.ziel;
+    if (!bestes || anteil > bestes.anteil) {
+      bestes = { achievement, aktuell: stand.aktuell, ziel: stand.ziel, rest: stand.ziel - stand.aktuell, anteil };
+    }
+  }
+  return bestes;
+}
+
 export function evaluateAchievements(save, round = null) {
   const unlocked = [];
   const unlock = (id) => {
@@ -128,9 +173,13 @@ export function evaluateAchievements(save, round = null) {
   };
 
   if (save.stats.totalRounds >= 1) unlock("first-shift");
-  if (save.stats.totalDumbbells >= 10) unlock("heavy-lifter");
-  if (save.stats.totalDelivered >= 50) unlock("gym-hero");
-  if (save.owned.filter((id) => !["raccoon", "headband-lime"].includes(id)).length >= 4) unlock("collector");
+
+  // Alle zählbaren Ziele laufen über denselben Weg — neue Gegenstandstypen
+  // brauchen künftig nur noch einen Eintrag in ACHIEVEMENTS.
+  for (const achievement of ACHIEVEMENTS) {
+    const stand = achievementProgress(save, achievement);
+    if (stand && stand.aktuell >= stand.ziel) unlock(achievement.id);
+  }
 
   if (round?.completed) {
     if (round.droppedItems === 0) unlock("sticky-paws");
