@@ -21,9 +21,11 @@ export function dominantWeight(weights) {
 const POSES = {
   // Die Figuren schauen lokal nach -Z. Da die Arme nach -Y zeigen, dreht eine
   // positive X-Rotation Schulter und Ellbogen nach vorn; negativ wäre rückwärts.
-  heavy: { armX: 0.25, armZ: 0.12, elbowX: 1.0, torsoLean: -0.12 },
-  bulky: { armX: 0.6, armZ: 0.6, elbowX: 0.45, torsoLean: 0 },
-  light: { armX: 0.85, armZ: 0.3, elbowX: 0.35, torsoLean: 0 },
+  // armZ ist hier die Einwärtsdrehung: sperrige Last bleibt breiter, während
+  // Hantel und leichte Gegenstände näher zwischen den Pfoten liegen.
+  heavy: { armX: 0.63, armZ: 0.28, elbowX: 0.83, torsoLean: -0.12 },
+  bulky: { armX: 0.62, armZ: 0.12, elbowX: 0.8, torsoLean: 0 },
+  light: { armX: 0.75, armZ: 0.22, elbowX: 0.35, torsoLean: 0 },
 };
 
 export function carryPose(weight) {

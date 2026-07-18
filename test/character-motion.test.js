@@ -20,8 +20,8 @@ test("carryPose unterscheidet die drei Gewichtsklassen sichtbar", () => {
   const sperrig = carryPose("bulky");
   const leicht = carryPose("light");
   assert.ok(schwer.armX < leicht.armX, "schwere Last hängt tiefer als leichte (weniger angewinkelt)");
-  assert.ok(sperrig.armZ > schwer.armZ, "sperrige Last spreizt die Arme weiter");
-  assert.ok(sperrig.armZ > leicht.armZ);
+  assert.ok(sperrig.armZ < schwer.armZ, "sperrige Last hält die Pfoten weiter auseinander");
+  assert.ok(sperrig.armZ < leicht.armZ);
 });
 
 test("carryPose lehnt nur bei schwerer Last zurück", () => {
@@ -184,6 +184,17 @@ test("carryPose richtet Schulter und Ellbogen zur Vorderseite der Figur", () => 
     assert.ok(pose.armX > 0, `${gewicht}: Oberarm zeigt nicht nach vorn`);
     assert.ok(pose.elbowX > 0, `${gewicht}: Unterarm zeigt nicht nach vorn`);
   }
+});
+
+test("schwere Tragepose bringt die Pfote an den abgesenkten Hantelgriff", () => {
+  const pose = carryPose("heavy");
+  const upper = 0.34;
+  const lower = 0.32;
+  const down = upper * Math.cos(pose.armX) + lower * Math.cos(pose.armX + pose.elbowX);
+  const forward = upper * Math.sin(pose.armX) + lower * Math.sin(pose.armX + pose.elbowX);
+  // Schulter y=1,28; Trageanker y=0,82 plus skalierte Griffhöhe 0,152.
+  assert.ok(Math.abs(down - 0.308) < 0.02, `Pfote liegt vertikal ${down} statt 0,308`);
+  assert.ok(Math.abs(forward - 0.52) < 0.02, `Pfote liegt vorwärts ${forward} statt 0,52`);
 });
 
 test("surfacePoint trifft entlang der Achsen exakt den Radius", () => {

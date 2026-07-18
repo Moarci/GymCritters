@@ -196,9 +196,12 @@ function buildCharacter(characterId) {
 
 function createCarryAnchors() {
   carryAnchors = [];
-  const center = new B.TransformNode("carryCenter", scene); center.parent = playerVisual; center.position.set(0, 1.04, -0.84);
-  const left = new B.TransformNode("carryLeft", scene); left.parent = playerVisual; left.position.set(-0.27, 1.02, -0.8);
-  const right = new B.TransformNode("carryRight", scene); right.parent = playerVisual; right.position.set(0.27, 1.02, -0.8);
+  // Brusthöhe und innerhalb der realen Reichweite der 0,66 Einheiten langen
+  // Armkette. Die alten Werte (-0,84 z / 1,04 y) ließen Gegenstände vor der
+  // Schnauze schweben; keine Schulter-/Ellbogenpose konnte sie erreichen.
+  const center = new B.TransformNode("carryCenter", scene); center.parent = playerVisual; center.position.set(0, 0.82, -0.52);
+  const left = new B.TransformNode("carryLeft", scene); left.parent = playerVisual; left.position.set(-0.27, 0.82, -0.52);
+  const right = new B.TransformNode("carryRight", scene); right.parent = playerVisual; right.position.set(0.27, 0.82, -0.52);
   carryAnchors.push(center, left, right);
 }
 
@@ -748,8 +751,10 @@ function animateCharacter(dt, moving, sprinting) {
     const pose = carryPose(weight);
     playerParts.leftArm.rotation.x = pose.armX;
     playerParts.rightArm.rotation.x = pose.armX;
-    playerParts.leftArm.rotation.z = -pose.armZ;
-    playerParts.rightArm.rotation.z = pose.armZ;
+    // Linke Schulter positiv, rechte negativ: beide Pfoten drehen nach innen
+    // zum getragenen Gegenstand statt seitlich vom Griff weg.
+    playerParts.leftArm.rotation.z = pose.armZ;
+    playerParts.rightArm.rotation.z = -pose.armZ;
     playerParts.leftElbow.rotation.x = pose.elbowX;
     playerParts.rightElbow.rotation.x = pose.elbowX;
     playerVisual.rotation.x = B.Scalar.Lerp(playerVisual.rotation.x, pose.torsoLean, 0.15);
