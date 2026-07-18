@@ -1,5 +1,23 @@
 const LEVEL_IDS = ["closing", "class", "legday"];
 
+export const CLASS_FLOOR_MAT_LAYOUT = Object.freeze({
+  width: 1.35,
+  depth: 2.35,
+  y: 0.045,
+  z: 1.15,
+  xPositions: Object.freeze([-7, -4.2, -1.4, 1.4, 4.2, 7]),
+});
+
+export function classFloorMatPlacement(index) {
+  const slot = Math.max(0, Math.floor(Number(index) || 0)) % CLASS_FLOOR_MAT_LAYOUT.xPositions.length;
+  return Object.freeze({
+    x: CLASS_FLOOR_MAT_LAYOUT.xPositions[slot],
+    y: CLASS_FLOOR_MAT_LAYOUT.y,
+    z: CLASS_FLOOR_MAT_LAYOUT.z,
+    rotationY: 0,
+  });
+}
+
 function freezeObstacle(obstacle) {
   return Object.freeze({
     ...obstacle,
@@ -108,4 +126,3 @@ export function getLevelObstacleDescriptors() {
     halfZ: obstacle.halfZ,
   })));
 }
-

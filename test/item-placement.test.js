@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { itemDisplaySlot, matRackSlot, MEDBALL_DIAMETER } from "../src/item-placement.js";
+import {
+  DUMBBELL_RACK_LAYOUT,
+  MAT_RACK_LAYOUT,
+  MEDBALL_DIAMETER,
+  itemDisplaySlot,
+  matRackSlot,
+} from "../src/item-placement.js";
 
 const ZONES = ["rack", "laundry", "bottles", "mats", "kettlebells", "ropes", "medballs"];
 
@@ -16,29 +22,53 @@ test("jede Ablage besitzt 16 eindeutige Gegenstandsplätze", () => {
 });
 
 test("Matten bleiben vollständig und ohne Überlappung im Regal", () => {
-  const diameter = 0.55 * 0.54;
+  const diameter = 0.55 * MAT_RACK_LAYOUT.itemScale;
+  const length = 1.65 * MAT_RACK_LAYOUT.itemScale;
+  const innerSide = MAT_RACK_LAYOUT.sideX - MAT_RACK_LAYOUT.sideWidth / 2;
   const slots = Array.from({ length: 16 }, (_, index) => matRackSlot(index));
 
   for (let index = 0; index < slots.length; index++) {
     const slot = slots[index];
-    assert.ok(Math.abs(slot.x) + diameter / 2 < 1.1, `Matte ${index} ragt seitlich heraus`);
-    assert.ok(Math.abs(slot.z) + diameter / 2 < 0.625, `Matte ${index} ragt vorne oder hinten heraus`);
-    assert.equal(slot.rotationZ, Math.PI / 2);
+    const supportTop = index < 8 ? MAT_RACK_LAYOUT.baseTop : MAT_RACK_LAYOUT.upperShelfTop;
+    const bottom = slot.y + (0.28 - 0.275) * slot.scale;
+    assert.ok(Math.abs(slot.x) + length / 2 < innerSide, `Matte ${index} berührt den Seitenrahmen`);
+    assert.ok(
+      Math.abs(slot.z) + diameter / 2 < MAT_RACK_LAYOUT.depth / 2,
+      `Matte ${index} ragt vorne oder hinten heraus`,
+    );
+    assert.ok(bottom >= supportTop, `Matte ${index} steckt in ihrer Regalebene`);
+    assert.equal(slot.rotationZ, 0, "die im Mesh liegende Matte darf nicht doppelt gedreht werden");
     for (let other = index + 1; other < slots.length; other++) {
-      assert.ok(Math.hypot(slot.x - slots[other].x, slot.z - slots[other].z) > diameter);
+      const otherSlot = slots[other];
+      const overlapsAlongLength = Math.abs(slot.x - otherSlot.x) < length;
+      const overlapsAroundRoll = Math.hypot(slot.y - otherSlot.y, slot.z - otherSlot.z) < diameter;
+      assert.equal(
+        overlapsAlongLength && overlapsAroundRoll,
+        false,
+        `Matten ${index} und ${other} schneiden sich`,
+      );
     }
   }
 });
 
 test("Hanteln liegen auf den drei Querträgern statt darin", () => {
-  const plateBottom = -0.03 * 0.5;
-  const shelfTops = [0.515, 1.115, 1.715];
+  const plateBottom = -0.03 * DUMBBELL_RACK_LAYOUT.itemScale;
+  const shelfTops = DUMBBELL_RACK_LAYOUT.shelfCenters.map(
+    (center) => center + DUMBBELL_RACK_LAYOUT.shelfHeight / 2,
+  );
+  const innerPost = DUMBBELL_RACK_LAYOUT.postX - DUMBBELL_RACK_LAYOUT.postWidth / 2;
+  const outerHalfWidth = 0.625 * DUMBBELL_RACK_LAYOUT.itemScale;
+  const plateRadius = 0.23 * DUMBBELL_RACK_LAYOUT.itemScale;
 
   for (let index = 0; index < 16; index++) {
     const slot = itemDisplaySlot("rack", index);
     const shelf = Math.floor(index / 6);
     assert.ok(Math.abs(slot.y + plateBottom - shelfTops[shelf]) < 0.001);
-    assert.ok(Math.abs(slot.x) + 0.625 * slot.scale < 0.97);
+    assert.ok(Math.abs(slot.x) + outerHalfWidth < innerPost, `Hantel ${index} berührt einen Pfosten`);
+    assert.ok(
+      Math.abs(slot.z) + plateRadius < DUMBBELL_RACK_LAYOUT.depth / 2,
+      `Hantel ${index} liegt nicht vollständig auf dem Querträger`,
+    );
   }
 });
 
