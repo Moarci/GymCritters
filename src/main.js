@@ -42,6 +42,7 @@ import {
   optionFor,
 } from "./shift-settings.js";
 import { selectTripHazard, tripRule } from "./trip-physics.js";
+import { matRackSlot } from "./item-placement.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -712,7 +713,11 @@ function createBottle(root, index) {
 function createMat(root, index) {
   const colors = ["#aa74d4", "#6aabd8", "#d97f6c"];
   const matMesh = B.MeshBuilder.CreateCylinder("mat", { diameter: 0.55, height: 1.65, tessellation: 24 }, scene);
-  matMesh.parent = root; matMesh.rotation.z = Math.PI / 2; matMesh.position.y = 0.28; matMesh.material = material(`floorMat${index}`, colors[index % colors.length], 0.92);
+  const matSurface = material(`floorMat${index}`, colors[index % colors.length], 0.92);
+  matSurface.alpha = 1;
+  matSurface.transparencyMode = 0;
+  matSurface.forceDepthWrite = true;
+  matMesh.parent = root; matMesh.rotation.z = Math.PI / 2; matMesh.position.y = 0.28; matMesh.material = matSurface;
   return [matMesh];
 }
 
@@ -1519,7 +1524,10 @@ function getDisplayPlacement(zone, item, index) {
   } else if (zone.id === "bottles") {
     p.set(zone.position.x + ((index % 3) - 1) * 0.38, 1.22, zone.position.z + (Math.floor(index / 3) - 0.5) * 0.32); scale = 0.62;
   } else if (zone.id === "mats") {
-    p.set(zone.position.x + ((index % 4) - 1.5) * 0.42, 0.82, zone.position.z - 0.05); rotation.z = Math.PI / 2; scale = 0.72;
+    const slot = matRackSlot(index);
+    p.set(zone.position.x + slot.x, slot.y, zone.position.z + slot.z);
+    rotation.z = slot.rotationZ;
+    scale = slot.scale;
   } else if (zone.id === "kettlebells") {
     const slot = [-0.42, 0, 0.42][index % 3];
     p.set(zone.position.x + slot, 0.24 + Math.floor(index / 3) * 0.5, zone.position.z); scale = 0.62;
