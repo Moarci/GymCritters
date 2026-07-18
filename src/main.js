@@ -15,6 +15,7 @@ import { buildEnvironment, setActiveLevelDecor } from "./environment/index.js";
 import { cameraAlphaBehind, cameraYaw, comboMultiplier, formatTime, forwardFromYaw, horizontalDistance, lerpAngle, normalizeAngle, rankValue, shuffle, yawTowards } from "./utils.js";
 import { scoreTarget } from "./targeting.js";
 import { SQUASH_DURATION, comboImpactScale, deliveryPitch, impactSound, impactStrength, squashAt } from "./impact.js";
+import { carryPose, curveLean, dominantWeight, gaitParams, idleMotion } from "./character-motion.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -60,7 +61,7 @@ const state = {
   score: 0, combo: 0, delivered: 0, timeLeft: 120, roundSeconds: 120, wrongPlacements: 0,
   droppedItems: 0, maxCombo: 0, deliveredDumbbells: 0, deliveredByType: {}, heldItems: [], nearestItem: null, nearestZone: null,
   keys: new Set(), interactPressed: false, elapsed: 0, hudAccumulator: 0,
-  velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 },
+  velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 }, lean: 0,
   touch: { x: 0, z: 0, sprint: false, pointerId: null },
   toastTimer: null, speechTimer: null, achievementTimer: null,
 };
@@ -498,7 +499,13 @@ function updatePlayer(dt) {
     resolvePlayerPosition(next);
   }
   if (moveDirection) {
-    player.rotation.y = lerpAngle(player.rotation.y, yawTowards(moveDirection.x, moveDirection.z), Math.min(1, dt * 11));
+    const yVorher = player.rotation.y;
+    player.rotation.y = lerpAngle(yVorher, yawTowards(moveDirection.x, moveDirection.z), Math.min(1, dt * 11));
+    // Drehgeschwindigkeit -> Kurvenneigung. updateReaction wendet sie als
+    // Ruhelage von rotation.z an, damit Reaktionen (Kopfschütteln) gewinnen.
+    state.lean = dt > 0 ? curveLean(normalizeAngle(player.rotation.y - yVorher) / dt) : 0;
+  } else {
+    state.lean = 0;
   }
 
   animateCharacter(dt, isMoving || state.velocity.lengthSquared() > 0.08, sprinting);
@@ -533,27 +540,34 @@ function resolvePlayerPosition(next) {
 }
 
 function animateCharacter(dt, moving, sprinting) {
-  const intensity = moving ? (sprinting ? 1.1 : 0.78) : 0.12;
-  const frequency = moving ? (sprinting ? 13 : 9) : 2.2;
-  const phase = state.elapsed * frequency;
-  const armSwing = Math.sin(phase) * 0.55 * intensity;
-  const legSwing = Math.sin(phase) * 0.5 * intensity;
+  const weight = dominantWeight(state.heldItems.map((item) => item.weight));
+  const gait = gaitParams(weight, sprinting, moving);
+  const phase = state.elapsed * gait.frequency;
+  const armSwing = Math.sin(phase) * 0.55 * gait.intensity * gait.armSwing;
+  const legSwing = Math.sin(phase) * 0.5 * gait.intensity;
   if (state.heldItems.length) {
-    playerParts.leftArm.rotation.x = -1.05;
-    playerParts.rightArm.rotation.x = -1.05;
-    playerParts.leftArm.rotation.z = -0.35;
-    playerParts.rightArm.rotation.z = 0.35;
+    // Die Haltung zeigt, was geschleppt wird: schwer hängt tief mit Rücklage,
+    // sperrig umklammert breit, leicht bleibt locker.
+    const pose = carryPose(weight);
+    playerParts.leftArm.rotation.x = pose.armX;
+    playerParts.rightArm.rotation.x = pose.armX;
+    playerParts.leftArm.rotation.z = -pose.armZ;
+    playerParts.rightArm.rotation.z = pose.armZ;
+    playerVisual.rotation.x = B.Scalar.Lerp(playerVisual.rotation.x, pose.torsoLean, 0.15);
   } else {
     playerParts.leftArm.rotation.x = armSwing;
     playerParts.rightArm.rotation.x = -armSwing;
     playerParts.leftArm.rotation.z = state.character === "squirrel" ? -0.17 : -0.22;
     playerParts.rightArm.rotation.z = state.character === "squirrel" ? 0.17 : 0.22;
+    playerVisual.rotation.x = B.Scalar.Lerp(playerVisual.rotation.x, 0, 0.15);
   }
   playerParts.leftLeg.rotation.x = -legSwing;
   playerParts.rightLeg.rotation.x = legSwing;
-  playerParts.tailRoot.rotation.y = Math.sin(state.elapsed * (state.character === "squirrel" ? 4 : 3.2)) * 0.28;
+  const idle = !moving && !state.heldItems.length ? idleMotion(state.elapsed) : null;
+  playerParts.body.scaling.y = 1 + (idle ? idle.breath : 0);
+  playerParts.tailRoot.rotation.y = Math.sin(state.elapsed * (state.character === "squirrel" ? 4 : 3.2)) * 0.28 + (idle ? idle.tailFlick : 0);
   playerParts.tailRoot.rotation.x = 0.13 + Math.sin(state.elapsed * 2.1) * 0.06;
-  playerVisual.position.y = -0.84 + Math.abs(Math.sin(phase)) * 0.035 * intensity;
+  playerVisual.position.y = -0.84 + Math.abs(Math.sin(phase)) * 0.035 * gait.intensity * gait.bob;
   updateReaction(dt);
 }
 
@@ -563,7 +577,7 @@ function setReaction(type, duration = 0.7) {
 
 function updateReaction(dt) {
   if (!state.reaction.type) {
-    playerVisual.rotation.z = B.Scalar.Lerp(playerVisual.rotation.z, 0, 0.22);
+    playerVisual.rotation.z = B.Scalar.Lerp(playerVisual.rotation.z, state.lean, 0.22);
     playerVisual.rotation.y = B.Scalar.Lerp(playerVisual.rotation.y, 0, 0.22);
     playerVisual.scaling.copyFrom(B.Vector3.Lerp(playerVisual.scaling, B.Vector3.One(), 0.18));
     return;
