@@ -14,6 +14,7 @@ import { createMaterial } from "./materials.js";
 import { buildEnvironment, setActiveLevelDecor } from "./environment/index.js";
 import { cameraAlphaBehind, cameraYaw, comboMultiplier, formatTime, forwardFromYaw, horizontalDistance, lerpAngle, normalizeAngle, rankValue, shuffle, yawTowards } from "./utils.js";
 import { scoreTarget } from "./targeting.js";
+import { SQUASH_DURATION, impactSound, impactStrength, squashAt } from "./impact.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -837,7 +838,7 @@ function deliverAtZone(zone) {
   const mode = MODES[state.mode];
   let batchScore = 0;
   let pending = matching.length;
-  for (const item of matching) {
+  matching.forEach((item, index) => {
     state.combo += 1;
     state.maxCombo = Math.max(state.maxCombo, state.combo);
     const strengthBonus = item.weight === "heavy" ? currentCharacter().heavyScoreBonus : 1;
@@ -851,16 +852,22 @@ function deliverAtZone(zone) {
     state.heldItems = state.heldItems.filter((entry) => entry !== item);
     showScorePop(`+${gained}`, false);
     if (milestone) showScorePop(`Streak +${milestone}`, true);
-    animateDeliveredItem(item, zone, () => {
+    // Versetzter Start, damit mehrere Gegenstände nacheinander landen und zwei
+    // getrennte Aufschläge zu hören sind statt eines Matschs.
+    animateDeliveredItem(item, zone, index * 80, () => {
+      playImpact(zone, item);
       pending -= 1;
-      if (pending === 0) onDeliveryAnimationFinished();
+      if (pending === 0) {
+        showDeliveryBurst(zone.position, zone.marker.material.albedoColor);
+        showToast(`${matching.length > 1 ? `${matching.length} Dinge` : matching[0].label} aufgeräumt · +${batchScore}`, "good");
+        characterSays(state.combo >= 5 ? "Die Combo läuft!" : "Sieht schon besser aus!");
+        onDeliveryAnimationFinished();
+      }
     });
-  }
+  });
   reflowHeldItems(false);
-  audio.play("deliver"); vibrate([18, 25, 28]); setReaction("pickup", 0.28);
-  showDeliveryBurst(zone.position, zone.marker.material.albedoColor);
-  showToast(`${matching.length > 1 ? `${matching.length} Dinge` : matching[0].label} aufgeräumt · +${batchScore}`, "good");
-  characterSays(state.combo >= 5 ? "Die Combo läuft!" : "Sieht schon besser aus!");
+  // Nur die Quittung auf den Tastendruck — die Wucht sitzt auf der Landung.
+  audio.play("release"); setReaction("pickup", 0.28);
   updateHUD();
 }
 
@@ -869,14 +876,16 @@ function onDeliveryAnimationFinished() {
   if (state.delivered === items.length) endRound(true);
 }
 
-function animateDeliveredItem(item, zone, onComplete) {
+function animateDeliveredItem(item, zone, delay, onComplete) {
   const startPosition = item.root.getAbsolutePosition().clone();
   const startScale = item.root.scaling.clone();
   item.root.parent = null; item.root.position.copyFrom(startPosition);
   const placement = getDisplayPlacement(zone, item, zone.deliveredCount++);
-  const started = performance.now(); let last = started;
+  const started = performance.now() + delay; let last = started;
   const observer = scene.onBeforeRenderObservable.add(() => {
-    const now = performance.now(); const t = Math.min(1, (now - started) / 500); const eased = 1 - Math.pow(1 - t, 3);
+    const now = performance.now();
+    if (now < started) return;
+    const t = Math.min(1, (now - started) / 500); const eased = 1 - Math.pow(1 - t, 3);
     const position = B.Vector3.Lerp(startPosition, placement.position, eased); position.y += Math.sin(Math.PI * t) * 0.85;
     item.root.position.copyFrom(position); item.root.rotation.y += (now - last) * 0.01; last = now;
     item.root.scaling.copyFrom(B.Vector3.Lerp(startScale, new B.Vector3(placement.scale, placement.scale, placement.scale), eased));
@@ -928,6 +937,106 @@ function showDeliveryBurst(position, color) {
       if (t >= 1) { scene.onBeforeRenderObservable.remove(observer); particle.dispose(); mat.dispose(); return; }
       particle.position.copyFrom(origin.add(velocity.scale(t)).add(new B.Vector3(0, -1.9 * t * t, 0))); particle.scaling.setAll(Math.max(0.01, 1 - t));
     });
+  }
+}
+
+// Der Moment, in dem ein Gegenstand tatsächlich landet. Bewusst getrennt vom
+// Tastendruck: der Gegenstand fliegt 500 ms, und die Wucht gehört ans Ende
+// dieses Fluges, nicht an seinen Anfang.
+function playImpact(zone, item) {
+  const strength = impactStrength(item.weight);
+  audio.playImpact(impactSound(item.type), strength);
+  vibrate(Math.round(12 + strength * 22));
+  squashZone(zone, strength);
+  if (save.settings.quality !== "low") {
+    kickCamera(strength);
+    showImpactDust(zone.position, strength);
+  }
+}
+
+// Staucht die Zone und lässt sie nachfedern. Je Zone darf höchstens eine
+// Animation laufen — ein zweiter Aufschlag setzt sie zurück, statt einen
+// weiteren Observer auf dieselben Meshes zu legen.
+function squashZone(zone, strength) {
+  if (!zone.bodyMeshes?.length) return;
+  if (zone.squash) {
+    scene.onBeforeRenderObservable.remove(zone.squash);
+    deliveryObservers = deliveryObservers.filter((entry) => entry !== zone.squash);
+  }
+  const restore = () => zone.bodyMeshes.forEach((mesh, index) => {
+    const rest = zone.bodyRest[index];
+    mesh.position.y = rest.y;
+    mesh.scaling.copyFrom(rest.scaling);
+  });
+  const started = performance.now();
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    const t = (performance.now() - started) / (SQUASH_DURATION * 1000);
+    if (t >= 1) {
+      scene.onBeforeRenderObservable.remove(observer);
+      deliveryObservers = deliveryObservers.filter((entry) => entry !== observer);
+      zone.squash = null;
+      restore();
+      return;
+    }
+    const { scaleY, scaleXZ } = squashAt(t, strength);
+    zone.bodyMeshes.forEach((mesh, index) => {
+      const rest = zone.bodyRest[index];
+      mesh.scaling.set(rest.scaling.x * scaleXZ, rest.scaling.y * scaleY, rest.scaling.z * scaleXZ);
+      // Mitsinken lassen, damit die Meshes am Boden bleiben statt zu schweben.
+      mesh.position.y = rest.y * scaleY;
+    });
+  });
+  zone.squash = observer;
+  deliveryObservers.push(observer);
+}
+
+// Kurzer Radius-Impuls. Fasst camera.alpha bewusst NICHT an — Kameraausrichtung
+// und Spielerrotation müssen strikt einseitig gekoppelt bleiben.
+function kickCamera(strength) {
+  if (!camera) return;
+  const base = camera.radius;
+  const depth = 0.06 * strength;
+  const started = performance.now();
+  const duration = 220;
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    const t = (performance.now() - started) / duration;
+    if (t >= 1) {
+      scene.onBeforeRenderObservable.remove(observer);
+      deliveryObservers = deliveryObservers.filter((entry) => entry !== observer);
+      return;
+    }
+    camera.radius = base - Math.sin(Math.PI * t) * depth;
+  });
+  deliveryObservers.push(observer);
+}
+
+// Kleine graue Wolke am Aufschlagpunkt — bewusst anders als der bunte
+// Belohnungs-Burst, damit beide nebeneinander lesbar bleiben.
+function showImpactDust(position, strength) {
+  const count = Math.round(3 + strength * 4);
+  for (let i = 0; i < count; i++) {
+    const puff = B.MeshBuilder.CreateSphere("impactDust", { diameter: 0.16, segments: 5 }, scene);
+    const origin = position.add(new B.Vector3((Math.random() - 0.5) * 0.5, 0.12, (Math.random() - 0.5) * 0.5));
+    puff.position.copyFrom(origin);
+    const mat = new B.StandardMaterial("impactDustMat", scene);
+    mat.diffuseColor = new B.Color3(0.62, 0.62, 0.6);
+    mat.alpha = 0.4;
+    puff.material = mat;
+    const drift = new B.Vector3((Math.random() - 0.5) * 1.1, 0.35 + Math.random() * 0.3, (Math.random() - 0.5) * 1.1);
+    const started = performance.now();
+    const observer = scene.onBeforeRenderObservable.add(() => {
+      const t = (performance.now() - started) / 420;
+      if (t >= 1) {
+        scene.onBeforeRenderObservable.remove(observer);
+        deliveryObservers = deliveryObservers.filter((entry) => entry !== observer);
+        puff.dispose(); mat.dispose();
+        return;
+      }
+      puff.position.copyFrom(origin.add(drift.scale(t)));
+      puff.scaling.setAll(0.6 + t * 1.3);
+      mat.alpha = 0.4 * (1 - t);
+    });
+    deliveryObservers.push(observer);
   }
 }
 
