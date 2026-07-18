@@ -9,9 +9,8 @@ import {
 } from "./config.js";
 import { buyOrEquip, evaluateAchievements, loadSave, owns, persistSave } from "./save.js";
 import { AudioSystem } from "./audio.js";
-
-const B = window["BABYLON"];
-if (!B) throw new Error("Babylon.js ist nicht verfügbar.");
+import { B } from "./babylon.js";
+import { createMaterial } from "./materials.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -79,11 +78,7 @@ let levelDecor = {};
 let trailAccumulator = 0;
 
 function material(name, color, roughness = 0.85, metallic = 0) {
-  const mat = new B.PBRMaterial(name, scene);
-  mat.albedoColor = B.Color3.FromHexString(color);
-  mat.roughness = roughness;
-  mat.metallic = metallic;
-  return mat;
+  return createMaterial(scene, name, color, roughness, metallic);
 }
 
 function vibrate(pattern) {
