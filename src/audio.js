@@ -34,6 +34,18 @@ export class AudioSystem {
     oscillator.stop(now + duration + 0.02);
   }
 
+  // Aufschlag eines gelandeten Gegenstands aus einer Klangbeschreibung
+  // (siehe impactSound in impact.js). Der Körper trägt das Gewicht, der
+  // optionale Anschlag den harten Materialcharakter.
+  playImpact(sound, strength = 1) {
+    if (!this.save.soundEnabled) return;
+    const volume = Math.max(0.008, sound.volume * (0.55 + strength * 0.45));
+    this.tone(sound.body, 0, sound.duration, volume, sound.wave);
+    if (sound.click !== null) {
+      this.tone(sound.click, 0.012, sound.duration * 0.35, volume * 0.42, "square");
+    }
+  }
+
   play(type) {
     if (!this.save.soundEnabled) return;
     const sequences = {
@@ -41,6 +53,8 @@ export class AudioSystem {
       pickup: [[520, 0], [700, 0.07]],
       drop: [[250, 0]],
       deliver: [[520, 0], [700, 0.07], [900, 0.14]],
+      // Kurze Quittung auf den Tastendruck — der Wumms sitzt jetzt auf der Landung.
+      release: [[660, 0]],
       wrong: [[180, 0], [135, 0.11]],
       purchase: [[480, 0], [720, 0.08], [960, 0.16]],
       achievement: [[660, 0], [880, 0.1], [1100, 0.2], [1320, 0.3]],
@@ -49,13 +63,14 @@ export class AudioSystem {
       timeout: [[260, 0], [210, 0.14], [160, 0.28]],
       tutorial: [[540, 0], [760, 0.1], [980, 0.2]],
     };
+    const harsh = type === "wrong" || type === "timeout";
     const sequence = sequences[type] || sequences.drop;
+    // "release" quittiert nur den Tastendruck und bleibt deshalb bewusst
+    // kürzer und leiser als der Aufschlag, der 500 ms später folgt.
+    const duration = type === "release" ? 0.05 : 0.14;
+    const volume = type === "release" ? 0.022 : harsh ? 0.04 : 0.052;
     sequence.forEach(([frequency, offset]) => this.tone(
-      frequency,
-      offset,
-      0.14,
-      type === "wrong" || type === "timeout" ? 0.04 : 0.052,
-      type === "wrong" || type === "timeout" ? "square" : "sine",
+      frequency, offset, duration, volume, harsh ? "square" : "sine",
     ));
   }
 

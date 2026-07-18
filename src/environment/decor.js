@@ -26,7 +26,11 @@ export function buildDecor(sceneArg, shadowGeneratorArg, { quality = "high" } = 
   return { zones, obstacles };
 }
 
-function addZone(id, label, type, position, radius, color) {
+// bodyMeshes sind die sichtbaren Meshes der Zone (Korb, Regal, Kiste …). main.js
+// staucht sie beim Aufschlag eines gelandeten Gegenstands. Die absoluten
+// Koordinaten bleiben unangetastet — die Stauchung rechnet je Mesh mit dessen
+// eigener Ausgangshöhe, statt alles unter einen neuen Elternknoten zu hängen.
+function addZone(id, label, type, position, radius, color, bodyMeshes = []) {
   const marker = B.MeshBuilder.CreateCylinder(`zone-${id}`, { diameter: radius * 1.65, height: 0.035, tessellation: 40 }, scene);
   marker.position.copyFrom(position);
   marker.position.y = 0.035;
@@ -42,7 +46,14 @@ function addZone(id, label, type, position, radius, color) {
   beaconMat.emissiveColor = B.Color3.FromHexString(color).scale(0.55);
   beacon.material = beaconMat;
   beacon.setEnabled(false);
-  zones.push({ id, label, type, position: position.clone(), radius, marker, beacon, deliveredCount: 0 });
+  zones.push({
+    id, label, type, position: position.clone(), radius, marker, beacon, deliveredCount: 0,
+    bodyMeshes,
+    // Ausgangswerte einmal sichern, damit die Stauchung immer von der Ruhelage
+    // aus rechnet und sich bei mehreren Aufschlägen nicht aufschaukelt.
+    bodyRest: bodyMeshes.map((mesh) => ({ y: mesh.position.y, scaling: mesh.scaling.clone() })),
+    squash: null,
+  });
 }
 
 function createZones() {
@@ -58,17 +69,21 @@ function createZones() {
 function createDumbbellRack(pos) {
   const metal = material("rackMetal", "#393f49", 0.43, 0.45);
   const accent = material("rackAccent", "#a7f46a", 0.75);
+  const body = [];
   for (const x of [-1.05, 1.05]) {
     const post = B.MeshBuilder.CreateBox("rackPost", { width: 0.16, height: 2.05, depth: 0.32 }, scene);
     post.position.set(pos.x + x, 1.02, pos.z); post.material = metal; shadowGenerator.addShadowCaster(post);
+    body.push(post);
   }
   for (const y of [0.45, 1.05, 1.65]) {
     const beam = B.MeshBuilder.CreateBox("rackBeam", { width: 2.3, height: 0.13, depth: 0.42 }, scene);
     beam.position.set(pos.x, y, pos.z); beam.material = metal; shadowGenerator.addShadowCaster(beam);
+    body.push(beam);
   }
   const sign = B.MeshBuilder.CreateBox("rackSign", { width: 1.2, height: 0.18, depth: 0.48 }, scene);
   sign.position.set(pos.x, 2.1, pos.z); sign.material = accent;
-  addZone("rack", "Hantelregal", "dumbbell", pos, 2.0, "#a7f46a");
+  body.push(sign);
+  addZone("rack", "Hantelregal", "dumbbell", pos, 2.0, "#a7f46a", body);
   obstacles.push({ x: pos.x, z: pos.z, halfX: 1.4, halfZ: 0.55 });
 }
 
@@ -77,7 +92,7 @@ function createLaundryZone(pos) {
   basket.position.set(pos.x, 0.68, pos.z); basket.material = material("basket", "#f0bd72", 0.9); shadowGenerator.addShadowCaster(basket);
   const hole = B.MeshBuilder.CreateCylinder("laundryHole", { diameter: 1.05, height: 0.04, tessellation: 24 }, scene);
   hole.position.set(pos.x, 1.37, pos.z); hole.material = material("basketHole", "#302c29", 1);
-  addZone("laundry", "Wäschekorb", "towel", pos, 1.8, "#ffbd73");
+  addZone("laundry", "Wäschekorb", "towel", pos, 1.8, "#ffbd73", [basket, hole]);
   obstacles.push({ x: pos.x, z: pos.z, halfX: 0.7, halfZ: 0.7 });
 }
 
@@ -86,7 +101,7 @@ function createBottleZone(pos) {
   box.position.set(pos.x, 0.58, pos.z); box.material = material("lostBox", "#5da9df", 0.88); shadowGenerator.addShadowCaster(box);
   const top = B.MeshBuilder.CreateBox("crateTop", { width: 1.42, height: 0.05, depth: 0.92 }, scene);
   top.position.set(pos.x, 1.17, pos.z); top.material = material("crateDark", "#24364b", 0.9);
-  addZone("bottles", "Flaschenbox", "bottle", pos, 1.85, "#63b4ef");
+  addZone("bottles", "Flaschenbox", "bottle", pos, 1.85, "#63b4ef", [box, top]);
   obstacles.push({ x: pos.x, z: pos.z, halfX: 0.9, halfZ: 0.7 });
 }
 
@@ -95,11 +110,13 @@ function createMatZone(pos) {
   const metal = material("matMetal", "#404650", 0.45, 0.4);
   const base = B.MeshBuilder.CreateBox("matRackBase", { width: 2.2, height: 0.15, depth: 1.25 }, scene);
   base.position.set(pos.x, 0.08, pos.z); base.material = metal;
+  const body = [base];
   for (const x of [-0.8, 0, 0.8]) {
     const guide = B.MeshBuilder.CreateBox("matGuide", { width: 0.08, height: 1.55, depth: 0.8 }, scene);
     guide.position.set(pos.x + x, 0.78, pos.z); guide.material = rackMat;
+    body.push(guide);
   }
-  addZone("mats", "Mattenregal", "mat", pos, 2.0, "#ed8c78");
+  addZone("mats", "Mattenregal", "mat", pos, 2.0, "#ed8c78", body);
   obstacles.push({ x: pos.x, z: pos.z, halfX: 1.25, halfZ: 0.7 });
 }
 
@@ -108,13 +125,15 @@ function createKettlebellRack(pos) {
   const iron = material("kettleIron", "#23262c", 0.55, 0.4);
   const base = B.MeshBuilder.CreateBox("kettleBase", { width: 1.5, height: 0.14, depth: 0.8 }, scene);
   base.position.set(pos.x, 0.07, pos.z); base.material = metal; shadowGenerator.addShadowCaster(base);
+  const body = [base];
   for (const x of [-0.42, 0, 0.42]) {
     const bell = B.MeshBuilder.CreateSphere("kettleBell", { diameter: 0.42, segments: 16 }, scene);
     bell.position.set(pos.x + x, 0.35, pos.z); bell.scaling.y = 1.08; bell.material = iron; shadowGenerator.addShadowCaster(bell);
     const handle = B.MeshBuilder.CreateTorus("kettleHandle", { diameter: 0.24, thickness: 0.05, tessellation: 16 }, scene);
     handle.position.set(pos.x + x, 0.58, pos.z); handle.rotation.x = Math.PI / 2; handle.material = metal; shadowGenerator.addShadowCaster(handle);
+    body.push(bell, handle);
   }
-  addZone("kettlebells", "Kettlebell-Ecke", "kettlebell", pos, 1.8, "#c9c2b6");
+  addZone("kettlebells", "Kettlebell-Ecke", "kettlebell", pos, 1.8, "#c9c2b6", body);
   obstacles.push({ x: pos.x, z: pos.z, halfX: 0.8, halfZ: 0.5 });
 }
 
@@ -124,14 +143,16 @@ function createRopeHooks(pos) {
   const panel = B.MeshBuilder.CreateBox("ropePanel", { width: 0.14, height: 1.5, depth: 1.4 }, scene);
   panel.position.set(pos.x, 0.85, pos.z); panel.material = board; shadowGenerator.addShadowCaster(panel);
   const ropeColors = ["#e9a767", "#70c7c2", "#d36b61"];
+  const body = [panel];
   for (const [i, z] of [-0.42, 0, 0.42].entries()) {
     const hook = B.MeshBuilder.CreateCylinder("ropeHookPeg", { diameter: 0.08, height: 0.18, tessellation: 10 }, scene);
     hook.position.set(pos.x + 0.08, 1.35, pos.z + z); hook.rotation.z = Math.PI / 2; hook.material = metal;
     const coil = B.MeshBuilder.CreateTorus("ropeCoil", { diameter: 0.34, thickness: 0.05, tessellation: 20 }, scene);
     coil.position.set(pos.x + 0.16, 0.95, pos.z + z); coil.rotation.y = Math.PI / 2; coil.material = material(`ropeCoilMat${i}`, ropeColors[i % ropeColors.length], 0.85);
     shadowGenerator.addShadowCaster(hook); shadowGenerator.addShadowCaster(coil);
+    body.push(hook, coil);
   }
-  addZone("ropes", "Seilhaken", "rope", pos, 1.8, "#e9a767");
+  addZone("ropes", "Seilhaken", "rope", pos, 1.8, "#e9a767", body);
   obstacles.push({ x: pos.x, z: pos.z, halfX: 0.4, halfZ: 0.75 });
 }
 
@@ -140,11 +161,13 @@ function createMedballNet(pos) {
   const net = material("medNetMesh", "#8f9199", 0.7); net.alpha = 0.55;
   const base = B.MeshBuilder.CreateCylinder("medNetBase", { diameter: 1.6, height: 0.12, tessellation: 20 }, scene);
   base.position.set(pos.x, 0.06, pos.z); base.material = metal; shadowGenerator.addShadowCaster(base);
+  const body = [base];
   for (const angle of [0, Math.PI / 2]) {
     const hoop = B.MeshBuilder.CreateTorus("medNetHoop", { diameter: 1.4, thickness: 0.05, tessellation: 24 }, scene);
     hoop.position.set(pos.x, 0.75, pos.z); hoop.rotation.x = Math.PI / 2; hoop.rotation.y = angle; hoop.material = net;
+    body.push(hoop);
   }
-  addZone("medballs", "Ballnetz", "medball", pos, 1.9, "#8f9199");
+  addZone("medballs", "Ballnetz", "medball", pos, 1.9, "#8f9199", body);
   obstacles.push({ x: pos.x, z: pos.z, halfX: 0.9, halfZ: 0.6 });
 }
 
