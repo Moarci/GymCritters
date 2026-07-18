@@ -75,6 +75,29 @@ export function squirrelTailSpec() {
   return segments;
 }
 
+// Roccos Ringelschwanz: sechs Kapseln entlang eines Bogens, jede tangential
+// zur Kurve gedreht — der Schwanz rollt sich nach oben auf, statt als
+// waagerechte Kette aus der Figur zu ragen. rotationX = PI/2 heißt "zeigt
+// gerade nach hinten"; zur Spitze hin dreht der Bogen Richtung senkrecht.
+export function raccoonTailSpec() {
+  const segments = [];
+  for (let i = 0; i < 6; i++) {
+    const t = i * 0.3;
+    const dy = 0.72 * 0.3 * Math.sin(t);
+    const dz = 1.05 * 0.3 * Math.cos(t);
+    segments.push({
+      radius: 0.19 - i * 0.013,
+      position: [
+        0.04 * Math.sin(i * 0.8),
+        0.72 * (1 - Math.cos(t)),
+        1.05 * Math.sin(t),
+      ],
+      rotationX: Math.PI / 2 - Math.atan2(dy, dz),
+    });
+  }
+  return segments;
+}
+
 // Leerlauf: Atmen plus gelegentliches Schwanzzucken. Bewusst deterministisch
 // aus der Zeit berechnet — kein Math.random() im Render-Loop, damit das
 // Verhalten reproduzierbar und testbar bleibt. Die achte Potenz macht aus der
