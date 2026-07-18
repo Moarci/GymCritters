@@ -15,6 +15,8 @@ import { buildEnvironment, setActiveLevelDecor } from "./environment/index.js";
 import { cameraAlphaBehind, cameraYaw, comboMultiplier, formatTime, forwardFromYaw, horizontalDistance, lerpAngle, normalizeAngle, rankValue, shuffle, yawTowards } from "./utils.js";
 import { scoreTarget } from "./targeting.js";
 import { SQUASH_DURATION, comboImpactScale, deliveryPitch, impactSound, impactStrength, squashAt } from "./impact.js";
+import { createTouchInput } from "./input/index.js";
+import { clampPitch } from "./input/touch-look.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -61,9 +63,19 @@ const state = {
   droppedItems: 0, maxCombo: 0, deliveredDumbbells: 0, heldItems: [], nearestItem: null, nearestZone: null,
   keys: new Set(), interactPressed: false, elapsed: 0, hudAccumulator: 0,
   velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 },
-  touch: { x: 0, z: 0, sprint: false, pointerId: null },
   toastTimer: null, speechTimer: null, achievementTimer: null,
 };
+
+const touchInput = createTouchInput({
+  joystick: ui.joystick,
+  knob: ui.joystickKnob,
+  canvas: ui.canvas,
+  sprintButton: ui.sprintButton,
+  interactButton: ui.interactButton,
+  getSensitivity: () => save.settings.cameraSensitivity || 1,
+  isActive: () => state.playing && !state.paused,
+  onInteract: () => { state.interactPressed = true; },
+});
 
 let scene;
 let camera;
@@ -277,7 +289,9 @@ function createCamera() {
   // for movement, so holding one would spin alpha and drag the player facing with it.
   camera.inputs.removeByType("ArcRotateCameraKeyboardMoveInput");
   updateCameraSensitivity();
-  camera.attachControl(ui.canvas, true);
+  // Auf Touch-Geräten übernimmt src/input/index.js die Look-Steuerung; Babylons
+  // eigenes Canvas-Handling würde den zweiten Finger als Pinch-Zoom deuten.
+  if (!isTouchDevice) camera.attachControl(ui.canvas, true);
 }
 
 function updateCameraSensitivity() {
@@ -425,6 +439,13 @@ function update() {
 
 function updateCamera(dt) {
   if (!camera || !player) return;
+  // Kameraausrichtung wird ausschließlich hier geschrieben. touch-look.js liefert nur
+  // Zahlen, damit es keinen zweiten Schreiber auf alpha/beta gibt.
+  const look = touchInput.consumeLook();
+  if (look.deltaYaw !== 0 || look.deltaPitch !== 0) {
+    camera.alpha -= look.deltaYaw;
+    camera.beta = clampPitch(camera.beta + look.deltaPitch, camera.lowerBetaLimit, camera.upperBetaLimit);
+  }
   const desired = player.position.add(new B.Vector3(0, 0.78, 0));
   camera.target = B.Vector3.Lerp(camera.target, desired, 1 - Math.exp(-9 * dt));
 }
@@ -465,11 +486,12 @@ function updatePlayer(dt) {
   const backPressed = state.keys.has("KeyS") || state.keys.has("ArrowDown");
   const leftPressed = state.keys.has("KeyA") || state.keys.has("ArrowLeft");
   const rightPressed = state.keys.has("KeyD") || state.keys.has("ArrowRight");
-  let inputX = (rightPressed ? 1 : 0) - (leftPressed ? 1 : 0) + state.touch.x;
-  let inputZ = (forwardPressed ? 1 : 0) - (backPressed ? 1 : 0) + state.touch.z;
+  const touch = touchInput.read();
+  let inputX = (rightPressed ? 1 : 0) - (leftPressed ? 1 : 0) + touch.x;
+  let inputZ = (forwardPressed ? 1 : 0) - (backPressed ? 1 : 0) + touch.z;
   const inputLength = Math.hypot(inputX, inputZ);
   const isMoving = inputLength > 0.04;
-  const wantsSprint = state.keys.has("ShiftLeft") || state.keys.has("ShiftRight") || state.touch.sprint;
+  const wantsSprint = state.keys.has("ShiftLeft") || state.keys.has("ShiftRight") || touch.sprint;
   const sprinting = wantsSprint && !carryingHeavy();
   const character = currentCharacter();
 
@@ -1064,7 +1086,7 @@ function resetRoundState() {
   state.score = 0; state.combo = 0; state.delivered = 0; state.wrongPlacements = 0; state.droppedItems = 0;
   state.maxCombo = 0; state.deliveredDumbbells = 0; state.heldItems = []; state.nearestItem = null; state.nearestZone = null;
   state.hudAccumulator = 0; state.interactPressed = false; state.keys.clear(); state.velocity.set(0, 0, 0);
-  resetTouchInput(); resetZoneGuidance(); clearItemHighlight();
+  touchInput.reset(); resetZoneGuidance(); clearItemHighlight();
   zones.forEach((zone) => { zone.deliveredCount = 0; });
 }
 
@@ -1125,7 +1147,7 @@ function finishTutorial() {
 function endRound(completed) {
   if (state.ended) return;
   state.ended = true; state.playing = false; state.paused = false; state.finishing = false; state.velocity.set(0, 0, 0);
-  resetTouchInput(); resetZoneGuidance(); clearItemHighlight(); hidePrompt(); audio.stopMusic();
+  touchInput.reset(); resetZoneGuidance(); clearItemHighlight(); hidePrompt(); audio.stopMusic();
   const mode = MODES[state.mode];
   const completionBonus = completed ? Math.round((state.timeLeft * 4 + 250) * mode.scoreMultiplier) : 0;
   state.score += completionBonus;
@@ -1185,7 +1207,7 @@ function calculateRank(completed) {
 
 function returnToMenu() {
   state.playing = false; state.paused = false; state.ended = true; state.finishing = false; state.tutorial = false;
-  state.keys.clear(); state.velocity.set(0, 0, 0); audio.stopMusic(); resetTouchInput(); clearItemHighlight(); hidePrompt();
+  state.keys.clear(); state.velocity.set(0, 0, 0); audio.stopMusic(); touchInput.reset(); clearItemHighlight(); hidePrompt();
   ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.progressTrack.classList.add("hidden"); ui.navigator.classList.add("hidden");
   ui.mobileControls.classList.add("hidden"); ui.pauseScreen.classList.add("hidden"); ui.resultScreen.classList.add("hidden"); ui.tutorialCoach.classList.add("hidden");
   ui.startScreen.classList.remove("hidden"); document.body.classList.remove("playing"); renderMenu();
@@ -1193,7 +1215,7 @@ function returnToMenu() {
 
 function setPaused(paused) {
   if (!state.playing || state.ended || state.finishing || state.paused === paused) return;
-  state.paused = paused; state.keys.clear(); state.velocity.set(0, 0, 0); state.interactPressed = false; resetTouchInput();
+  state.paused = paused; state.keys.clear(); state.velocity.set(0, 0, 0); state.interactPressed = false; touchInput.reset();
   ui.pauseScreen.classList.toggle("hidden", !paused); ui.mobileControls.classList.toggle("hidden", paused || !isTouchDevice);
   if (paused) { hidePrompt(); audio.stopMusic(); audio.play("pause"); }
   else { audio.startMusic(); ui.canvas.focus(); }
@@ -1346,16 +1368,6 @@ function showScorePop(text, bonus) {
 function setPrompt(html, correct = false) { ui.prompt.innerHTML = html; ui.prompt.classList.toggle("correct", correct); ui.prompt.classList.remove("hidden"); }
 function hidePrompt() { ui.prompt.classList.remove("correct"); ui.prompt.classList.add("hidden"); }
 
-function resetTouchInput() {
-  state.touch.x = 0; state.touch.z = 0; state.touch.sprint = false; state.touch.pointerId = null;
-  ui.joystickKnob.style.transform = "translate(0px, 0px)"; ui.sprintButton.classList.remove("active"); ui.interactButton.classList.remove("active");
-}
-function updateJoystick(event) {
-  const rect = ui.joystick.getBoundingClientRect(); const centerX = rect.left + rect.width / 2; const centerY = rect.top + rect.height / 2;
-  let dx = event.clientX - centerX; let dy = event.clientY - centerY; const maxDistance = rect.width * 0.31; const distance = Math.hypot(dx, dy);
-  if (distance > maxDistance) { dx = (dx / distance) * maxDistance; dy = (dy / distance) * maxDistance; }
-  state.touch.x = dx / maxDistance; state.touch.z = -dy / maxDistance; ui.joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
-}
 function applyJoystickScale() {
   const scale = save.settings.joystickScale || 1;
   ui.joystick.style.setProperty("--control-scale", String(scale));
@@ -1389,15 +1401,6 @@ window.addEventListener("keyup", (event) => state.keys.delete(event.code));
 window.addEventListener("blur", () => state.keys.clear());
 window.addEventListener("resize", () => { engine.resize(); updateOrientationHint(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && state.playing && !state.ended) setPaused(true); });
-ui.joystick.addEventListener("pointerdown", (event) => { if (!state.playing || state.paused) return; state.touch.pointerId = event.pointerId; ui.joystick.setPointerCapture(event.pointerId); updateJoystick(event); event.preventDefault(); });
-ui.joystick.addEventListener("pointermove", (event) => { if (state.touch.pointerId !== event.pointerId) return; updateJoystick(event); event.preventDefault(); });
-const releaseJoystick = (event) => { if (state.touch.pointerId !== event.pointerId) return; state.touch.pointerId = null; state.touch.x = 0; state.touch.z = 0; ui.joystickKnob.style.transform = "translate(0px, 0px)"; };
-ui.joystick.addEventListener("pointerup", releaseJoystick); ui.joystick.addEventListener("pointercancel", releaseJoystick);
-const setTouchSprint = (active) => { if (!state.playing || state.paused) active = false; state.touch.sprint = active; ui.sprintButton.classList.toggle("active", active); };
-ui.sprintButton.addEventListener("pointerdown", (event) => { setTouchSprint(true); ui.sprintButton.setPointerCapture(event.pointerId); event.preventDefault(); });
-ui.sprintButton.addEventListener("pointerup", () => setTouchSprint(false)); ui.sprintButton.addEventListener("pointercancel", () => setTouchSprint(false));
-ui.interactButton.addEventListener("pointerdown", (event) => { if (state.playing && !state.paused) state.interactPressed = true; ui.interactButton.classList.add("active"); ui.interactButton.setPointerCapture(event.pointerId); event.preventDefault(); });
-ui.interactButton.addEventListener("pointerup", () => ui.interactButton.classList.remove("active")); ui.interactButton.addEventListener("pointercancel", () => ui.interactButton.classList.remove("active"));
 
 ui.startButton.addEventListener("click", startRound); ui.restartButton.addEventListener("click", startRound); ui.pauseRestartButton.addEventListener("click", startRound);
 ui.resumeButton.addEventListener("click", () => setPaused(false)); ui.pauseButton.addEventListener("click", () => setPaused(true)); ui.pauseMenuButton.addEventListener("click", returnToMenu);
