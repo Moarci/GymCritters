@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { installLocalStorage } from "./helpers/local-storage.js";
-import { createDefaultSave, owns, buyOrEquip, loadSave } from "../src/save.js";
+import { createDefaultSave, owns, buyOrEquip, loadSave, evaluateAchievements } from "../src/save.js";
 import { SAVE_KEY, SAVE_VERSION } from "../src/config.js";
 
 test("createDefaultSave startet auf der aktuellen Version mit Startausrüstung", () => {
@@ -93,4 +93,47 @@ test("loadSave setzt einen nicht besessenen Charakter zurück", () => {
   });
   const save = loadSave();
   assert.equal(save.selectedCharacter, "raccoon");
+});
+
+test("die erste beendete Runde schaltet first-shift genau einmal frei", () => {
+  installLocalStorage();
+  const save = createDefaultSave();
+  save.stats.totalRounds = 1;
+  const first = evaluateAchievements(save);
+  assert.ok(first.some((entry) => entry.id === "first-shift"));
+  const second = evaluateAchievements(save);
+  assert.ok(!second.some((entry) => entry.id === "first-shift"));
+});
+
+test("eine Runde ohne Fallenlassen schaltet sticky-paws frei", () => {
+  installLocalStorage();
+  const save = createDefaultSave();
+  const unlocked = evaluateAchievements(save, {
+    completed: true, droppedItems: 0, maxCombo: 0, totalItems: 10,
+    wrongPlacements: 1, mode: "standard", elapsed: 100,
+  });
+  assert.ok(unlocked.some((entry) => entry.id === "sticky-paws"));
+});
+
+test("collector schaltet bei vier Artikeln über die Startausrüstung hinaus frei", () => {
+  installLocalStorage();
+  const save = createDefaultSave();
+  save.owned.push("headband-red", "headband-blue", "wristbands", "sunglasses");
+  const unlocked = evaluateAchievements(save);
+  assert.ok(unlocked.some((entry) => entry.id === "collector"));
+});
+
+test("speed-cleaner verlangt Standard-Modus UND die Zeitgrenze", () => {
+  installLocalStorage();
+  const zuLangsam = createDefaultSave();
+  assert.ok(!evaluateAchievements(zuLangsam, {
+    completed: true, droppedItems: 1, maxCombo: 0, totalItems: 10,
+    wrongPlacements: 0, mode: "standard", elapsed: 90,
+  }).some((entry) => entry.id === "speed-cleaner"));
+
+  const falscherModus = createDefaultSave();
+  assert.ok(!evaluateAchievements(falscherModus, {
+    completed: true, droppedItems: 1, maxCombo: 0, totalItems: 10,
+    wrongPlacements: 0, mode: "blitz", elapsed: 60,
+  }).some((entry) => entry.id === "speed-cleaner"));
 });
