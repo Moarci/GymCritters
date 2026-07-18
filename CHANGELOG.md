@@ -1,5 +1,20 @@
 # Changelog
 
+## V5.4.0 – Flow Mastery (2026-07-18)
+
+### Gameplay
+
+- **Neuer Flow-Schild:** Wer den höchsten Flow (MAX FLOW, Combo ≥ 8) rund 2,6 Sekunden hält, bankt einen Serienschutz. Der nächste Combo-Bruch – ob Stolperer oder Fehlablage – wird abgefangen: die Serie überlebt, statt auf null zurückzufallen.
+- Der Schild ist bewusst eine knappe Ressource (höchstens einer gleichzeitig) und schafft eine echte Risiko-/Belohnungsentscheidung: Spitzenflow aufbauen, Schutz banken und danach eine mutigere Route unter Stolpergefahr wagen.
+- Ein Stolperer bleibt körperlich – getragene Gegenstände fallen weiterhin –, der Schild rettet nur die mühsam aufgebaute Serie. Eine abgefangene Fehlablage zählt weiterhin für Rang und Statistik, kostet aber nicht mehr die Combo.
+- Ein kleiner Ladering in der Combo-Karte füllt sich beim Halten des Spitzenflows und leuchtet, sobald ein Schild bereitliegt; ein eigenes Toast, Sprachfeedback und Vibrationsmuster kündigen den geladenen Schutz an.
+
+### Qualität
+
+- Neues Babylon-unabhängiges Modul `src/flow-shield.js` kapselt Ladung, Verbrauch und Zerfall des Schilds für deterministische Tests.
+- Sieben neue Tests decken Laden nur bei Spitzenflow, das einmalige Freischalten, den gedeckelten Speicher, den langsamen Zerfall und die genau einmalige Absorption ab; die Suite umfasst nun 237 Tests.
+- Service Worker, Offline-App-Shell-Test und Cache-Version wurden um das neue Modul ergänzt.
+
 ## V5.1.0 – Crew Terminal (2026-07-18)
 
 ### Gameplay und Schichtplanung

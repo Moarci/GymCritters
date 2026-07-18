@@ -54,6 +54,7 @@ import { itemDisplaySlot, MEDBALL_DIAMETER, ROPE_ITEM_LAYOUT } from "./item-plac
 import { buildRoundTypes, planSpawnPositions } from "./round-planner.js";
 import { roundCoaching } from "./round-coach.js";
 import { comboFlowState, courierBatchBonus, hazardCueIntensity } from "./game-feel.js";
+import { chargeFlowShield, createFlowShieldState, hasFlowShield, spendFlowShield } from "./flow-shield.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -64,7 +65,7 @@ const ui = {
   tutorialText: $("tutorialText"), prompt: $("prompt"), toast: $("toast"),
   achievementToast: $("achievementToast"), achievementIcon: $("achievementIcon"), achievementName: $("achievementName"),
   scorePopLayer: $("scorePopLayer"), score: $("score"), progress: $("progress"), combo: $("combo"),
-  comboStat: $("comboStat"), comboTimeBar: $("comboTimeBar"), flowVignette: $("flowVignette"), flowLabel: $("flowLabel"),
+  comboStat: $("comboStat"), comboTimeBar: $("comboTimeBar"), flowShieldPip: $("flowShieldPip"), flowVignette: $("flowVignette"), flowLabel: $("flowLabel"),
   timer: $("timer"), coins: $("coins"), carrying: $("carrying"), carryCard: $("carryCard"),
   contractHud: $("contractHud"), contractTitle: $("contractTitle"), contractProgress: $("contractProgress"), contractProgressBar: $("contractProgressBar"),
   shiftStatus: $("shiftStatus"), shiftPhase: $("shiftPhase"), shiftWaveDots: $("shiftWaveDots"),
@@ -164,7 +165,7 @@ const state = {
   maxCombo: 0, deliveredDumbbells: 0, deliveredByType: {}, heldItems: [], nearestItem: null, nearestZone: null,
   keys: new Set(), interactPressed: false, elapsed: 0, roundElapsed: 0, hudAccumulator: 0,
   velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 }, lean: 0,
-  activeWave: 0, shiftEventId: null,
+  activeWave: 0, shiftEventId: null, flowShield: createFlowShieldState(),
   cameraPreferredRadius: 5.6, cameraOccluded: false,
   toastTimer: null, speechTimer: null, achievementTimer: null,
 };
@@ -914,6 +915,7 @@ function update() {
   if (!state.tutorial && MODES[state.mode].timed !== false && !updateTimer(dt)) return;
   if (!state.tutorial && MODES[state.mode].timed === false) updateUntimedHud(dt);
   updateComboTimer(dt);
+  updateFlowShield(dt);
   updatePlayer(dt);
   updateInteraction();
   if (state.interactPressed) {
@@ -1158,6 +1160,34 @@ function updateComboTimer(dt) {
 
 function comboWindowSeconds() {
   return state.mode === "relaxed" ? 18 : state.mode === "blitz" ? 10 : 14;
+}
+
+// Lädt den Flow-Schild aus gehaltenem Spitzenflow. Nur während einer echten
+// Runde (kein Tutorial) — dort gibt es keine nennenswerte Combo.
+function updateFlowShield(dt) {
+  if (state.tutorial) return;
+  const tier = comboFlowState(state.combo, state.comboTime, comboWindowSeconds()).tier;
+  const next = chargeFlowShield(state.flowShield, { tier, dt });
+  state.flowShield = { charge: next.charge, shields: next.shields };
+  if (next.earned) {
+    audio.play("wave");
+    vibrate([15, 20, 30]);
+    showToast("Flow-Schild bereit – ein Fehler ist verziehen", "good");
+    characterSays(state.character === "squirrel" ? "Flow-Schild geladen!" : "Rocco hält die Serie zusammen.");
+  }
+}
+
+// Ein Combo-Bruch (Stolpern oder Fehlablage) versucht zuerst, den Flow-Schild
+// einzulösen. Gelingt das, überlebt die Serie und der comboTime wird auf ein
+// volles Fenster aufgefrischt, damit die gerettete Serie nicht sofort verfällt.
+// Liefert true, wenn der Schild den Bruch abgefangen hat.
+function absorbComboBreak() {
+  if (!hasFlowShield(state.flowShield)) return false;
+  const result = spendFlowShield(state.flowShield);
+  state.flowShield = result.state;
+  if (!result.absorbed) return false;
+  state.comboTime = comboWindowSeconds();
+  return true;
 }
 
 function applyCarryIK() {
@@ -1564,8 +1594,13 @@ function triggerTrip(hazard) {
   state.trips += 1;
   state.tripTime = prefersReducedMotion() ? Math.min(0.35, risk.stumbleDuration) : risk.stumbleDuration;
   state.tripCooldown = risk.cooldown;
-  state.combo = 0;
-  state.comboTime = 0;
+  // Der Sturz ist körperlich und passiert trotzdem; der Flow-Schild rettet nur
+  // die mühsam aufgebaute Serie, nicht die getragenen Gegenstände.
+  const shielded = absorbComboBreak();
+  if (!shielded) {
+    state.combo = 0;
+    state.comboTime = 0;
+  }
   state.velocity.scaleInPlace(-0.12);
   state.lean = 0;
   setReaction("trip", state.tripTime);
@@ -1574,8 +1609,14 @@ function triggerTrip(hazard) {
   reflowHeldItems(false);
   audio.play("trip");
   vibrate([35, 25, 55]);
-  showToast(dropped.length ? `Gestolpert – ${dropped.length > 1 ? "alles" : dropped[0].label} fallen gelassen!` : "Hoppla – über etwas gestolpert!", "bad");
-  characterSays(state.character === "squirrel" ? "Uff! Alles noch dran?" : "Rocco, Augen auf den Boden!");
+  const stumbleText = dropped.length ? `Gestolpert – ${dropped.length > 1 ? "alles" : dropped[0].label} fallen gelassen!` : "Hoppla – über etwas gestolpert!";
+  if (shielded) {
+    showToast(`${stumbleText} Flow-Schild rettet die Serie!`, "good");
+    characterSays(state.character === "squirrel" ? "Schild hält – Serie lebt!" : "Der Flow-Schild fängt das ab!");
+  } else {
+    showToast(stumbleText, "bad");
+    characterSays(state.character === "squirrel" ? "Uff! Alles noch dran?" : "Rocco, Augen auf den Boden!");
+  }
   updateHUD();
 }
 
@@ -1595,14 +1636,24 @@ function deliverAtZone(zone) {
     // Gegenständen rutscht die Tonleiter vernehmbar wieder herunter; darunter
     // gab es nichts zu verlieren und der Fehlerton allein genügt.
     const hatteSerie = state.combo >= 3;
-    state.combo = 0; state.comboTime = 0; state.wrongPlacements += 1; audio.play("wrong"); vibrate([30, 30, 30]); setReaction("wrong", 0.7);
-    if (hatteSerie) {
+    // Die Fehlablage bleibt eine Fehlablage (zählt für Rang und Statistik), der
+    // Flow-Schild bewahrt aber die Serie vor dem Zusammenbruch.
+    const shielded = absorbComboBreak();
+    if (!shielded) { state.combo = 0; state.comboTime = 0; }
+    state.wrongPlacements += 1; audio.play("wrong"); vibrate([30, 30, 30]); setReaction("wrong", 0.7);
+    if (shielded) {
+      showScorePop("Flow-Schild!", true);
+      showToast(`Flow-Schild rettet die Serie – hierhin gehören ${ITEM_TYPES[zone.type].plural}`, "good");
+      characterSays("Knapp! Schild eingelöst.");
+    } else if (hatteSerie) {
       window.setTimeout(() => audio.play("comboBreak"), 180);
       showToast(`Serie gerissen – hierhin gehören ${ITEM_TYPES[zone.type].plural}`, "bad");
+      characterSays("Das gehört woanders hin …");
     } else {
       showToast(`Falscher Platz – hierhin gehören ${ITEM_TYPES[zone.type].plural}`, "bad");
+      characterSays("Das gehört woanders hin …");
     }
-    characterSays("Das gehört woanders hin …"); updateHUD(); return;
+    updateHUD(); return;
   }
 
   const mode = MODES[state.mode];
@@ -1846,7 +1897,7 @@ function resetRoundState() {
   state.score = 0; state.combo = 0; state.comboTime = 0; state.delivered = 0; state.wrongPlacements = 0; state.droppedItems = 0;
   state.trips = 0; state.tripTime = 0; state.tripCooldown = 0; state.roundElapsed = 0;
   state.maxCombo = 0; state.deliveredDumbbells = 0; state.deliveredByType = {}; state.heldItems = []; state.nearestItem = null; state.nearestZone = null;
-  state.activeWave = 0; state.shiftEventId = null;
+  state.activeWave = 0; state.shiftEventId = null; state.flowShield = createFlowShieldState();
   state.hudAccumulator = 0; state.interactPressed = false; state.keys.clear(); state.velocity.set(0, 0, 0);
   touchInput.reset(); resetZoneGuidance(); clearItemHighlight();
   // Jede Runde beginnt mit frischer Warmlaufphase: Szenenaufbau verzerrt die Messung.
@@ -2033,6 +2084,10 @@ function updateHUD() {
   ui.flowVignette.style.setProperty("--flow-strength", flow.intensity.toFixed(2));
   ui.flowVignette.classList.toggle("active", flow.tier > 0 && state.playing && !state.ended);
   ui.flowLabel.textContent = flow.label;
+  const shieldBanked = hasFlowShield(state.flowShield);
+  ui.flowShieldPip.classList.toggle("banked", shieldBanked);
+  ui.flowShieldPip.classList.toggle("charging", !shieldBanked && state.flowShield.charge > 0.001);
+  ui.flowShieldPip.style.setProperty("--shield-charge", (shieldBanked ? 1 : state.flowShield.charge).toFixed(3));
   const untimed = state.tutorial || MODES[state.mode].timed === false;
   ui.timer.textContent = untimed ? "∞" : formatTime(state.timeLeft);
   ui.timer.style.color = !untimed && state.timeLeft <= 20 ? "#ff7c74" : "";

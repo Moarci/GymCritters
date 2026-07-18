@@ -36,6 +36,7 @@ V5 macht aus der einfachen Aufräumrunde eine kleine Gym-Schicht: Gegenstände e
 | **Verlässliche Interaktion** | Reichweite, Blickrichtung und freie Sicht bestimmen das Ziel. Sichtbare Hindernisse blockieren Bewegung und Aufnahme konsistent; Matten und Hanteln landen in maßgenau abgestimmten, kollisionsfreien Ablage-Slots. |
 | **Physische Stolperfallen** | Dynamische Bodenimpulse warnen beim schnellen Annähern; beim Überlaufen stolpert die Figur, verliert ihre Combo und lässt getragene Dinge fallen. |
 | **Flow-Feedback** | Combo-Zeitleiste, dreistufige Flow-Vignette, eskalierende Lieferimpacts und animierte Wellen machen erfolgreiche Serien unmittelbar spürbar. |
+| **Flow-Schild** | Gehaltener Spitzenflow bankt einen Serienschutz, der den nächsten Stolperer oder die nächste Fehlablage abfängt – eine knappe Ressource für mutige Routenentscheidungen unter Druck. |
 | **Vier Spielmodi** | Entspannt, Standard, Blitz und der neue Zen-Modus ohne Zeitlimit. |
 | **Level-Feintuning** | Gegenstandsmenge, Schichtdynamik, Stolperrisiko und Zielhilfe werden für jedes Level separat gespeichert. |
 | **Entwicklung über Zeit** | Bis zu 120 Runden bilden eine lokale Historie mit vergleichbarem Leistungsindex, Trend, Filterung und Verlaufskurve. |
@@ -55,6 +56,16 @@ Jede Runde entwickelt sich über drei Abschnitte:
 3. **Finale:** Die letzten Gegenstände erscheinen und gewichtete Bonusziele belohnen eine passende Route.
 
 Die Boni gelten nur für passende Gegenstände. Der Spieler entscheidet dadurch zwischen kurzem Weg, wertvoller Lieferung, Combo-Sicherung und Tagesvertrag.
+
+## Flow-Schild
+
+Der Flow-Schild vertieft die zentrale Combo-Schleife um eine echte Risiko-/Belohnungsentscheidung. Wer den höchsten Flow (**MAX FLOW**, Combo ≥ 8) rund 2,6 Sekunden hält, lädt einen Serienschutz auf – sichtbar als kleiner Ladering in der Combo-Karte. Sobald ein Schild bereitliegt, leuchtet der Ring und ein Toast kündigt ihn an.
+
+- Der nächste Combo-Bruch – ein Stolperer oder eine Fehlablage – wird abgefangen: die Serie überlebt, statt auf null zurückzufallen.
+- Der Schild ist eine knappe Ressource: höchstens einer gleichzeitig, und unter Spitzenflow gehaltener Fortschritt zerfällt langsam wieder, wenn der Flow abbricht.
+- Ein Stolperer bleibt körperlich – getragene Gegenstände fallen weiterhin –, und eine abgefangene Fehlablage zählt weiterhin für Rang und Statistik. Der Schild rettet ausschließlich die mühsam aufgebaute Serie.
+
+So entsteht ein neues Spielmuster: erst Spitzenflow aufbauen, den Schutz banken und danach bewusst die riskantere, aber wertvollere Route wählen.
 
 ### Level-Identitäten
 
@@ -186,6 +197,7 @@ GymCritters/
     ├── main.js               # Szenen- und UI-Orchestrierung
     ├── config.js             # Balancing, Inhalte, Verträge und Meisterschaft
     ├── game-feel.js          # Gefahrenlesbarkeit, Combo-Flow und Charakter-Lieferbonus
+    ├── flow-shield.js        # Serienschutz aus gehaltenem Spitzenflow
     ├── save.js               # Persistenz, Migration, Export/Import, Achievements
     ├── progression.js        # Bestwerte, Karriere und Meisterschaft
     ├── challenges.js         # Deterministische Tagesverträge
@@ -238,7 +250,7 @@ npm run smoke     # App-Shell über einen temporären HTTP-Server prüfen
 npm run test:ci   # alle drei Prüfungen in derselben Reihenfolge
 ```
 
-Die V5.1-Suite umfasst **213 Tests**. Sie deckt unter anderem Save-Migrationen, Rundentrends, Zen-Wertung, Stolperphysik, geometrisch geprüfte Ablageplätze, den fünfstufigen Schicht-Wizard, Level-Feintuning, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
+Die Suite umfasst **237 Tests**. Sie deckt unter anderem Save-Migrationen, Rundentrends, Zen-Wertung, Stolperphysik, geometrisch geprüfte Ablageplätze, den fünfstufigen Schicht-Wizard, Level-Feintuning, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
 
 [`.github/workflows/quality.yml`](.github/workflows/quality.yml) führt `npm run test:ci` bei Pull Requests, Pushes auf `main` und manuellen Workflow-Starts mit Node.js 22 aus.
 
