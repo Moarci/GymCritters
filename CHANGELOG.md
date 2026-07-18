@@ -12,7 +12,7 @@
 
 ### Menü, Statistik und Fortschritt
 
-- Das Startmenü wurde als hochwertiges, responsives Crew-Terminal mit klarer Auswahlhierarchie, Live-Vorschau, Statusleiste und Utility-Dock neu aufgebaut.
+- Das Startmenü wurde als hochwertiges, responsives Crew-Terminal mit fünf fokussierten Wizard-Seiten, Live-Zusammenfassung, Statusleiste und Utility-Dock neu aufgebaut.
 - Bis zu 120 Runden werden lokal als kompakte Historie gespeichert und bei älteren Spielständen additiv migriert.
 - Ein vergleichbarer Leistungsindex bewertet Abschluss, Genauigkeit, Combo und Tempo; Statistikfilter, Trendtext, Verlaufskurve und letzte Runden machen Verbesserungen über Zeit sichtbar.
 - Stolperer werden pro Runde und in der Karrierestatistik erfasst.
@@ -22,7 +22,7 @@
 
 - Neue Babylon-unabhängige Module kapseln Stolpererkennung und Schichteinstellungen für deterministische Tests.
 - Service Worker, Manifest, HTTP-Smoke-Test und UI-Shell wurden um die neuen Module und Oberflächen erweitert.
-- Die vollständige Suite umfasst 204 Tests sowie Syntax- und HTTP-Smoke-Prüfungen.
+- Die vollständige Suite umfasst 205 Tests sowie Syntax- und HTTP-Smoke-Prüfungen.
 
 ## V5.0.0 – Living Shifts (2026-07-18)
 
