@@ -1,14 +1,14 @@
 <div align="center">
 
-# 🦝🐿️ Gym Critters V5 — Living Shifts
+# 🦝🐿️ Gym Critters V5.1 — Crew Terminal
 
 **Ein lokal-first 3D-Browsergame ohne Build-Schritt, Backend oder Account.**
 
-**v5.0.0** — Lebendige Schichten, eigenständige Level, Tagesverträge, Meisterschaft, präzises Tragen und ein offlinefähiger App-Start.
+**v5.1.0** — Physische Stolperfallen, zeitloser Zen-Modus, levelweises Feintuning, Leistungsentwicklung und ein komplett neues Crew-Terminal.
 
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES2020%2B-F7DF1E?style=flat-square&logo=javascript&logoColor=black)](https://developer.mozilla.org/docs/Web/JavaScript)
 [![Babylon.js](https://img.shields.io/badge/Babylon.js-via_CDN-BB464B?style=flat-square&logo=babylondotjs&logoColor=white)](https://www.babylonjs.com)
-[![Version](https://img.shields.io/badge/version-5.0.0-a7f46a?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.1.0-a7f46a?style=flat-square)](CHANGELOG.md)
 [![Dependencies](https://img.shields.io/badge/npm_dependencies-0-success?style=flat-square)](package.json)
 [![Play](https://img.shields.io/badge/▶_Live_Demo-2ea44f?style=flat-square)](https://moarci.github.io/GymCritters/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
@@ -23,7 +23,7 @@
 
 Rocco der Waschbär und Fibi das Eichhörnchen räumen ein chaotisches Fitnessstudio auf. Hanteln gehören ins Rack, Handtücher in die Wäsche, Matten auf den Stapel und jedes weitere Trainingsgerät an seinen sichtbaren Ablageort.
 
-V5 macht aus der einfachen Aufräumrunde eine kleine Gym-Schicht: Gegenstände erscheinen in Wellen, die Priorität verändert sich während der Runde und jedes Level besitzt eigene Wege, Hindernisse, Farben und Bonusereignisse. Fortschritt bleibt vollständig lokal und funktioniert ohne Account, Cloud oder Tracking.
+V5 macht aus der einfachen Aufräumrunde eine kleine Gym-Schicht: Gegenstände erscheinen in Wellen, die Priorität verändert sich während der Runde und jedes Level besitzt eigene Wege, Hindernisse, Farben und Bonusereignisse. In V5.1 werden herumliegende Gegenstände zusätzlich zu echten Stolperfallen, während das Crew-Terminal jede Schicht detailliert konfigurierbar und die eigene Verbesserung über viele Runden sichtbar macht. Fortschritt bleibt vollständig lokal und funktioniert ohne Account, Cloud oder Tracking.
 
 ## Features
 
@@ -34,6 +34,11 @@ V5 macht aus der einfachen Aufräumrunde eine kleine Gym-Schicht: Gegenstände e
 | **Zwei Critter** | Rocco ist stark mit schweren Lasten; Fibi ist schneller und trägt zwei leichte Gegenstände gleichzeitig. |
 | **Präzises Greifen** | Zwei-Knochen-IK richtet Schulter, Ellbogen und Pfoten an den Gegenständen aus; Tragehaltung und Gang reagieren auf die Gewichtsklasse. |
 | **Verlässliche Interaktion** | Reichweite, Blickrichtung und freie Sicht bestimmen das Ziel. Sichtbare Hindernisse blockieren Bewegung und Aufnahme konsistent. |
+| **Physische Stolperfallen** | Beim Überlaufen eines Bodengegenstands stolpert die Figur, verliert ihre Combo und lässt getragene Dinge fallen; drei Risikostufen steuern Reichweite und Empfindlichkeit. |
+| **Vier Spielmodi** | Entspannt, Standard, Blitz und der neue Zen-Modus ohne Zeitlimit. |
+| **Level-Feintuning** | Gegenstandsmenge, Schichtdynamik, Stolperrisiko und Zielhilfe werden für jedes Level separat gespeichert. |
+| **Entwicklung über Zeit** | Bis zu 120 Runden bilden eine lokale Historie mit vergleichbarem Leistungsindex, Trend, Filterung und Verlaufskurve. |
+| **Crew-Terminal** | Komplett neu gestaltetes Startmenü mit Live-Schichtvorschau, klarer Auswahlhierarchie und responsivem Utility-Dock. |
 | **Fortschritt** | Münzshop, 15 Achievements, faire Bestwerte je Level × Modus, fünf Meisterschaftsstufen pro Level und drei lokale Tagesverträge. |
 | **Lokal-first Saves** | Automatische Migration, feste lokale Origin sowie validierter JSON-Export und -Import des Spielstands. |
 | **Desktop und Mobile** | Maus-/Tastatursteuerung, Touch-Look, virtueller Joystick, Vibrationsfeedback, Hochformat-HUD und adaptive Grafikqualität. |
@@ -69,6 +74,9 @@ Die geschlossene Gebäudehülle, bündigen Industriefenster, Eingangslobby und p
 | Entspannt | 180 s | 8 | ×0,9 | immer |
 | Standard | 120 s | 10 | ×1,0 | immer |
 | Blitz | 90 s | 12 | ×1,3 | nur beim Tragen |
+| Zen | kein Limit | 10 | ×0,85 | immer |
+
+Die Gegenstandsmenge in dieser Tabelle ist die jeweilige Modusbasis. Im Crew-Terminal lässt sie sich pro Level auf **Kompakt**, **Standard** oder **Volles Haus** stellen. Zusätzlich stehen ruhige, lebendige und intensive Wellen sowie drei Stolperrisiken und vier Zielhilfe-Stufen zur Wahl.
 
 ### Charaktere
 
@@ -107,6 +115,11 @@ Fortschritt und Belohnungen werden sofort gespeichert. Bereits verdiente Belohnu
 - XP entstehen durch Abschluss, Punktzahl, eine Runde ohne Fallenlassen und perfekte Ordnung.
 - Meisterschaft verleiht keine permanenten Werteboni und hält Highscores dadurch fair.
 - Highscore, Bestzeit, Rang und Rundenzahl werden separat für jede Kombination aus Level und Modus geführt.
+- Zen-Runden besitzen bewusst keine Bestzeit und keinen Timerdruck; ihr tatsächliches Tempo fließt nur in die private Entwicklungsauswertung ein.
+
+### Leistungsentwicklung
+
+Jeder Rundenabschluss speichert einen kompakten lokalen Historieneintrag. Ein normalisierter Leistungsindex von 0 bis 100 kombiniert Abschluss, Fehlerfreiheit, Combo und Tempo pro Gegenstand. Die Statistik vergleicht die neuere Hälfte der letzten zehn passenden Runden mit der vorherigen Hälfte und zeigt **Verbesserung**, **stabile Leistung** oder einen vorübergehenden Rückgang. Level- und Modusfilter verhindern irreführende Vergleiche.
 
 ### Shop und Achievements
 
@@ -136,13 +149,14 @@ Das Hochformat-HUD ordnet Status und Aktionen in getrennten Zeilen an. Auf schma
 
 ## Spielstand und Offline-Betrieb
 
-Der Spielstand liegt unter dem `localStorage`-Key `gymCrittersSave`. Die Produktversion ist **5.0.0**; die davon unabhängige interne Datenversion ist aktuell **`SAVE_VERSION = 6`**.
+Der Spielstand liegt unter dem `localStorage`-Key `gymCrittersSave`. Die Produktversion ist **5.1.0**; die davon unabhängige interne Datenversion ist aktuell **`SAVE_VERSION = 7`**.
 
 Gespeichert werden unter anderem:
 
 - Münzen, Besitz und ausgerüstete Cosmetics;
 - Charakter, letzter Modus und letztes Level;
 - globale, modusweite und Level-×-Modus-Statistiken;
+- levelweise Schichtkonfiguration und die letzten 120 Runden für die Entwicklungskurve;
 - Achievements, Meisterschaft und Tagesverträge;
 - Tutorial- und Komforteinstellungen.
 
@@ -174,6 +188,8 @@ GymCritters/
     ├── progression.js        # Bestwerte, Karriere und Meisterschaft
     ├── challenges.js         # Deterministische Tagesverträge
     ├── shift-director.js     # Wellen, Phasen und Levelereignisse
+    ├── shift-settings.js     # Level-Feintuning und Modusdarstellung
+    ├── trip-physics.js       # Babylon-freie Stolperreichweite und Gefahrenerkennung
     ├── character-motion.js   # Gang, Gewichtshaltung und Zwei-Knochen-IK
     ├── targeting.js          # Zielwertung und Sichtlinienprüfung
     ├── environment/          # Gebäude, Texturen und Level-Identitäten
@@ -220,7 +236,7 @@ npm run smoke     # App-Shell über einen temporären HTTP-Server prüfen
 npm run test:ci   # alle drei Prüfungen in derselben Reihenfolge
 ```
 
-Zum V5-Release umfasst die Suite **184 Tests**. Sie deckt unter anderem Save-Migrationen, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
+Die V5.1-Suite umfasst **204 Tests**. Sie deckt unter anderem Save-Migrationen, Rundentrends, Zen-Wertung, Stolperphysik, Level-Feintuning, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
 
 [`.github/workflows/quality.yml`](.github/workflows/quality.yml) führt `npm run test:ci` bei Pull Requests, Pushes auf `main` und manuellen Workflow-Starts mit Node.js 22 aus.
 
@@ -230,6 +246,7 @@ Rendering und visuelle 3D-Qualität benötigen weiterhin eine manuelle Browserko
 
 | Version | Schwerpunkt |
 |---|---|
+| **V5.1 — Crew Terminal** | Physische Stolperfallen, Zen ohne Zeitlimit, levelweises Feintuning, langfristige Leistungsentwicklung und eine komplett neue Menüoberfläche. |
 | **V5 — Living Shifts** | Dynamische Schichten, Level-Identitäten, IK, verlässliche Interaktion, faire Karriere, Tagesverträge, Offline-App-Shell und Accessibility. |
 | **V4 — Critter Crew** | Fibi, Münzshop, Cosmetics, Achievements, Tutorial, mehrere Level und Mobile-Steuerung. |
 | **V1–V3** | Grundlegendes 3D-Aufräumspiel und erste lokale Fortschrittssysteme. |

@@ -1,5 +1,29 @@
 # Changelog
 
+## V5.1.0 – Crew Terminal (2026-07-18)
+
+### Gameplay und Schichtplanung
+
+- Herumliegende Gegenstände sind jetzt echte Stolperfallen: Bei ausreichendem Lauftempo stolpert der Critter, verliert seine Combo und lässt getragene Gegenstände kontrolliert auf freie Bodenpositionen fallen.
+- Drei Stolperrisiken verändern Auslöseradius, Mindesttempo, Abklingzeit und Dauer der Reaktion; Tutorial und unmittelbare Wiederholungen bleiben geschützt.
+- Der neue Zen-Modus besitzt kein Zeitlimit. Verstrichene Zeit wird für die private Entwicklungsauswertung erfasst, aber bewusst nicht als Bestzeit gewertet.
+- Gegenstandsmenge, Wellendynamik, Stolperrisiko und Zielhilfe lassen sich für jedes Level separat konfigurieren.
+- Die Schichtvorschau zeigt vor dem Start Modus, Umfang, Tempo, Risiko, Zielhilfe und Zeitbudget.
+
+### Menü, Statistik und Fortschritt
+
+- Das Startmenü wurde als hochwertiges, responsives Crew-Terminal mit klarer Auswahlhierarchie, Live-Vorschau, Statusleiste und Utility-Dock neu aufgebaut.
+- Bis zu 120 Runden werden lokal als kompakte Historie gespeichert und bei älteren Spielständen additiv migriert.
+- Ein vergleichbarer Leistungsindex bewertet Abschluss, Genauigkeit, Combo und Tempo; Statistikfilter, Trendtext, Verlaufskurve und letzte Runden machen Verbesserungen über Zeit sichtbar.
+- Stolperer werden pro Runde und in der Karrierestatistik erfasst.
+- Save-Schema 7 ergänzt Level-Einstellungen und Rundentrends, ohne bestehende Freischaltungen, Bestwerte oder Statistiken zu entfernen.
+
+### Qualität
+
+- Neue Babylon-unabhängige Module kapseln Stolpererkennung und Schichteinstellungen für deterministische Tests.
+- Service Worker, Manifest, HTTP-Smoke-Test und UI-Shell wurden um die neuen Module und Oberflächen erweitert.
+- Die vollständige Suite umfasst 204 Tests sowie Syntax- und HTTP-Smoke-Prüfungen.
+
 ## V5.0.0 – Living Shifts (2026-07-18)
 
 ### Gameplay

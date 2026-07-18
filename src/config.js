@@ -1,5 +1,5 @@
 export const SAVE_KEY = "gymCrittersSave";
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 // Karrierefortschritt ist absichtlich nicht an kaufbare Vorteile gekoppelt:
 // Meisterschaft zeigt Erfahrung, ohne alte Highscores durch permanente
@@ -70,7 +70,10 @@ export const CONTRACT_DEFINITIONS = [
 export const MODES = {
   relaxed: {
     label: "Entspannt",
+    icon: "🌿",
+    timed: true,
     seconds: 180,
+    expectedSecondsPerItem: 22.5,
     scoreMultiplier: 0.9,
     itemCount: 8,
     navigator: "always",
@@ -78,7 +81,10 @@ export const MODES = {
   },
   standard: {
     label: "Standard",
+    icon: "⚖️",
+    timed: true,
     seconds: 120,
+    expectedSecondsPerItem: 12,
     scoreMultiplier: 1,
     itemCount: 10,
     navigator: "always",
@@ -86,11 +92,25 @@ export const MODES = {
   },
   blitz: {
     label: "Blitz",
+    icon: "⚡",
+    timed: true,
     seconds: 90,
+    expectedSecondsPerItem: 7.5,
     scoreMultiplier: 1.3,
     itemCount: 12,
     navigator: "carrying",
     description: "Mehr Gegenstände, weniger Hilfe, höhere Belohnung.",
+  },
+  zen: {
+    label: "Zen",
+    icon: "∞",
+    timed: false,
+    seconds: null,
+    expectedSecondsPerItem: 16,
+    scoreMultiplier: 0.85,
+    itemCount: 10,
+    navigator: "always",
+    description: "Ohne Zeitlimit – aufräumen im eigenen Rhythmus.",
   },
 };
 

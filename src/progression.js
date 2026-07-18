@@ -2,6 +2,7 @@ import { LEVELS, LEVEL_MASTERY, MODES } from "./config.js";
 import { applyRoundToContracts } from "./challenges.js";
 
 const RANKS = ["D", "C", "B", "A", "S"];
+export const MAX_ROUND_HISTORY = 120;
 
 export function emptyResultStats() {
   return {
@@ -88,12 +89,128 @@ function applyResult(entry, round) {
   entry.highScore = Math.max(Number(entry.highScore) || 0, Math.max(0, Number(round.score) || 0));
   entry.rounds = (Number(entry.rounds) || 0) + 1;
   const elapsed = Number(round.elapsed);
-  if (round.completed === true && Number.isFinite(elapsed) && elapsed >= 0) {
+  if (round.completed === true && round.timed !== false && Number.isFinite(elapsed) && elapsed >= 0) {
     entry.bestTime = entry.bestTime === null || entry.bestTime === undefined
       ? elapsed
       : Math.min(entry.bestTime, elapsed);
   }
   entry.bestRank = betterRank(entry.bestRank, round.rank);
+}
+
+function clamp(value, minimum, maximum) {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+// Vergleichbarer 0–100-Leistungswert statt bloßer Highscores: Abschluss,
+// Fehlerfreiheit, Combo und Tempo werden je Gegenstand normalisiert. Dadurch
+// lassen sich auch unterschiedliche Gegenstandsmengen sinnvoll vergleichen.
+export function performanceIndex(round = {}) {
+  const totalItems = Math.max(1, Number(round.totalItems) || 0);
+  const delivered = clamp(Number(round.delivered) || 0, 0, totalItems);
+  const completionRatio = delivered / totalItems;
+  const mistakes = Math.max(0, Number(round.wrongPlacements) || 0)
+    + Math.max(0, Number(round.droppedItems) || 0) * 0.65
+    + Math.max(0, Number(round.trips) || 0) * 0.8;
+  const accuracyRatio = clamp(1 - mistakes / totalItems, 0, 1);
+  const comboRatio = clamp((Number(round.maxCombo) || 0) / totalItems, 0, 1);
+  const elapsed = Math.max(0, Number(round.elapsed) || 0);
+  const secondsPerItem = delivered > 0 ? elapsed / delivered : Infinity;
+  const paceBenchmark = MODES[round.mode]?.expectedSecondsPerItem || 14;
+  const paceRatio = Number.isFinite(secondsPerItem)
+    ? clamp(paceBenchmark / Math.max(1, secondsPerItem), 0, 1)
+    : 0;
+
+  return Math.round(
+    completionRatio * 30
+    + accuracyRatio * 25
+    + comboRatio * 25
+    + paceRatio * 20,
+  );
+}
+
+export function sanitizeRoundHistory(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(-MAX_ROUND_HISTORY).flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const level = LEVELS[entry.level] ? entry.level : null;
+    const mode = MODES[entry.mode] ? entry.mode : null;
+    if (!level || !mode) return [];
+    const round = {
+      id: typeof entry.id === "string" ? entry.id : `${Number(entry.timestamp) || 0}-${level}-${mode}`,
+      timestamp: Math.max(0, Number(entry.timestamp) || 0),
+      level,
+      mode,
+      character: typeof entry.character === "string" ? entry.character : "raccoon",
+      completed: entry.completed === true,
+      timed: entry.timed !== false,
+      score: Math.max(0, Number(entry.score) || 0),
+      elapsed: Math.max(0, Number(entry.elapsed) || 0),
+      delivered: Math.max(0, Number(entry.delivered) || 0),
+      totalItems: Math.max(1, Number(entry.totalItems) || 1),
+      maxCombo: Math.max(0, Number(entry.maxCombo) || 0),
+      wrongPlacements: Math.max(0, Number(entry.wrongPlacements) || 0),
+      droppedItems: Math.max(0, Number(entry.droppedItems) || 0),
+      trips: Math.max(0, Number(entry.trips) || 0),
+      performance: clamp(Number(entry.performance) || performanceIndex(entry), 0, 100),
+      shiftSettings: entry.shiftSettings && typeof entry.shiftSettings === "object"
+        ? { ...entry.shiftSettings }
+        : null,
+    };
+    return [round];
+  });
+}
+
+export function appendRoundHistory(save, round, now = Date.now()) {
+  save.roundHistory = sanitizeRoundHistory(save.roundHistory);
+  const historyEntry = {
+    ...round,
+    id: `${now}-${round.level}-${round.mode}-${save.roundHistory.length}`,
+    timestamp: now,
+    performance: performanceIndex(round),
+  };
+  const [sanitized] = sanitizeRoundHistory([historyEntry]);
+  save.roundHistory.push(sanitized);
+  if (save.roundHistory.length > MAX_ROUND_HISTORY) {
+    save.roundHistory.splice(0, save.roundHistory.length - MAX_ROUND_HISTORY);
+  }
+  return sanitized;
+}
+
+function average(values) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+export function filteredRoundHistory(history, { level = "all", mode = "all" } = {}) {
+  return sanitizeRoundHistory(history).filter((entry) => (
+    (level === "all" || entry.level === level)
+    && (mode === "all" || entry.mode === mode)
+  ));
+}
+
+export function roundTrend(history, filters = {}) {
+  const comparable = filteredRoundHistory(history, filters).slice(-10);
+  if (comparable.length < 4) {
+    return {
+      status: "insufficient",
+      delta: 0,
+      recentAverage: comparable.length ? Math.round(average(comparable.map(({ performance }) => performance))) : 0,
+      previousAverage: 0,
+      sampleSize: comparable.length,
+    };
+  }
+  const split = Math.floor(comparable.length / 2);
+  const previous = comparable.slice(0, split);
+  const recent = comparable.slice(split);
+  const previousAverage = average(previous.map(({ performance }) => performance));
+  const recentAverage = average(recent.map(({ performance }) => performance));
+  const delta = Math.round(recentAverage - previousAverage);
+  return {
+    status: delta >= 3 ? "improved" : delta <= -3 ? "declined" : "stable",
+    delta,
+    recentAverage: Math.round(recentAverage),
+    previousAverage: Math.round(previousAverage),
+    sampleSize: comparable.length,
+  };
 }
 
 function ensureRoundContainers(save, level, mode) {
@@ -109,6 +226,7 @@ function ensureRoundContainers(save, level, mode) {
   };
   save.stats ||= {};
   save.stats.byType ||= {};
+  save.roundHistory ||= [];
 }
 
 // Der zentrale Abschlussweg für eine echte Spielrunde. Er aktualisiert sowohl
@@ -137,6 +255,7 @@ export function recordRoundProgress(save, round, { date = new Date(), now = Date
   save.stats.maxCombo = Math.max(Number(save.stats.maxCombo) || 0, Math.max(0, Number(round.maxCombo) || 0));
   save.stats.totalCoinsEarned = (Number(save.stats.totalCoinsEarned) || 0) + coinsEarned;
   save.stats.totalScore = (Number(save.stats.totalScore) || 0) + Math.max(0, Number(round.score) || 0);
+  save.stats.totalTrips = (Number(save.stats.totalTrips) || 0) + Math.max(0, Number(round.trips) || 0);
   if (isPerfectRound(round)) save.stats.perfectRounds = (Number(save.stats.perfectRounds) || 0) + 1;
 
   const levelCareer = save.career.levels[level];
@@ -153,6 +272,7 @@ export function recordRoundProgress(save, round, { date = new Date(), now = Date
   save.lastLevel = level;
   if (round.character) save.selectedCharacter = round.character;
 
+  const historyEntry = appendRoundHistory(save, { ...round, level, mode }, now);
   const contracts = applyRoundToContracts(save, { ...round, level, mode, delivered, deliveredByType }, date, now);
   return {
     level,
@@ -162,6 +282,8 @@ export function recordRoundProgress(save, round, { date = new Date(), now = Date
     xpEarned,
     masteryBefore: before,
     masteryAfter: masteryProgress(levelCareer.xp),
+    historyEntry,
+    trend: roundTrend(save.roundHistory, { level, mode }),
     contracts,
     coinsEarned: coinsEarned + contracts.coinsEarned,
   };
@@ -173,4 +295,3 @@ export function totalMasteryLevels(save) {
     0,
   );
 }
-

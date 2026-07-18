@@ -13,8 +13,10 @@ import {
   createLevelModeStats,
   emptyResultStats,
   masteryLevelForXp,
+  sanitizeRoundHistory,
   totalMasteryLevels,
 } from "./progression.js";
+import { createLevelSettings, normalizeShiftSettings } from "./shift-settings.js";
 
 export const SAVE_EXPORT_FORMAT = "gym-critters-save";
 export const SAVE_EXPORT_VERSION = 1;
@@ -47,6 +49,8 @@ export function createDefaultSave() {
     levelModeStats: createLevelModeStats(),
     career: createCareerState(),
     contracts: createContractState(),
+    levelSettings: createLevelSettings(Object.keys(LEVELS)),
+    roundHistory: [],
     stats: {
       totalRounds: 0,
       totalDelivered: 0,
@@ -57,6 +61,7 @@ export function createDefaultSave() {
       totalCoinsEarned: 0,
       totalScore: 0,
       completedContracts: 0,
+      totalTrips: 0,
     },
     achievements: {},
     settings: {
@@ -123,6 +128,15 @@ function mergeLevelModeStats(value = {}, legacyModeStats = null, lastLevel = "cl
         migratedFromModeStats: true,
       };
     }
+  }
+  return defaults;
+}
+
+function mergeLevelSettings(value = {}) {
+  const defaults = createLevelSettings(Object.keys(LEVELS));
+  const source = record(value);
+  for (const level of Object.keys(defaults)) {
+    defaults[level] = normalizeShiftSettings(source[level]);
   }
   return defaults;
 }
@@ -260,6 +274,7 @@ export function migrateSave(value) {
       totalCoinsEarned: finiteNumber(legacyStats.totalCoinsEarned),
       totalScore: finiteNumber(legacyStats.totalScore),
       completedContracts: finiteNumber(legacyStats.completedContracts),
+      totalTrips: finiteNumber(legacyStats.totalTrips),
     },
     modeStats,
     levelModeStats: mergeLevelModeStats(
@@ -269,6 +284,8 @@ export function migrateSave(value) {
     ),
     career: mergeCareer(legacy.career),
     contracts: mergeContracts(legacy.contracts),
+    levelSettings: mergeLevelSettings(legacy.levelSettings),
+    roundHistory: sanitizeRoundHistory(legacy.roundHistory),
     achievements: Object.fromEntries(Object.entries(record(legacy.achievements))
       .filter(([id, timestamp]) => ACHIEVEMENTS.some((entry) => entry.id === id) && Number.isFinite(Number(timestamp)))
       .map(([id, timestamp]) => [id, Number(timestamp)])),

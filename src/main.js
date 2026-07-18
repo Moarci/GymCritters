@@ -19,7 +19,7 @@ import {
   serializeSaveExport,
 } from "./save.js";
 import { ensureDailyContracts, contractDefinition } from "./challenges.js";
-import { recordRoundProgress } from "./progression.js";
+import { filteredRoundHistory, recordRoundProgress, roundTrend } from "./progression.js";
 import { AudioSystem } from "./audio.js";
 import { B } from "./babylon.js";
 import { createMaterial } from "./materials.js";
@@ -34,6 +34,14 @@ import { deviceScalingFloor, fixedQualityScaling } from "./perf/render-scale.js"
 import { fovModeForViewport } from "./camera-fov.js";
 import { carryPose, curveLean, dominantWeight, facingRotation, gaitParams, idleMotion, raccoonTailSpec, solveTwoBoneIK, squirrelTailSpec, surfacePoint } from "./character-motion.js";
 import { shiftEvent, shiftEventMultiplier, unlockedWave, waveForItem } from "./shift-director.js";
+import {
+  SHIFT_SETTING_OPTIONS,
+  itemCountForMode,
+  modeDurationLabel,
+  navigatorPolicy,
+  optionFor,
+} from "./shift-settings.js";
+import { selectTripHazard, tripRule } from "./trip-physics.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -51,6 +59,12 @@ const ui = {
   joystickKnob: $("joystickKnob"), sprintButton: $("sprintButton"), interactButton: $("interactButton"),
   startScreen: $("startScreen"), menuCoins: $("menuCoins"),
   characterSelector: $("characterSelector"), levelSelector: $("levelSelector"), modeSelector: $("modeSelector"),
+  itemAmountSetting: $("itemAmountSetting"), shiftDynamicsSetting: $("shiftDynamicsSetting"),
+  tripRiskSetting: $("tripRiskSetting"), navigatorSetting: $("navigatorSetting"),
+  shiftPreviewCard: $("shiftPreviewCard"), shiftPreviewTitle: $("shiftPreviewTitle"),
+  shiftPreviewSubtitle: $("shiftPreviewSubtitle"), shiftPreviewItems: $("shiftPreviewItems"),
+  shiftPreviewTime: $("shiftPreviewTime"), shiftPreviewRisk: $("shiftPreviewRisk"),
+  shiftPreviewDynamics: $("shiftPreviewDynamics"),
   startButton: $("startButton"), shopButton: $("shopButton"), achievementsButton: $("achievementsButton"),
   statsButton: $("statsButton"), settingsButton: $("settingsButton"), fullscreenButton: $("fullscreenButton"),
   pauseScreen: $("pauseScreen"), resumeButton: $("resumeButton"), pauseRestartButton: $("pauseRestartButton"),
@@ -64,6 +78,9 @@ const ui = {
   resultMenuButton: $("resultMenuButton"), shopScreen: $("shopScreen"), shopCoins: $("shopCoins"), shopGrid: $("shopGrid"),
   achievementsScreen: $("achievementsScreen"), achievementGrid: $("achievementGrid"), statsScreen: $("statsScreen"),
   careerStats: $("careerStats"), modeStats: $("modeStats"), settingsScreen: $("settingsScreen"),
+  trendSummary: $("trendSummary"), trendDelta: $("trendDelta"), trendMeta: $("trendMeta"),
+  trendChart: $("trendChart"), recentRounds: $("recentRounds"),
+  statsLevelFilter: $("statsLevelFilter"), statsModeFilter: $("statsModeFilter"),
   cameraSensitivity: $("cameraSensitivity"), joystickScale: $("joystickScale"), qualitySetting: $("qualitySetting"),
   vibrationSetting: $("vibrationSetting"), masterVolume: $("masterVolume"), reducedMotionSetting: $("reducedMotionSetting"),
   exportSaveButton: $("exportSaveButton"), importSaveButton: $("importSaveButton"), importSaveInput: $("importSaveInput"),
@@ -89,8 +106,9 @@ const state = {
   character: owns(save, save.selectedCharacter) ? save.selectedCharacter : "raccoon",
   score: 0, combo: 0, delivered: 0, timeLeft: 120, roundSeconds: 120, wrongPlacements: 0,
   comboTime: 0,
-  droppedItems: 0, maxCombo: 0, deliveredDumbbells: 0, deliveredByType: {}, heldItems: [], nearestItem: null, nearestZone: null,
-  keys: new Set(), interactPressed: false, elapsed: 0, hudAccumulator: 0,
+  droppedItems: 0, trips: 0, tripTime: 0, tripCooldown: 0,
+  maxCombo: 0, deliveredDumbbells: 0, deliveredByType: {}, heldItems: [], nearestItem: null, nearestZone: null,
+  keys: new Set(), interactPressed: false, elapsed: 0, roundElapsed: 0, hudAccumulator: 0,
   velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 }, lean: 0,
   activeWave: 0, shiftEventId: null,
   cameraPreferredRadius: 5.6, cameraOccluded: false,
@@ -148,6 +166,10 @@ function shopItem(id) {
 
 function prefersReducedMotion() {
   return Boolean(save.settings.reducedMotion || window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+
+function currentLevelSettings() {
+  return save.levelSettings[state.level];
 }
 
 function vibrate(pattern) {
@@ -543,7 +565,7 @@ function buildSpecs(levelId, modeId) {
     for (let i = 0; i < weight; i++) weighted.push(type);
   }
   const selected = [];
-  const desired = mode.itemCount;
+  const desired = itemCountForMode(mode, currentLevelSettings().itemAmount);
   const mandatory = ["towel", "bottle", "dumbbell", "mat"];
   mandatory.forEach((type) => selected.push(type));
   while (selected.length < desired) selected.push(weighted[Math.floor(Math.random() * weighted.length)]);
@@ -582,7 +604,7 @@ function spawnItems() {
 
 function updateShiftDirector(initial = false) {
   if (state.tutorial || !items.length) return;
-  const nextWave = unlockedWave(state.delivered, items.length);
+  const nextWave = unlockedWave(state.delivered, items.length, currentLevelSettings().dynamics);
   if (nextWave > state.activeWave) {
     state.activeWave = nextWave;
     let activated = 0;
@@ -701,7 +723,9 @@ function update() {
   updateNavigator();
   updateZoneGuidance();
   if (state.finishing) return;
-  if (!state.tutorial && !updateTimer(dt)) return;
+  if (!state.tutorial) state.roundElapsed += dt;
+  if (!state.tutorial && MODES[state.mode].timed !== false && !updateTimer(dt)) return;
+  if (!state.tutorial && MODES[state.mode].timed === false) updateUntimedHud(dt);
   updateComboTimer(dt);
   updatePlayer(dt);
   updateInteraction();
@@ -774,6 +798,13 @@ function updateTimer(dt) {
   return true;
 }
 
+function updateUntimedHud(dt) {
+  state.hudAccumulator += dt;
+  if (state.hudAccumulator < 0.1) return;
+  state.hudAccumulator = 0;
+  updateHUD();
+}
+
 function currentCharacter() {
   return CHARACTERS[state.character] || CHARACTERS.raccoon;
 }
@@ -783,6 +814,14 @@ function carryingHeavy() {
 }
 
 function updatePlayer(dt) {
+  state.tripCooldown = Math.max(0, state.tripCooldown - dt);
+  if (state.tripTime > 0) {
+    state.tripTime = Math.max(0, state.tripTime - dt);
+    state.velocity.scaleInPlace(Math.exp(-9 * dt));
+    animateCharacter(dt, false, false);
+    return;
+  }
+
   const forwardPressed = state.keys.has("KeyW") || state.keys.has("ArrowUp");
   const backPressed = state.keys.has("KeyS") || state.keys.has("ArrowDown");
   const leftPressed = state.keys.has("KeyA") || state.keys.has("ArrowLeft");
@@ -828,6 +867,26 @@ function updatePlayer(dt) {
     state.lean = dt > 0 ? curveLean(normalizeAngle(player.rotation.y - yVorher) / dt) : 0;
   } else {
     state.lean = 0;
+  }
+
+  const hazard = state.tutorial ? null : selectTripHazard({
+    position: player.position,
+    velocity: state.velocity,
+    cooldown: state.tripCooldown,
+    risk: currentLevelSettings().tripRisk,
+    items: items.map((item) => ({
+      source: item,
+      active: item.active,
+      delivered: item.delivered,
+      held: state.heldItems.includes(item),
+      weight: item.weight,
+      position: item.root.getAbsolutePosition(),
+    })),
+  });
+  if (hazard) {
+    triggerTrip(hazard.source);
+    animateCharacter(dt, false, false);
+    return;
   }
 
   animateCharacter(dt, isMoving || state.velocity.lengthSquared() > 0.08, sprinting);
@@ -987,6 +1046,13 @@ function updateReaction(dt) {
   const elapsed = state.reaction.duration - state.reaction.time;
   if (state.reaction.type === "wrong") playerVisual.rotation.z = Math.sin(elapsed * 26) * 0.14;
   if (state.reaction.type === "pickup") playerVisual.scaling.setAll(1 + Math.sin(Math.min(1, elapsed / state.reaction.duration) * Math.PI) * 0.07);
+  if (state.reaction.type === "trip") {
+    const phase = Math.min(1, elapsed / state.reaction.duration);
+    const stumble = Math.sin(phase * Math.PI);
+    playerVisual.rotation.x = 0.52 * stumble;
+    playerVisual.rotation.z = state.reaction.side * 0.18 * stumble;
+    playerVisual.position.y = -0.84 - 0.09 * stumble;
+  }
   if (state.reaction.type === "celebrate") {
     playerVisual.rotation.y = Math.sin(elapsed * 8) * 0.35;
     playerVisual.position.y = -0.84 + Math.abs(Math.sin(elapsed * 8)) * 0.14;
@@ -1129,7 +1195,8 @@ function heldLabel() {
 
 function updateNavigator() {
   if (!state.playing || state.ended) { ui.navigator.classList.add("hidden"); return; }
-  if (!state.tutorial && MODES[state.mode].navigator === "carrying" && !state.heldItems.length) {
+  const policy = state.tutorial ? "always" : navigatorPolicy(MODES[state.mode], currentLevelSettings().guidance);
+  if (policy === "off" || (policy === "carrying" && !state.heldItems.length)) {
     ui.navigator.classList.add("hidden"); return;
   }
   let targetPosition = null;
@@ -1242,17 +1309,22 @@ function reflowHeldItems(animate = false) {
 function dropLastItem() {
   const item = state.heldItems.pop();
   if (!item) return;
-  const absolute = item.root.getAbsolutePosition().clone();
-  item.root.parent = null; item.root.position.copyFrom(absolute);
-  const safe = findSafeDropPosition();
-  item.root.position.copyFrom(safe); item.root.scaling.setAll(1); item.root.rotation.set(0, 0, 0);
+  placeHeldItemOnFloor(item, player.rotation.y);
   state.droppedItems += 1;
   reflowHeldItems(false);
   audio.play("drop"); vibrate(12); showToast(`${item.label} sicher abgelegt`, ""); updateHUD();
 }
 
-function findSafeDropPosition() {
-  const baseAngle = player.rotation.y;
+function placeHeldItemOnFloor(item, baseAngle) {
+  const absolute = item.root.getAbsolutePosition().clone();
+  item.root.parent = null;
+  item.root.position.copyFrom(absolute);
+  item.root.position.copyFrom(findSafeDropPosition(baseAngle));
+  item.root.scaling.setAll(1);
+  item.root.rotation.set(0, 0, 0);
+}
+
+function findSafeDropPosition(baseAngle = player.rotation.y) {
   for (let ring = 0; ring < 3; ring++) {
     const distance = 1.25 + ring * 0.45;
     for (const offset of [0, 0.65, -0.65, 1.3, -1.3, Math.PI]) {
@@ -1262,6 +1334,33 @@ function findSafeDropPosition() {
     }
   }
   return new B.Vector3(player.position.x, 0.12, player.position.z);
+}
+
+function triggerTrip(hazard) {
+  const risk = tripRule(currentLevelSettings().tripRisk);
+  const dropped = [...state.heldItems];
+  state.heldItems = [];
+  dropped.forEach((item, index) => {
+    const spread = dropped.length > 1 ? (index === 0 ? -0.72 : 0.72) : 0;
+    placeHeldItemOnFloor(item, player.rotation.y + Math.PI + spread);
+  });
+  state.droppedItems += dropped.length;
+  state.trips += 1;
+  state.tripTime = prefersReducedMotion() ? Math.min(0.35, risk.stumbleDuration) : risk.stumbleDuration;
+  state.tripCooldown = risk.cooldown;
+  state.combo = 0;
+  state.comboTime = 0;
+  state.velocity.scaleInPlace(-0.12);
+  state.lean = 0;
+  setReaction("trip", state.tripTime);
+  state.reaction.side = hazard.root.position.x >= player.position.x ? 1 : -1;
+  clearItemHighlight();
+  reflowHeldItems(false);
+  audio.play("trip");
+  vibrate([35, 25, 55]);
+  showToast(dropped.length ? `Gestolpert – ${dropped.length > 1 ? "alles" : dropped[0].label} fallen gelassen!` : "Hoppla – über etwas gestolpert!", "bad");
+  characterSays(state.character === "squirrel" ? "Uff! Alles noch dran?" : "Rocco, Augen auf den Boden!");
+  updateHUD();
 }
 
 function isDropPositionFree(position) {
@@ -1302,7 +1401,7 @@ function deliverAtZone(zone) {
     const comboDiesesWurfs = state.combo;
     state.maxCombo = Math.max(state.maxCombo, state.combo);
     const strengthBonus = item.weight === "heavy" ? currentCharacter().heavyScoreBonus : 1;
-    const eventBonus = shiftEventMultiplier(activeEvent, item);
+    const eventBonus = shiftEventMultiplier(activeEvent, item, currentLevelSettings().dynamics);
     const classBatchBonus = state.level === "class" && matching.length > 1 ? 1.15 : 1;
     const gained = Math.round(item.points * comboMultiplier(state.combo) * mode.scoreMultiplier * strengthBonus * eventBonus * classBatchBonus);
     const milestone = { 3: 75, 5: 150, 8: 300, 10: 400 }[state.combo] || 0;
@@ -1543,6 +1642,7 @@ function startRound() {
 function resetRoundState() {
   state.playing = true; state.paused = false; state.ended = false; state.finishing = false;
   state.score = 0; state.combo = 0; state.comboTime = 0; state.delivered = 0; state.wrongPlacements = 0; state.droppedItems = 0;
+  state.trips = 0; state.tripTime = 0; state.tripCooldown = 0; state.roundElapsed = 0;
   state.maxCombo = 0; state.deliveredDumbbells = 0; state.deliveredByType = {}; state.heldItems = []; state.nearestItem = null; state.nearestZone = null;
   state.activeWave = 0; state.shiftEventId = null;
   state.hudAccumulator = 0; state.interactPressed = false; state.keys.clear(); state.velocity.set(0, 0, 0);
@@ -1577,7 +1677,9 @@ function startTutorial() {
 function beginGameplayRound() {
   state.tutorial = false; state.tutorialStage = 0;
   resetRoundState();
-  const mode = MODES[state.mode]; state.roundSeconds = mode.seconds; state.timeLeft = mode.seconds;
+  const mode = MODES[state.mode];
+  state.roundSeconds = mode.timed === false ? Infinity : mode.seconds;
+  state.timeLeft = state.roundSeconds;
   prepareSceneForRound();
   ui.tutorialCoach.classList.add("hidden");
   ui.objective.textContent = `${LEVELS[state.level].label} · ${mode.label}: ${items.length} Gegenstände warten.`;
@@ -1612,25 +1714,30 @@ function endRound(completed) {
   state.ended = true; state.playing = false; state.paused = false; state.finishing = false; state.velocity.set(0, 0, 0);
   touchInput.reset(); resetZoneGuidance(); clearItemHighlight(); hidePrompt(); audio.stopMusic();
   const mode = MODES[state.mode];
-  const completionBonus = completed ? Math.round((state.timeLeft * 4 + 250) * mode.scoreMultiplier) : 0;
+  const completionBonus = completed
+    ? Math.round((mode.timed === false ? 250 : state.timeLeft * 4 + 250) * mode.scoreMultiplier)
+    : 0;
   state.score += completionBonus;
   const earned = state.score > 0 ? Math.max(1, Math.floor(state.score / 115)) : 0;
-  const elapsed = Math.max(0, state.roundSeconds - state.timeLeft);
+  const elapsed = Math.max(0, state.roundElapsed);
   const rank = calculateRank(completed);
   const roundRecord = {
     level: state.level,
     mode: state.mode,
     character: state.character,
     completed,
+    timed: mode.timed !== false,
     score: state.score,
     elapsed,
     rank: rank.grade,
     delivered: state.delivered,
     deliveredByType: { ...state.deliveredByType },
     droppedItems: state.droppedItems,
+    trips: state.trips,
     wrongPlacements: state.wrongPlacements,
     maxCombo: state.maxCombo,
     totalItems: items.length,
+    shiftSettings: { ...currentLevelSettings() },
     coinsEarned: earned,
   };
   const progressResult = recordRoundProgress(save, roundRecord);
@@ -1647,7 +1754,7 @@ function endRound(completed) {
   ui.resultBadge.textContent = completed ? "GESCHAFFT" : "ZEIT VORBEI"; ui.resultBadge.classList.toggle("timeout", !completed);
   ui.resultTitle.textContent = completed ? `${currentCharacter().name} hat das Gym gerettet!` : "Fast geschafft!";
   ui.resultText.textContent = completed
-    ? `${LEVELS[state.level].label} im Modus ${mode.label} in ${formatTime(elapsed)}. Zeitbonus: ${completionBonus} Punkte, falsche Ablagen: ${state.wrongPlacements}.`
+    ? `${LEVELS[state.level].label} im Modus ${mode.label} in ${formatTime(elapsed)}. Bonus: ${completionBonus} Punkte, Stolperer: ${state.trips}, falsche Ablagen: ${state.wrongPlacements}.`
     : `${state.delivered} von ${items.length} Gegenständen wurden aufgeräumt. Deine sichtbaren Ablagen zeigen, wie weit du gekommen bist.`;
   ui.resultRank.textContent = rank.grade; ui.resultRankDetail.textContent = rank.detail;
   ui.resultRankBox.className = `result-rank rank-${rank.grade.toLowerCase()}`;
@@ -1665,6 +1772,12 @@ function calculateRank(completed) {
     const ratio = state.delivered / Math.max(1, items.length);
     if (ratio >= 0.85) return { grade: "C", detail: "Haarscharf vorbei" };
     return { grade: "D", detail: ratio >= 0.5 ? "Solider Anfang" : "Noch einmal ran" };
+  }
+  if (MODES[state.mode].timed === false) {
+    if (state.wrongPlacements === 0 && state.trips === 0 && state.maxCombo >= items.length) return { grade: "S", detail: "Zen in perfekter Ordnung" };
+    if (state.wrongPlacements === 0 && state.trips <= 1) return { grade: "A", detail: "Ruhig und aufmerksam" };
+    if (state.wrongPlacements <= 1) return { grade: "B", detail: "Saubere Zen-Schicht" };
+    return { grade: "C", detail: "Ohne Eile ans Ziel" };
   }
   const timeRatio = state.timeLeft / state.roundSeconds;
   if (state.wrongPlacements === 0 && state.maxCombo >= items.length && timeRatio >= 0.25) return { grade: "S", detail: "Perfekte Aufräumserie" };
@@ -1697,14 +1810,24 @@ function updateHUD() {
     ? `×${comboMultiplier(state.combo).toFixed(1).replace(".", ",")} · ${Math.ceil(state.comboTime)}s`
     : "×1,0";
   ui.combo.classList.toggle("hot", state.combo >= 3);
-  ui.timer.textContent = state.tutorial ? "∞" : formatTime(state.timeLeft);
-  ui.timer.style.color = !state.tutorial && state.timeLeft <= 20 ? "#ff7c74" : "";
+  const untimed = state.tutorial || MODES[state.mode].timed === false;
+  ui.timer.textContent = untimed ? "∞" : formatTime(state.timeLeft);
+  ui.timer.style.color = !untimed && state.timeLeft <= 20 ? "#ff7c74" : "";
   ui.carrying.textContent = heldLabel(); ui.carryCard.classList.toggle("active", state.heldItems.length > 0);
   ui.coins.textContent = String(save.coins);
 }
 
 function renderMenu() {
-  updateCoinDisplays(); renderCharacterSelector(); renderLevelSelector(); renderModeSelector(); renderShop(); renderAchievements(); renderStats(); renderSettings();
+  updateCoinDisplays();
+  renderCharacterSelector();
+  renderLevelSelector();
+  renderModeSelector();
+  renderShiftSettings();
+  renderShiftPreview();
+  renderShop();
+  renderAchievements();
+  renderStats();
+  renderSettings();
 }
 
 function renderCharacterSelector() {
@@ -1727,7 +1850,15 @@ function renderLevelSelector() {
   for (const [id, level] of Object.entries(LEVELS)) {
     const button = document.createElement("button"); button.className = `selector-tile${state.level === id ? " active" : ""}`;
     button.innerHTML = `<strong>${level.label}</strong><small>${level.subtitle}</small>`;
-    button.addEventListener("click", () => { state.level = id; save.lastLevel = id; persistSave(save); setActiveLevelDecor(id); renderLevelSelector(); });
+    button.addEventListener("click", () => {
+      state.level = id;
+      save.lastLevel = id;
+      persistSave(save);
+      setActiveLevelDecor(id);
+      renderLevelSelector();
+      renderShiftSettings();
+      renderShiftPreview();
+    });
     ui.levelSelector.appendChild(button);
   }
 }
@@ -1736,10 +1867,49 @@ function renderModeSelector() {
   ui.modeSelector.innerHTML = "";
   for (const [id, mode] of Object.entries(MODES)) {
     const button = document.createElement("button"); button.className = `selector-tile${state.mode === id ? " active" : ""}`;
-    button.innerHTML = `<strong>${mode.label} · ${formatTime(mode.seconds)}</strong><small>${mode.description}</small>`;
-    button.addEventListener("click", () => { state.mode = id; save.lastMode = id; persistSave(save); renderModeSelector(); });
+    button.innerHTML = `<span class="mode-icon">${mode.icon || "•"}</span><strong>${mode.label}</strong><small>${modeDurationLabel(mode)}</small><em>${mode.description}</em>`;
+    button.addEventListener("click", () => {
+      state.mode = id;
+      save.lastMode = id;
+      persistSave(save);
+      renderModeSelector();
+      renderShiftPreview();
+    });
     ui.modeSelector.appendChild(button);
   }
+}
+
+function renderShiftSettings() {
+  const settings = currentLevelSettings();
+  for (const [element, group] of [
+    [ui.itemAmountSetting, "itemAmount"],
+    [ui.shiftDynamicsSetting, "dynamics"],
+    [ui.tripRiskSetting, "tripRisk"],
+    [ui.navigatorSetting, "guidance"],
+  ]) {
+    if (!element.options.length) {
+      element.innerHTML = SHIFT_SETTING_OPTIONS[group]
+        .map((option) => `<option value="${option.id}">${option.label}</option>`)
+        .join("");
+    }
+  }
+  ui.itemAmountSetting.value = settings.itemAmount;
+  ui.shiftDynamicsSetting.value = settings.dynamics;
+  ui.tripRiskSetting.value = settings.tripRisk;
+  ui.navigatorSetting.value = settings.guidance;
+}
+
+function renderShiftPreview() {
+  const level = LEVELS[state.level];
+  const mode = MODES[state.mode];
+  const settings = currentLevelSettings();
+  ui.shiftPreviewCard.style.setProperty("--shift-accent", level.accent);
+  ui.shiftPreviewTitle.textContent = level.label;
+  ui.shiftPreviewSubtitle.textContent = `${mode.icon || ""} ${mode.label} · ${level.subtitle}`;
+  ui.shiftPreviewItems.textContent = String(itemCountForMode(mode, settings.itemAmount));
+  ui.shiftPreviewTime.textContent = mode.timed === false ? "∞" : modeDurationLabel(mode);
+  ui.shiftPreviewRisk.textContent = optionFor("tripRisk", settings.tripRisk).label;
+  ui.shiftPreviewDynamics.textContent = optionFor("dynamics", settings.dynamics).label;
 }
 
 function renderShop() {
@@ -1788,9 +1958,25 @@ function renderStats() {
   ui.careerStats.innerHTML = [
     ["Runden", stats.totalRounds], ["Aufgeräumt", stats.totalDelivered], ["Hanteln", stats.totalDumbbells],
     ["Beste Combo", stats.maxCombo], ["Perfekte Runden", stats.perfectRounds], ["Münzen verdient", stats.totalCoinsEarned],
-    ["Verträge", stats.completedContracts || 0], ["Meisterschaft", masteryLevels],
+    ["Verträge", stats.completedContracts || 0], ["Meisterschaft", masteryLevels], ["Stolperer", stats.totalTrips || 0],
     ["Shop-Artikel", save.owned.length - 1], ["Achievements", Object.keys(save.achievements).length],
   ].map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
+
+  if (!ui.statsLevelFilter.options.length) {
+    ui.statsLevelFilter.innerHTML = `<option value="all">Alle Level</option>${Object.entries(LEVELS)
+      .map(([id, level]) => `<option value="${id}">${level.label}</option>`).join("")}`;
+  }
+  if (!ui.statsModeFilter.options.length) {
+    ui.statsModeFilter.innerHTML = `<option value="all">Alle Modi</option>${Object.entries(MODES)
+      .map(([id, mode]) => `<option value="${id}">${mode.label}</option>`).join("")}`;
+  }
+  const filters = {
+    level: ui.statsLevelFilter.value || "all",
+    mode: ui.statsModeFilter.value || "all",
+  };
+  const history = filteredRoundHistory(save.roundHistory, filters);
+  renderTrend(roundTrend(history), history);
+
   ui.modeStats.innerHTML = Object.entries(LEVELS).map(([levelId, level]) => `
     <section class="level-stat-group">
       <h4>${level.label} · Meisterschaft ${save.career?.levels?.[levelId]?.level || 1}</h4>
@@ -1800,6 +1986,65 @@ function renderStats() {
       }).join("")}
     </section>
   `).join("");
+}
+
+function renderTrend(trend, history) {
+  const copy = {
+    improved: ["Du wirst besser", "trend-up", `+${trend.delta}`],
+    stable: ["Deine Leistung ist stabil", "trend-steady", `${trend.delta >= 0 ? "+" : ""}${trend.delta}`],
+    declined: ["Zuletzt etwas schwächer", "trend-down", `${trend.delta}`],
+    insufficient: ["Noch nicht genug Vergleichsrunden", "trend-new", "–"],
+  }[trend.status];
+  ui.trendSummary.textContent = copy[0];
+  ui.trendSummary.className = copy[1];
+  ui.trendDelta.textContent = copy[2];
+  ui.trendDelta.className = copy[1];
+  ui.trendMeta.textContent = trend.status === "insufficient"
+    ? `${trend.sampleSize} von mindestens 4 vergleichbaren Runden`
+    : `Neu Ø ${trend.recentAverage} · vorher Ø ${trend.previousAverage} · ${trend.sampleSize} Runden`;
+  renderTrendChart(history.slice(-20));
+  renderRecentRounds(history.slice(-8).reverse());
+}
+
+function renderTrendChart(history) {
+  if (!history.length) {
+    ui.trendChart.innerHTML = `<div class="trend-empty">Deine Entwicklungskurve erscheint nach der ersten abgeschlossenen Schicht.</div>`;
+    return;
+  }
+  const width = 760;
+  const height = 190;
+  const padX = 28;
+  const padY = 22;
+  const usableWidth = width - padX * 2;
+  const usableHeight = height - padY * 2;
+  const points = history.map((entry, index) => {
+    const x = history.length === 1 ? width / 2 : padX + (index / (history.length - 1)) * usableWidth;
+    const y = padY + (1 - entry.performance / 100) * usableHeight;
+    return { x, y, entry };
+  });
+  const path = points.map(({ x, y }, index) => `${index ? "L" : "M"} ${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  ui.trendChart.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Leistungsentwicklung der letzten ${history.length} Runden">
+      <defs><linearGradient id="trendArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a7f46a" stop-opacity=".28"/><stop offset="1" stop-color="#a7f46a" stop-opacity="0"/></linearGradient></defs>
+      ${[25, 50, 75].map((value) => {
+        const y = padY + (1 - value / 100) * usableHeight;
+        return `<line x1="${padX}" y1="${y}" x2="${width - padX}" y2="${y}" class="trend-grid"/><text x="3" y="${y + 4}" class="trend-label">${value}</text>`;
+      }).join("")}
+      <path d="${path} L ${points.at(-1).x.toFixed(1)} ${height - padY} L ${points[0].x.toFixed(1)} ${height - padY} Z" class="trend-area"/>
+      <path d="${path}" class="trend-line"/>
+      ${points.map(({ x, y, entry }) => `<circle cx="${x}" cy="${y}" r="4.5"><title>${LEVELS[entry.level].label}, ${MODES[entry.mode].label}: ${entry.performance}</title></circle>`).join("")}
+    </svg>`;
+}
+
+function renderRecentRounds(history) {
+  ui.recentRounds.innerHTML = history.length
+    ? history.map((entry) => `
+      <article class="recent-round">
+        <span class="recent-score">${entry.performance}</span>
+        <div><strong>${LEVELS[entry.level].label} · ${MODES[entry.mode].label}</strong><small>${new Date(entry.timestamp).toLocaleDateString("de-DE")} · ${entry.delivered}/${entry.totalItems} Dinge · ${entry.trips} Stolperer</small></div>
+        <em>${entry.completed ? entry.timed ? formatTime(entry.elapsed) : "∞ Zen" : "offen"}</em>
+      </article>`).join("")
+    : `<div class="trend-empty">Noch keine aufgezeichneten Runden.</div>`;
 }
 
 function renderSettings() {
@@ -1962,6 +2207,20 @@ ui.fullscreenButton.addEventListener("click", requestFullscreen); ui.fullscreenH
 ui.shopButton.addEventListener("click", () => showModal(ui.shopScreen)); ui.achievementsButton.addEventListener("click", () => showModal(ui.achievementsScreen));
 ui.statsButton.addEventListener("click", () => showModal(ui.statsScreen)); ui.settingsButton.addEventListener("click", () => showModal(ui.settingsScreen));
 document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => $(button.getAttribute("data-close")).classList.add("hidden")));
+for (const [element, key] of [
+  [ui.itemAmountSetting, "itemAmount"],
+  [ui.shiftDynamicsSetting, "dynamics"],
+  [ui.tripRiskSetting, "tripRisk"],
+  [ui.navigatorSetting, "guidance"],
+]) {
+  element.addEventListener("change", () => {
+    currentLevelSettings()[key] = element.value;
+    persistSave(save);
+    renderShiftPreview();
+  });
+}
+ui.statsLevelFilter.addEventListener("change", renderStats);
+ui.statsModeFilter.addEventListener("change", renderStats);
 ui.soundButton.addEventListener("click", () => { save.soundEnabled = !save.soundEnabled; audio.setEnabled(save.soundEnabled); persistSave(save); updateSoundButton(); if (save.soundEnabled) { audio.play("pickup"); if (state.playing && !state.paused) audio.startMusic(); } });
 ui.masterVolume.addEventListener("input", () => {
   save.settings.masterVolume = Number(ui.masterVolume.value);

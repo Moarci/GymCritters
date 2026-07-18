@@ -11,12 +11,12 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="description" content="Gym Critters – charmantes 3D-Aufräumspiel für den Browser." />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Gym Critters V5 – Living Shifts" />
+  <meta property="og:title" content="Gym Critters V5.1 – Crew Terminal" />
   <meta property="og:description" content="Rocco und Fibi meistern lebendige Aufräumschichten in einem chaotischen Fitnessstudio. 3D-Browsergame, direkt spielbar." />
   <meta property="og:url" content="https://moarci.github.io/GymCritters/" />
   <meta property="og:image" content="https://moarci.github.io/GymCritters/preview.png" />
   <meta name="twitter:card" content="summary_large_image" />
-  <title>Gym Critters V5 – Living Shifts</title>
+  <title>Gym Critters V5.1 – Crew Terminal</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -75,43 +75,91 @@
     </div>
   </div>
 
-  <main id="startScreen" class="screen" aria-labelledby="gameTitle">
-    <div class="panel start-panel">
-      <div class="menu-header">
-        <div>
-          <div class="eyebrow">3D Browsergame · Living Shifts Update</div>
-          <h1 id="gameTitle">GYM<br />CRITTERS</h1>
+  <main id="startScreen" class="screen menu-screen" aria-labelledby="gameTitle">
+    <div class="menu-shell">
+      <div class="menu-glow menu-glow-one" aria-hidden="true"></div>
+      <div class="menu-glow menu-glow-two" aria-hidden="true"></div>
+
+      <header class="menu-topbar">
+        <div class="brand-lockup" aria-label="Gym Critters">
+          <span class="brand-mark" aria-hidden="true">GC</span>
+          <span><strong>GYM CRITTERS</strong><small>Living Shifts · Crew Terminal</small></span>
         </div>
-        <div class="profile-chip"><span>🪙</span><strong id="menuCoins">0</strong><small>Dein Guthaben</small></div>
+        <div class="menu-status">
+          <span class="online-pill"><i aria-hidden="true"></i> Gym geöffnet</span>
+          <div class="profile-chip"><span aria-hidden="true">🪙</span><strong id="menuCoins">0</strong><small>Crew-Konto</small></div>
+        </div>
+      </header>
+
+      <div class="menu-hero-grid">
+        <section class="menu-hero-copy">
+          <div class="eyebrow">Deine Schicht. Dein Rhythmus.</div>
+          <h1 id="gameTitle">MAKE THE<br /><span>GYM SHINE.</span></h1>
+          <p>Führe Rocco und Fibi durch ein lebendiges Fitnessstudio. Räume clever, achte auf herumliegende Stolperfallen und werde mit jeder Schicht besser.</p>
+          <div class="feature-pills" aria-label="Spielmerkmale">
+            <span>3 lebendige Level</span><span>4 Spielmodi</span><span>Lokaler Fortschritt</span>
+          </div>
+        </section>
+
+        <aside id="shiftPreviewCard" class="shift-preview" aria-labelledby="shiftPreviewTitle">
+          <div class="shift-preview-top"><span>Bereit für die nächste Schicht</span><i aria-hidden="true"></i></div>
+          <div class="shift-preview-copy">
+            <strong id="shiftPreviewTitle">Feierabend</strong>
+            <span id="shiftPreviewSubtitle">Standard · Gemischtes Chaos</span>
+          </div>
+          <div class="shift-preview-metrics">
+            <div><small>Gegenstände</small><strong id="shiftPreviewItems">10</strong></div>
+            <div><small>Zeit</small><strong id="shiftPreviewTime">2:00</strong></div>
+            <div><small>Stolperrisiko</small><strong id="shiftPreviewRisk">Realistisch</strong></div>
+            <div><small>Dynamik</small><strong id="shiftPreviewDynamics">Lebendig</strong></div>
+          </div>
+          <button id="startButton" class="primary shift-start" type="button"><span>Schicht starten</span><b aria-hidden="true">→</b></button>
+          <p class="desktop-help"><kbd>WASD</kbd> Laufen <kbd>E</kbd> Aktion <kbd>Shift</kbd> Sprint</p>
+          <p class="mobile-help">Stick zum Laufen · Aktion zum Aufnehmen und Ablegen</p>
+        </aside>
       </div>
-      <p class="lead">Rocco und Fibi retten das Gym vor dem Feierabendchaos. Räume clever, halte die Combo und schalte neue Looks frei.</p>
 
-      <section class="menu-section">
-        <div class="section-heading"><span>1</span><div><strong>Critter wählen</strong><small>Jede Figur spielt sich etwas anders.</small></div></div>
-        <div id="characterSelector" class="character-selector"></div>
-      </section>
+      <div class="menu-config-grid">
+        <div class="menu-config-main">
+          <section class="config-block">
+            <div class="config-heading"><span>01</span><div><strong>Crew auswählen</strong><small>Jeder Critter hat eine eigene Stärke.</small></div></div>
+            <div id="characterSelector" class="character-selector"></div>
+          </section>
 
-      <section class="menu-section split-selectors">
-        <div>
-          <div class="section-heading"><span>2</span><div><strong>Schicht wählen</strong><small>Drei unterschiedliche Levelmischungen.</small></div></div>
-          <div id="levelSelector" class="tile-selector"></div>
+          <div class="config-row">
+            <section class="config-block">
+              <div class="config-heading"><span>02</span><div><strong>Gym-Bereich</strong><small>Jedes Level besitzt eigene Wege und Ereignisse.</small></div></div>
+              <div id="levelSelector" class="tile-selector level-tiles"></div>
+            </section>
+            <section class="config-block">
+              <div class="config-heading"><span>03</span><div><strong>Spielmodus</strong><small>Von entspannt bis zeitlos.</small></div></div>
+              <div id="modeSelector" class="tile-selector mode-tiles"></div>
+            </section>
+          </div>
         </div>
-        <div>
-          <div class="section-heading"><span>3</span><div><strong>Tempo wählen</strong><small>Mehr Risiko bringt mehr Punkte.</small></div></div>
-          <div id="modeSelector" class="tile-selector"></div>
-        </div>
-      </section>
 
-      <div class="main-actions">
-        <button id="startButton" class="primary hero-button">Schicht starten</button>
-        <button id="shopButton" class="secondary-button">Shop</button>
-        <button id="achievementsButton" class="secondary-button">Achievements</button>
-        <button id="statsButton" class="secondary-button">Statistik</button>
-        <button id="settingsButton" class="secondary-button">Einstellungen</button>
-        <button id="fullscreenButton" class="secondary-button">Vollbild</button>
+        <aside class="shift-tuning" aria-labelledby="shiftTuningTitle">
+          <div class="tuning-header">
+            <span aria-hidden="true">⌁</span>
+            <div><strong id="shiftTuningTitle">Level-Feintuning</strong><small>Wird für jedes Level einzeln gespeichert.</small></div>
+          </div>
+          <div class="tuning-grid">
+            <label><span>Gegenstandsmenge</span><select id="itemAmountSetting" aria-label="Gegenstandsmenge"></select></label>
+            <label><span>Schichtdynamik</span><select id="shiftDynamicsSetting" aria-label="Schichtdynamik"></select></label>
+            <label><span>Stolperrisiko</span><select id="tripRiskSetting" aria-label="Stolperrisiko"></select></label>
+            <label><span>Zielhilfe</span><select id="navigatorSetting" aria-label="Zielhilfe"></select></label>
+          </div>
+          <p>Individuelle Einstellungen verändern den Ablauf, nicht deinen dauerhaften Meisterschaftsfortschritt.</p>
+        </aside>
       </div>
-      <p class="hint desktop-help"><kbd>WASD</kbd> Laufen · <kbd>Maus</kbd> Kamera · <kbd>E</kbd> Aktion · <kbd>Shift</kbd> Sprint · <kbd>C</kbd> Kamera</p>
-      <p class="hint mobile-help">Linker Stick: laufen · im Bild ziehen: Kamera · Aktion: aufnehmen/ablegen</p>
+
+      <nav class="menu-dock" aria-label="Weitere Bereiche">
+        <button id="shopButton" class="dock-button" type="button"><span aria-hidden="true">✦</span><b>Shop</b></button>
+        <button id="achievementsButton" class="dock-button" type="button"><span aria-hidden="true">🏆</span><b>Achievements</b></button>
+        <button id="statsButton" class="dock-button" type="button"><span aria-hidden="true">↗</span><b>Entwicklung</b></button>
+        <button id="settingsButton" class="dock-button" type="button"><span aria-hidden="true">⚙</span><b>Einstellungen</b></button>
+        <button id="fullscreenButton" class="dock-button" type="button"><span aria-hidden="true">⛶</span><b>Vollbild</b></button>
+      </nav>
     </div>
   </main>
 
@@ -172,7 +220,21 @@
 
   <div id="statsScreen" class="screen modal-screen hidden" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
     <div class="panel library-panel" tabindex="-1">
-      <div class="modal-header"><div><div class="eyebrow">Deine Karriere</div><h2 id="statsTitle">Statistik</h2></div><button class="close-button" type="button" data-close="statsScreen" aria-label="Statistik schließen">×</button></div>
+      <div class="modal-header"><div><div class="eyebrow">Deine Karriere</div><h2 id="statsTitle">Entwicklung</h2></div><button class="close-button" type="button" data-close="statsScreen" aria-label="Statistik schließen">×</button></div>
+      <section class="trend-panel" aria-labelledby="trendSummary">
+        <div class="trend-header">
+          <div><small>Leistung über Zeit</small><strong id="trendSummary">Noch nicht genug Vergleichsrunden</strong><span id="trendMeta">0 von mindestens 4 vergleichbaren Runden</span></div>
+          <strong id="trendDelta" class="trend-new">–</strong>
+          <div class="trend-filters">
+            <label><span class="sr-only">Level filtern</span><select id="statsLevelFilter" aria-label="Statistik nach Level filtern"></select></label>
+            <label><span class="sr-only">Modus filtern</span><select id="statsModeFilter" aria-label="Statistik nach Modus filtern"></select></label>
+          </div>
+        </div>
+        <div id="trendChart" class="trend-chart"></div>
+      </section>
+      <h3>Letzte Schichten</h3>
+      <div id="recentRounds" class="recent-rounds"></div>
+      <h3>Karriere auf einen Blick</h3>
       <div id="careerStats" class="career-stats"></div>
       <h3>Bestwerte nach Level und Tempo</h3>
       <div id="modeStats" class="mode-stats"></div>

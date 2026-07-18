@@ -75,10 +75,12 @@ export function shiftEvent(levelId, delivered, totalItems) {
   return current;
 }
 
-export function shiftEventMultiplier(event, item) {
+export function shiftEventMultiplier(event, item, dynamics = "standard") {
   if (!event || !item) return 1;
-  if (event.types?.includes(item.type)) return event.multiplier;
-  if (event.weights?.includes(item.weight)) return event.multiplier;
+  const matches = event.types?.includes(item.type) || event.weights?.includes(item.weight);
+  if (!matches) return 1;
+  const intensity = dynamics === "calm" ? 0.65 : dynamics === "intense" ? 1.35 : 1;
+  if (matches) return 1 + (event.multiplier - 1) * intensity;
   return 1;
 }
 
@@ -89,9 +91,14 @@ export function waveForItem(levelId, index, totalItems) {
   return index < firstWave + Math.ceil(remaining / 2) ? 1 : 2;
 }
 
-export function unlockedWave(delivered, totalItems) {
+export function unlockedWave(delivered, totalItems, dynamics = "standard") {
   const ratio = delivered / Math.max(1, totalItems);
-  if (ratio >= 0.58) return 2;
-  if (ratio >= 0.26) return 1;
+  const thresholds = dynamics === "calm"
+    ? [0.4, 0.72]
+    : dynamics === "intense"
+      ? [0.18, 0.46]
+      : [0.26, 0.58];
+  if (ratio >= thresholds[1]) return 2;
+  if (ratio >= thresholds[0]) return 1;
   return 0;
 }

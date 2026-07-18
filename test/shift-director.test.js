@@ -33,3 +33,12 @@ test("Wellen öffnen sich nur mit dem Rundenfortschritt", () => {
   assert.equal(waveForItem("class", 0, 10), 0);
   assert.ok(waveForItem("class", 9, 10) > 0);
 });
+
+test("Schichtdynamik verschiebt Wellen und skaliert passende Boni", () => {
+  assert.equal(unlockedWave(2, 10, "intense"), 1);
+  assert.equal(unlockedWave(2, 10, "calm"), 0);
+  const event = shiftEvent("closing", 0, 10);
+  const item = { type: "towel", weight: "light" };
+  assert.ok(shiftEventMultiplier(event, item, "intense") > shiftEventMultiplier(event, item, "standard"));
+  assert.ok(shiftEventMultiplier(event, item, "calm") < shiftEventMultiplier(event, item, "standard"));
+});

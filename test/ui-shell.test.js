@@ -48,6 +48,16 @@ test("Accessibility- und Einstellungs-Hooks bleiben stabil", () => {
     "masteryLevel",
     "masteryProgressText",
     "masteryProgressBar",
+    "itemAmountSetting",
+    "shiftDynamicsSetting",
+    "tripRiskSetting",
+    "navigatorSetting",
+    "shiftPreviewCard",
+    "trendSummary",
+    "trendChart",
+    "recentRounds",
+    "statsLevelFilter",
+    "statsModeFilter",
   ]) {
     assert.match(index, new RegExp(`id="${id}"`));
   }
@@ -69,6 +79,8 @@ test("Manifest und Service Worker bilden eine offlinefähige App-Shell", () => {
     "./src/challenges.js",
     "./src/progression.js",
     "./src/shift-director.js",
+    "./src/shift-settings.js",
+    "./src/trip-physics.js",
     "./src/environment/index.js",
     "./src/environment/level-decor-specs.js",
   ]) {
