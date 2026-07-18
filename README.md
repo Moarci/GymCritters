@@ -113,8 +113,11 @@ Kein Account, keine Cloud, kein Tracking: Das gesamte Spiel läuft als statische
 | Item | Punkte | Zielzone | Gewichtsklasse |
 |---|---|---|---|
 | Hantel | 125 | Rack | schwer |
+| Kettlebell | 130 | Kettlebell-Ecke | schwer |
 | Trainingsmatte | 100 | Mattenzone | sperrig |
+| Medizinball | 105 | Ballnetz | sperrig |
 | Trinkflasche | 75 | Pfandzone | leicht |
+| Springseil | 65 | Seilhaken | leicht |
 | Handtuch | 50 | Wäsche | leicht |
 
 </details>
@@ -295,8 +298,8 @@ Der komplette Spielstand ist ein einziges JSON-Objekt unter dem `localStorage`-K
 | **V4 — Critter Crew** | Abgeschlossen | Progressionssystem, Fibi, Münzshop, Achievements, drei Level-Varianten, Tutorial, mobile Komfort-Settings |
 | **Kamera-/Bewegungs-Feinschliff** | Abgeschlossen | Kamera- und Spieler-Rotation entkoppelt, Kollisions-Jitter an Hindernissen behoben |
 | **GitHub Pages Deployment** | Abgeschlossen | Spiel live und direkt teilbar unter eigenem Link |
-| **Industrial Loft Gym** *(Entwurf)* | In Planung | Neues Level-Environment — siehe [`docs/superpowers/specs/2026-07-18-industrial-loft-gym-design.md`](docs/superpowers/specs/2026-07-18-industrial-loft-gym-design.md) |
-| **Erweiterte Ablageorte** *(Entwurf)* | In Planung | Zusätzliche Item-Storage-Varianten — siehe [`docs/superpowers/specs/2026-07-18-item-storage-expansion-design.md`](docs/superpowers/specs/2026-07-18-item-storage-expansion-design.md) |
+| **Erweiterte Ablageorte** | Abgeschlossen | Kettlebell, Springseil und Medizinball samt neuer Ablageorte — siehe [`docs/superpowers/specs/2026-07-18-item-storage-expansion-design.md`](docs/superpowers/specs/2026-07-18-item-storage-expansion-design.md) |
+| **Industrial Loft Gym** *(Entwurf, offener Worktree)* | In Planung | Geschlossene Decke, Sichtbeton, Industriefenster, Pegboard-Deko — siehe [`docs/superpowers/specs/2026-07-18-industrial-loft-gym-design.md`](docs/superpowers/specs/2026-07-18-industrial-loft-gym-design.md) |
 
 ---
 
@@ -304,6 +307,7 @@ Der komplette Spielstand ist ein einziges JSON-Objekt unter dem `localStorage`-K
 
 ### Unreleased (2026-07-18)
 
+- Drei neue Gegenstände (Kettlebell, Springseil, Medizinball) mit eigenen Ablageorten ergänzt, in alle drei Level integriert — siehe [`docs/superpowers/specs/2026-07-18-item-storage-expansion-design.md`](docs/superpowers/specs/2026-07-18-item-storage-expansion-design.md)
 - Kamera- und Spieler-Rotation vollständig entkoppelt — behebt "Kämpfen" zwischen automatischer Kameraausrichtung und Maus-Look
 - Blickrichtung der Figur folgt jetzt stabil der tatsächlichen Bewegungsrichtung statt einer fehleranfälligen `camera.target`/`camera.position`-Differenz
 - Kollisionsauflösung an Gym-Hindernissen auf Kreis-vs-Rechteck-Pushout umgestellt — kein Zittern mehr an Ecken
