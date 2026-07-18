@@ -5,6 +5,7 @@
 ### Gameplay und Schichtplanung
 
 - Herumliegende Gegenstände sind jetzt echte Stolperfallen: Bei ausreichendem Lauftempo stolpert der Critter, verliert seine Combo und lässt getragene Gegenstände kontrolliert auf freie Bodenpositionen fallen.
+- Abgelegte Trainingsmatten nutzen ein eindeutiges 4×4-Regalraster und deckende Materialien, sodass sich Farben nicht mehr durch Z-Fighting überlagern.
 - Drei Stolperrisiken verändern Auslöseradius, Mindesttempo, Abklingzeit und Dauer der Reaktion; Tutorial und unmittelbare Wiederholungen bleiben geschützt.
 - Der neue Zen-Modus besitzt kein Zeitlimit. Verstrichene Zeit wird für die private Entwicklungsauswertung erfasst, aber bewusst nicht als Bestzeit gewertet.
 - Gegenstandsmenge, Wellendynamik, Stolperrisiko und Zielhilfe lassen sich für jedes Level separat konfigurieren.
@@ -22,7 +23,7 @@
 
 - Neue Babylon-unabhängige Module kapseln Stolpererkennung und Schichteinstellungen für deterministische Tests.
 - Service Worker, Manifest, HTTP-Smoke-Test und UI-Shell wurden um die neuen Module und Oberflächen erweitert.
-- Die vollständige Suite umfasst 205 Tests sowie Syntax- und HTTP-Smoke-Prüfungen.
+- Die vollständige Suite umfasst 208 Tests sowie Syntax- und HTTP-Smoke-Prüfungen.
 
 ## V5.0.0 – Living Shifts (2026-07-18)
 

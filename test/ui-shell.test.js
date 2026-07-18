@@ -97,6 +97,7 @@ test("Manifest und Service Worker bilden eine offlinefähige App-Shell", () => {
     "./src/main.js",
     "./src/challenges.js",
     "./src/progression.js",
+    "./src/item-placement.js",
     "./src/shift-director.js",
     "./src/shift-settings.js",
     "./src/trip-physics.js",
