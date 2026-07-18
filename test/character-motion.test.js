@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  dominantWeight, carryPose, gaitParams, curveLean, idleMotion, squirrelTailSpec, LEAN_CAP,
+  dominantWeight, carryPose, gaitParams, curveLean, idleMotion, squirrelTailSpec, raccoonTailSpec, LEAN_CAP,
 } from "../src/character-motion.js";
 
 test("dominantWeight wählt die schwerste Klasse aus der Liste", () => {
@@ -133,4 +133,38 @@ test("squirrelTailSpec rollt sich ein — die Zuwächse werden zum Ende kleiner"
 
 test("squirrelTailSpec ist deterministisch", () => {
   assert.deepEqual(squirrelTailSpec(), squirrelTailSpec());
+});
+
+test("raccoonTailSpec liefert sechs verjüngte Ringel-Segmente", () => {
+  const spec = raccoonTailSpec();
+  assert.equal(spec.length, 6);
+  for (let i = 1; i < spec.length; i++) {
+    assert.ok(spec[i].radius < spec[i - 1].radius, `Segment ${i} verjüngt sich nicht`);
+  }
+  const taper = 1 - spec.at(-1).radius / spec[0].radius;
+  assert.ok(taper >= 0.3, `Verjüngung nur ${Math.round(taper * 100)} %`);
+});
+
+test("raccoonTailSpec rollt nach oben statt waagerecht herauszuragen", () => {
+  const spec = raccoonTailSpec();
+  for (let i = 1; i < spec.length; i++) {
+    assert.ok(spec[i].position[1] > spec[i - 1].position[1], `Segment ${i} steigt nicht`);
+  }
+  for (const segment of spec) {
+    assert.ok(segment.position[2] <= 1.1, `zu tief hinter der Figur: ${segment.position[2]}`);
+    assert.ok(segment.position[1] <= 0.75, `zu hoch über der Wurzel: ${segment.position[1]}`);
+  }
+});
+
+test("raccoonTailSpec dreht die Segmente tangential — Bogen statt Knick", () => {
+  const spec = raccoonTailSpec();
+  assert.ok(Math.abs(spec[0].rotationX - Math.PI / 2) < 0.1, "der Ansatz liegt waagerecht");
+  for (let i = 1; i < spec.length; i++) {
+    assert.ok(spec[i].rotationX < spec[i - 1].rotationX, `Segment ${i} dreht nicht weiter auf`);
+  }
+  assert.ok(spec.at(-1).rotationX < 0.5, "die Spitze zeigt fast senkrecht nach oben");
+});
+
+test("raccoonTailSpec ist deterministisch", () => {
+  assert.deepEqual(raccoonTailSpec(), raccoonTailSpec());
 });

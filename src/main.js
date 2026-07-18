@@ -18,7 +18,7 @@ import { SQUASH_DURATION, comboImpactScale, deliveryPitch, impactSound, impactSt
 import { createTouchInput } from "./input/index.js";
 import { clampPitch } from "./input/touch-look.js";
 import { createQualityState, stepQuality } from "./perf/adaptive-quality.js";
-import { carryPose, curveLean, dominantWeight, gaitParams, idleMotion, squirrelTailSpec } from "./character-motion.js";
+import { carryPose, curveLean, dominantWeight, gaitParams, idleMotion, raccoonTailSpec, squirrelTailSpec } from "./character-motion.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -213,24 +213,49 @@ function buildRaccoon() {
   const body = capsule("body", 0.43, 1.12, [0, 0.85, 0], fur); body.scaling.z = 0.86;
   const belly = sphere("belly", 0.58, [0, 0.82, -0.34], light); belly.scaling.set(0.72, 1, 0.18);
   const head = sphere("head", 0.82, [0, 1.57, -0.06], fur); head.scaling.set(1, 0.92, 0.96);
-  const muzzle = sphere("muzzle", 0.48, [0, 1.47, -0.38], light); muzzle.scaling.set(0.9, 0.65, 0.55);
-  const mask = sphere("mask", 0.69, [0, 1.64, -0.31], dark); mask.scaling.set(1, 0.32, 0.22);
-  const eyes = createEyes(1.65, -0.55, 0.16);
-  const nose = sphere("nose", 0.16, [0, 1.5, -0.61], material("raccoonNose", "#111318", 0.6)); nose.scaling.set(1, 0.72, 0.75);
-  for (const x of [-0.28, 0.28]) {
-    const ear = B.MeshBuilder.CreateCylinder("ear", { diameterTop: 0.04, diameterBottom: 0.31, height: 0.38, tessellation: 16 }, scene);
-    ear.parent = playerVisual; ear.position.set(x, 1.94, -0.01); ear.rotation.z = x < 0 ? -0.35 : 0.35; ear.material = dark;
+
+  // Gesicht als zusammenhaengende Einheit: jedes Teil ueberlappt seinen Traeger,
+  // nichts schwebt. Die Werte sind gegen die Ellipsoid-Oberflaechen gerechnet —
+  // Schnauze steckt im Kopf, Flecken im Kopf, Augen in den Flecken, Nase in der
+  // Schnauze.
+  const muzzle = sphere("muzzle", 0.5, [0, 1.44, -0.34], light); muzzle.scaling.set(0.85, 0.7, 0.6);
+  // Die Banditenmaske als zwei sichtbare Augenflecken statt eines Bands, das
+  // vorher komplett in der Kopfkugel verschwand.
+  for (const x of [-0.17, 0.17]) {
+    const patch = sphere("maskPatch", 0.3, [x, 1.62, -0.4], dark); patch.scaling.set(0.78, 0.95, 0.4);
   }
+  const eyes = createEyes(1.63, -0.46, 0.17);
+  const nose = sphere("nose", 0.16, [0, 1.49, -0.52], material("raccoonNose", "#111318", 0.6)); nose.scaling.set(1, 0.8, 0.8);
+
+  // Runde, zweifarbige Ohren statt der Kegel-Huete, unten in der Kopfkugel
+  // eingelassen und leicht nach aussen gekippt.
+  for (const x of [-0.26, 0.26]) {
+    const ear = sphere("ear", 0.34, [x, 1.9, 0], dark); ear.scaling.set(0.9, 1, 0.45); ear.rotation.z = x < 0 ? -0.25 : 0.25;
+    const inner = sphere("earInner", 0.2, [x, 1.89, -0.06], light); inner.scaling.set(0.7, 0.85, 0.3); inner.rotation.z = ear.rotation.z;
+  }
+
   const leftArm = limb("leftArm", -0.46, 1.05, fur, 0.105, 0.68);
   const rightArm = limb("rightArm", 0.46, 1.05, fur, 0.105, 0.68);
   const leftLeg = limb("leftLeg", -0.22, 0.28, dark, 0.13, 0.48, true);
   const rightLeg = limb("rightLeg", 0.22, 0.28, dark, 0.13, 0.48, true);
-  const tailRoot = new B.TransformNode("tailRoot", scene); tailRoot.parent = playerVisual; tailRoot.position.set(0, 0.88, 0.35);
-  for (let i = 0; i < 6; i++) {
-    const segment = B.MeshBuilder.CreateCapsule(`tail${i}`, { radius: 0.19 - i * 0.012, height: 0.55 }, scene);
-    segment.parent = tailRoot; segment.position.set(0.05 * Math.sin(i * 0.8), -i * 0.03, i * 0.38);
-    segment.rotation.x = Math.PI / 2 + 0.12 * i; segment.material = i % 2 === 0 ? dark : fur;
+
+  // Pfoten und Fuesse haengen an den Gliedmassen, nicht an der Figur — so
+  // machen sie Armschwung und Tragehaltung automatisch mit.
+  for (const arm of [leftArm, rightArm]) {
+    const paw = B.MeshBuilder.CreateSphere("paw", { diameter: 0.17, segments: 10 }, scene);
+    paw.parent = arm; paw.position.set(0, -0.36, 0); paw.material = dark;
   }
+  for (const leg of [leftLeg, rightLeg]) {
+    const foot = B.MeshBuilder.CreateSphere("foot", { diameter: 0.2, segments: 10 }, scene);
+    foot.parent = leg; foot.position.set(0, -0.26, -0.06); foot.scaling.set(1, 0.55, 1.5); foot.material = dark;
+  }
+
+  const tailRoot = new B.TransformNode("tailRoot", scene); tailRoot.parent = playerVisual; tailRoot.position.set(0, 0.88, 0.35);
+  raccoonTailSpec().forEach((segment, i) => {
+    const ring = B.MeshBuilder.CreateCapsule(`tail${i}`, { radius: segment.radius, height: 0.55 }, scene);
+    ring.parent = tailRoot; ring.position.set(...segment.position);
+    ring.rotation.x = segment.rotationX; ring.material = i % 2 === 0 ? dark : fur;
+  });
   return { body, head, eyes, leftArm, rightArm, leftLeg, rightLeg, tailRoot };
 }
 
@@ -242,8 +267,8 @@ function buildSquirrel() {
   const belly = sphere("belly", 0.56, [0, 0.82, -0.34], light); belly.scaling.set(0.72, 1, 0.18);
   const head = sphere("head", 0.78, [0, 1.55, -0.07], fur); head.scaling.set(0.95, 0.98, 0.92);
   const muzzle = sphere("muzzle", 0.42, [0, 1.45, -0.41], light); muzzle.scaling.set(0.85, 0.62, 0.55);
-  const eyes = createEyes(1.64, -0.55, 0.17);
-  sphere("nose", 0.13, [0, 1.46, -0.62], material("squirrelNose", "#201712", 0.6));
+  const eyes = createEyes(1.64, -0.44, 0.17);
+  sphere("nose", 0.13, [0, 1.46, -0.5], material("squirrelNose", "#201712", 0.6));
   for (const x of [-0.25, 0.25]) {
     const ear = B.MeshBuilder.CreateCylinder("squirrelEar", { diameterTop: 0.03, diameterBottom: 0.24, height: 0.48, tessellation: 16 }, scene);
     ear.parent = playerVisual; ear.position.set(x, 1.98, -0.02); ear.rotation.z = x < 0 ? -0.16 : 0.16; ear.material = dark;
