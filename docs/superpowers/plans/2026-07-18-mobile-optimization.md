@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Sprache im Code: Kommentare, Commit-Messages, Tests und UI-Texte auf Deutsch. Bezeichner auf Englisch. Das ist der bestehende Stil im Repo.
+- Sprache im Code: Kommentare, Testnamen und UI-Texte auf Deutsch, Bezeichner auf Englisch. **Commit-Messages auf Englisch im Conventional-Commits-Format** — so hält es die bestehende Historie (`feat: move the delivery payoff to the moment the item lands`).
 - Immutabilität: Funktionen geben neue Objekte zurück, statt Argumente zu verändern.
 - Dateigröße: Neue Module bleiben deutlich unter 200 Zeilen.
 - Keine kontinuierliche Auto-Follow-Kamera. Die Rotation fließt nur von der Kamera zum Spieler, nie zurück. `resetCamera()` bleibt ein One-Shot.
