@@ -15,10 +15,12 @@ export function dominantWeight(weights) {
 // Drei klar unterscheidbare Silhouetten. armX ist die Beugung nach vorn
 // (negativer = höher angewinkelt), armZ die Spreizung, torsoLean die Rücklage
 // des ganzen Körpers als Gegengewicht zur schweren Last.
+// elbowX beugt den Unterarm am Ellbogengelenk — erst dadurch sehen die
+// Haltungen nach Halten aus statt nach steif vorgestreckten Stangen.
 const POSES = {
-  heavy: { armX: -0.55, armZ: 0.18, torsoLean: -0.1 },
-  bulky: { armX: -0.9, armZ: 0.7, torsoLean: 0 },
-  light: { armX: -1.05, armZ: 0.35, torsoLean: 0 },
+  heavy: { armX: -0.25, armZ: 0.12, elbowX: -1.0, torsoLean: -0.12 },
+  bulky: { armX: -0.6, armZ: 0.6, elbowX: -0.45, torsoLean: 0 },
+  light: { armX: -0.85, armZ: 0.3, elbowX: -0.35, torsoLean: 0 },
 };
 
 export function carryPose(weight) {
@@ -75,18 +77,18 @@ export function squirrelTailSpec() {
   return segments;
 }
 
-// Roccos Ringelschwanz: sechs Kapseln entlang eines Bogens, jede tangential
+// Roccos Ringelschwanz: acht dicht überlappende Kapseln entlang eines Bogens, jede tangential
 // zur Kurve gedreht — der Schwanz rollt sich nach oben auf, statt als
 // waagerechte Kette aus der Figur zu ragen. rotationX = PI/2 heißt "zeigt
 // gerade nach hinten"; zur Spitze hin dreht der Bogen Richtung senkrecht.
 export function raccoonTailSpec() {
   const segments = [];
-  for (let i = 0; i < 6; i++) {
-    const t = i * 0.3;
+  for (let i = 0; i < 8; i++) {
+    const t = i * 0.22;
     const dy = 0.72 * 0.3 * Math.sin(t);
     const dz = 1.05 * 0.3 * Math.cos(t);
     segments.push({
-      radius: 0.19 - i * 0.013,
+      radius: 0.2 - i * 0.011,
       position: [
         0.04 * Math.sin(i * 0.8),
         0.72 * (1 - Math.cos(t)),
@@ -108,4 +110,24 @@ export function idleMotion(t) {
     breath: 0.015 * Math.sin(t * 2.6),
     tailFlick: pulse * 0.35 * Math.sin(t * 14),
   };
+}
+
+// Punkt auf einem achsenparallelen Ellipsoid entlang einer Richtung, plus
+// optionalem Versatz entlang derselben Normale nach außen. Damit sitzen
+// Gesichtsteile AUF der Kopfoberfläche statt an per Augenmaß geratenen
+// z-Werten — und ein Stapel (Fleck, Auge, Pupille, Glanzlicht) liegt sauber
+// geschichtet auf demselben Strahl.
+export function surfacePoint(radii, dir, out = 0) {
+  const laenge = Math.hypot(dir[0], dir[1], dir[2]);
+  const d = [dir[0] / laenge, dir[1] / laenge, dir[2] / laenge];
+  const t = 1 / Math.sqrt((d[0] / radii[0]) ** 2 + (d[1] / radii[1]) ** 2 + (d[2] / radii[2]) ** 2);
+  return [d[0] * (t + out), d[1] * (t + out), d[2] * (t + out)];
+}
+
+// Euler-Winkel [pitchX, yawY], die die lokale +z-Achse eines Meshes auf die
+// Richtung ausrichten — flachgedrückte Kugeln schmiegen sich damit an die
+// Oberfläche, statt schräg im Raum zu hängen.
+export function facingRotation(dir) {
+  const laenge = Math.hypot(dir[0], dir[1], dir[2]);
+  return [-Math.asin(dir[1] / laenge), Math.atan2(dir[0] / laenge, dir[2] / laenge)];
 }
