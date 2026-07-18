@@ -38,9 +38,14 @@ Die Rückmeldung wird auf zwei Zeitpunkte aufgeteilt, statt gebündelt beim Tast
 | Zeitpunkt | Was passiert | Rolle |
 |---|---|---|
 | `E` gedrückt | Leiser Bestätigungsklick, Gegenstand startet seinen Bogen, Punkte-Pop erscheint | „Angenommen" |
-| Gegenstand landet (nach 500 ms) | Zone staucht und federt nach, materialabhängiger Aufschlag-Sound, Staubwölkchen, minimaler Kamera-Stups | „Angekommen" |
+| Gegenstand landet (nach 500 ms) | Zone staucht und federt nach, materialabhängiger Aufschlag-Sound, Staubwölkchen, minimaler Kamera-Stups, Vibration | „Angekommen" |
 
-Toast und Charakterspruch wandern ans Ende der Kette, damit sie den Landemoment nicht übertönen.
+Konkret zur bestehenden Rückmeldung:
+
+- Der heutige `deliver`-Sound **wandert an den Landezeitpunkt**. Der Tastendruck bekommt stattdessen einen deutlich kürzeren, leiseren Bestätigungston, damit die Eingabe quittiert wird, ohne dem Aufschlag die Bühne zu nehmen.
+- Das Vibrationsmuster wandert ebenfalls auf den Landezeitpunkt — es soll den Aufschlag begleiten, nicht den Tastendruck.
+- Toast und Charakterspruch wandern ans Ende der Kette, damit sie den Landemoment nicht übertönen.
+- Der bestehende bunte Belohnungs-Burst (`showDeliveryBurst`) bleibt am Landepunkt und behält seine Rolle als *Belohnungs*-Signal; das neue Staubwölkchen ist das *Aufprall*-Signal.
 
 Der Punkte-Pop bleibt bewusst beim Tastendruck: Er ist Information („das hat sich gelohnt"), nicht Wucht, und soll unmittelbar auf die Eingabe antworten.
 
