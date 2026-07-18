@@ -129,14 +129,15 @@ git commit -m "refactor: extract shared Babylon accessor and material helper"
 
 ### Task 2: Raumhülle – Decke, Dachbinder, Sichtbeton-Wände, Fenster, Rohre, Mural
 
+> **Parallel-Ausführung:** Läuft gleichzeitig mit Task 3 (beide hängen nur von Task 1 ab, nicht voneinander). Damit beide Implementer-Subagenten nicht dieselbe Datei anfassen, rührt dieser Task `src/main.js` NICHT an – das komplette Verdrahten in `createScene()`/`createCamera()` inkl. Kamera-Limit-Fix passiert gesammelt in Task 4, nachdem Task 2 und Task 3 beide fertig sind.
+
 **Files:**
 - Create: `src/environment/textures.js`
 - Create: `src/environment/structure.js`
-- Modify: `src/main.js` (Import ergänzen, `createGym()`/`createWallSign()` entfernen, `createScene()` und `createCamera()` anpassen)
 
 **Interfaces:**
 - Consumes: `createMaterial(scene, name, color, roughness, metallic)`, `createTexturedMaterial(scene, name, texture, opts)` aus Task 1.
-- Produces: `export function buildStructure(scene, shadowGenerator, { quality = "high" } = {})` (kein Rückgabewert; Task 3/4 brauchen ihn nicht). Texturfunktionen aus `textures.js`: `createConcreteTexture(scene, name, { base, joints, size })`, `createRustMetalTexture(scene, name, { base, rust, size })`, `createDuskGradientTexture(scene, name, { size })`, `createMuralTexture(scene, name, { width, height, phrase, accent })`.
+- Produces: `export function buildStructure(scene, shadowGenerator, { quality = "high" } = {})` (kein Rückgabewert). Texturfunktionen aus `textures.js`: `createConcreteTexture(scene, name, { base, joints, size })`, `createRustMetalTexture(scene, name, { base, rust, size })`, `createDuskGradientTexture(scene, name, { size })`, `createMuralTexture(scene, name, { width, height, phrase, accent })`. **Diese exakten Exportnamen/Signaturen sind bindend** – Task 4 verdrahtet `buildStructure` anhand dieser Namen, ohne `structure.js` selbst nochmal zu lesen.
 
 - [ ] **Step 1: `src/environment/textures.js` anlegen**
 
@@ -455,64 +456,36 @@ function buildWallPipe(scene, x) {
 }
 ```
 
-- [ ] **Step 3: `main.js` verdrahten**
+- [ ] **Step 3: Syntax-Check (kein main.js-Wiring in diesem Task)**
 
-Import ergänzen (an bestehenden Import-Block anhängen):
-
-```js
-import { buildStructure } from "./environment/structure.js";
-```
-
-In `createScene()` (`src/main.js:104-136`) die Zeile `createGym();` entfernen (der Rest der Zonen-/Deko-Aufrufe bleibt vorerst unverändert, das übernimmt Task 3/4) und direkt davor einfügen:
-
-```js
-  buildStructure(scene, shadowGenerator, { quality: save.settings.quality });
-```
-
-Die Funktionen `createGym()` (`src/main.js:138-185`) und `createWallSign()` (`src/main.js:187-199`) komplett aus `main.js` löschen (sind jetzt in `structure.js`).
-
-**Wichtig – Kamera-Limits anpassen:** Mit einer echten Decke bei y ≈ 4.9 kann die Kamera bei den bisherigen Limits (`lowerBetaLimit = 0.65`, `upperRadiusLimit = 9.2`) rechnerisch bis y ≈ 8.1 aufsteigen (`targetY + radius * cos(beta)`), also oberhalb/durch die neue Decke – man würde dann nur noch die Deckenoberseite von außen sehen. In `createCamera()` (`src/main.js:412-419`) die Limits so anpassen, dass die maximale Kamerahöhe sicher unter der Decke bleibt:
-
-Ersetze in `src/main.js:414`:
-
-```js
-  camera.lowerRadiusLimit = 4.7; camera.upperRadiusLimit = 9.2; camera.lowerBetaLimit = 0.65; camera.upperBetaLimit = 1.32;
-```
-
-durch:
-
-```js
-  camera.lowerRadiusLimit = 4.7; camera.upperRadiusLimit = 6.1; camera.lowerBetaLimit = 0.9; camera.upperBetaLimit = 1.32;
-```
-
-(Maximale Kamerahöhe damit ≈ 0.78 + 6.1 × cos(0.9) ≈ 4.57 – deutlich unter der Deckenunterseite bei 4.9.)
-
-- [ ] **Step 4: Visuelle Verifikation**
+`main.js` wird in diesem Task bewusst NICHT verändert (Konfliktvermeidung mit dem parallel laufenden Task 3). Stattdessen die neuen Module isoliert auf Syntaxfehler prüfen:
 
 ```bash
-python start_game.py
+node --check src/environment/textures.js
+node --check src/environment/structure.js
 ```
 
-Im Browser: Kamera mit Mausrad maximal rauszoomen und mit gedrückter Maustaste nach oben schauen (steilster erlaubter Winkel) – es darf **kein schwarzer Void** mehr sichtbar sein, stattdessen die neue Decke mit Dachbindern und Pendelleuchten. Seitenwände zeigen Sichtbeton-Textur, Fenster mit Dämmerungs-Glas sind sichtbar, Rückwand zeigt das neue Mural. Kamera darf nicht durch/über die Decke "springen" können.
+Beide Befehle dürfen keine Ausgabe/keinen Fehler liefern (Exit-Code 0). Zusätzlich per Code-Lesung sicherstellen: `buildStructure` hat exakt die Signatur `(scene, shadowGenerator, { quality = "high" } = {})`, alle in diesem Task neu benannten Mesh-/Material-Namen sind eindeutig (keine Kollision mit Namen aus `decor.js`, das parallel entsteht).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add src/environment/textures.js src/environment/structure.js src/main.js
-git commit -m "feat: rebuild gym shell with closed ceiling, concrete walls and windows"
+git add src/environment/textures.js src/environment/structure.js
+git commit -m "feat: add procedural gym shell (ceiling, concrete walls, windows, pipes)"
 ```
 
 ---
 
 ### Task 3: Zonen/Deko-Modul extrahieren + Pegboard mit Equipment
 
+> **Parallel-Ausführung:** Läuft gleichzeitig mit Task 2 (beide hängen nur von Task 1 ab, nicht voneinander, und nicht von `structure.js`). Damit beide Implementer-Subagenten nicht dieselbe Datei anfassen, rührt dieser Task `src/main.js` NICHT an – das Verdrahten passiert gesammelt in Task 4.
+
 **Files:**
 - Create: `src/environment/decor.js`
-- Modify: `src/main.js` (Import ergänzen, betroffene Funktionen entfernen, `createScene()` anpassen)
 
 **Interfaces:**
-- Consumes: `createMaterial` aus Task 1; `ROOM`-Maße implizit über feste Koordinaten (keine Abhängigkeit zu `structure.js`).
-- Produces: `export function buildDecor(scene, shadowGenerator, { quality = "high" } = {})` → gibt `{ zones, obstacles }` zurück (gleiche Form wie die bisherigen main.js-Module-Level-Arrays `zones`/`obstacles`). `export function setActiveLevelDecor(levelId)`.
+- Consumes: `createMaterial` aus Task 1; feste Koordinaten (keine Abhängigkeit zu `structure.js`).
+- Produces: `export function buildDecor(scene, shadowGenerator, { quality = "high" } = {})` → gibt `{ zones, obstacles }` zurück (gleiche Form wie die bisherigen main.js-Module-Level-Arrays `zones`/`obstacles`). `export function setActiveLevelDecor(levelId)`. **Diese exakten Exportnamen/Signaturen sind bindend** – Task 4 verdrahtet `buildDecor`/`setActiveLevelDecor` anhand dieser Namen, ohne `decor.js` selbst nochmal zu lesen.
 
 - [ ] **Step 1: `src/environment/decor.js` anlegen**
 
@@ -736,62 +709,35 @@ function buildJumpRope(x, y, z) {
 }
 ```
 
-- [ ] **Step 2: `main.js` verdrahten**
+- [ ] **Step 2: Syntax-Check (kein main.js-Wiring in diesem Task)**
 
-Import ergänzen:
-
-```js
-import { buildDecor, setActiveLevelDecor } from "./environment/decor.js";
-```
-
-In `createScene()` (`src/main.js:104-136`) ersetze die Zeilen
-
-```js
-  createZones();
-  createBaseDecor();
-  createLevelDecor();
-```
-
-durch:
-
-```js
-  const decor = buildDecor(scene, shadowGenerator, { quality: save.settings.quality });
-  zones = decor.zones;
-  obstacles = decor.obstacles;
-```
-
-Die Funktionen `createZones`, `addZone`, `createDumbbellRack`, `createLaundryZone`, `createBottleZone`, `createMatZone`, `createBaseDecor`, `createLevelDecor`, `setActiveLevelDecor` aus `main.js` (`main.js:201-274`, `main.js:428-492`) löschen – `zones`/`obstacles`/`levelDecor` als `let`-Deklarationen in `main.js` bleiben bestehen (werden weiterhin von `resolvePlayerPosition` etc. gelesen), nur die Befüllung passiert jetzt über `buildDecor()`.
-
-`setActiveLevelDecor` wird an den bestehenden Aufrufstellen (`main.js:134`, `~1128`, `~1294`) unverändert weiterverwendet – jetzt aus dem Import statt lokal definiert.
-
-- [ ] **Step 3: Visuelle & funktionale Verifikation**
+`main.js` wird in diesem Task bewusst NICHT verändert (Konfliktvermeidung mit dem parallel laufenden Task 2). Stattdessen das neue Modul isoliert auf Syntaxfehler prüfen:
 
 ```bash
-python start_game.py
+node --check src/environment/decor.js
 ```
 
-- Alle vier Zonen (Hantelregal, Wäschekorb, Flaschenbox, Mattenregal) an gewohnter Position, Beacon/Highlight funktioniert weiterhin.
-- Neue Pegboards mit Kettlebells/Resistance-Band/Springseilen an beiden hinteren Seitenwänden sichtbar, ohne Fenster zu überlappen.
-- Alle drei Level (`closing`, `class`, `legday`) kurz anspielen: Level-Deko schaltet korrekt um, keine Kollisions-/Bewegungsauffälligkeiten.
-- `quality: "low"` in den Spiel-Einstellungen aktivieren, neu laden: Kettlebell-Segmente gröber, keine Fehler.
+Der Befehl darf keine Ausgabe/keinen Fehler liefern (Exit-Code 0). Zusätzlich per Code-Lesung sicherstellen: `buildDecor` hat exakt die Signatur `(scene, shadowGenerator, { quality = "high" } = {})` und gibt `{ zones, obstacles }` zurück; `setActiveLevelDecor(levelId)` ist separat exportiert; alle Mesh-/Material-Namen sind eindeutig (keine Kollision mit Namen aus `structure.js`, das parallel entsteht).
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add src/environment/decor.js src/main.js
+git add src/environment/decor.js
 git commit -m "feat: extract zone/decor module and add pegboard equipment props"
 ```
 
 ---
 
-### Task 4: Environment-Orchestrator + Aufräumen
+### Task 4: Environment-Orchestrator + main.js-Verdrahtung + Kamera-Fix
+
+> **Läuft NACH Task 2 UND Task 3** (beide müssen fertig/committed sein). Dieser Task fasst als einziger `main.js` an – dadurch entstehen keine Merge-Konflikte mit den parallelen Tasks 2/3. Er integriert `structure.js` (Task 2) und `decor.js` (Task 3), verdrahtet beides in `main.js` und ist der einzige Task mit einer vollständigen Live-Verifikation im Browser.
 
 **Files:**
 - Create: `src/environment/index.js`
-- Modify: `src/main.js`
+- Modify: `src/main.js` (Import, `createScene()`, `createCamera()`, Löschen der ausgelagerten Funktionen)
 
 **Interfaces:**
-- Consumes: `buildStructure` (Task 2), `buildDecor` + `setActiveLevelDecor` (Task 3).
+- Consumes: `buildStructure(scene, shadowGenerator, { quality })` (Task 2), `buildDecor(scene, shadowGenerator, { quality }) -> { zones, obstacles }` + `setActiveLevelDecor(levelId)` (Task 3).
 - Produces: `export function buildEnvironment(scene, shadowGenerator, options)` → `{ zones, obstacles }`; `export { setActiveLevelDecor }`.
 
 - [ ] **Step 1: `src/environment/index.js` anlegen**
@@ -808,32 +754,26 @@ export function buildEnvironment(scene, shadowGenerator, options) {
 }
 ```
 
-- [ ] **Step 2: `main.js` auf den Orchestrator umstellen**
+- [ ] **Step 2: Import in `main.js` ergänzen**
 
-Ersetze die drei separaten Imports aus Task 2/3:
-
-```js
-import { buildStructure } from "./environment/structure.js";
-import { buildDecor, setActiveLevelDecor } from "./environment/decor.js";
-```
-
-durch:
+An den bestehenden Import-Block in `src/main.js` (nach den Imports aus Task 1, `import { createMaterial } from "./materials.js";`) anhängen:
 
 ```js
 import { buildEnvironment, setActiveLevelDecor } from "./environment/index.js";
 ```
 
-In `createScene()` die beiden separaten Aufrufe
+- [ ] **Step 3: `createScene()` umbauen**
+
+In `src/main.js` (`createScene()`, ursprünglich `main.js:104-136`) die vier Zeilen
 
 ```js
-  buildStructure(scene, shadowGenerator, { quality: save.settings.quality });
-  ...
-  const decor = buildDecor(scene, shadowGenerator, { quality: save.settings.quality });
-  zones = decor.zones;
-  obstacles = decor.obstacles;
+  createGym();
+  createZones();
+  createBaseDecor();
+  createLevelDecor();
 ```
 
-zusammenfassen zu:
+durch einen einzigen Aufruf ersetzen:
 
 ```js
   const environment = buildEnvironment(scene, shadowGenerator, { quality: save.settings.quality });
@@ -841,23 +781,58 @@ zusammenfassen zu:
   obstacles = environment.obstacles;
 ```
 
-- [ ] **Step 3: Vollständiger Smoke-Test**
+(Die restlichen Zeilen von `createScene()` – `createPlayerCollider(); buildCharacter(...); createCamera(); setActiveLevelDecor(state.level); scene.onBeforeRenderObservable.add(update);` – bleiben unverändert.)
+
+- [ ] **Step 4: Ausgelagerte Funktionen aus `main.js` entfernen**
+
+Folgende Funktionen komplett aus `main.js` löschen (sie leben jetzt in `structure.js`/`decor.js`):
+- `createGym()` (ursprünglich `main.js:138-185`)
+- `createWallSign()` (ursprünglich `main.js:187-199`)
+- `createZones()`, `addZone()`, `createDumbbellRack()`, `createLaundryZone()`, `createBottleZone()`, `createMatZone()` (ursprünglich `main.js:201-274`)
+- `createBaseDecor()` (ursprünglich `main.js:428-467`)
+- `createLevelDecor()` (ursprünglich `main.js:469-488`)
+- `setActiveLevelDecor()` als lokale Funktion (ursprünglich `main.js:490-492`) – wird jetzt aus dem Import in Step 2 verwendet, alle bestehenden Aufrufstellen (`~main.js:1128`, `~main.js:1294`) bleiben unverändert, da der Funktionsname identisch ist.
+
+Die `let`-Deklarationen `zones`, `obstacles`, `levelDecor` am Dateianfang von `main.js` (ursprünglich `main.js:73-78`) bleiben bestehen – `levelDecor` wird jetzt nirgends mehr in `main.js` selbst befüllt/gelesen (das passiert komplett in `decor.js`); falls `levelDecor` nach dem Löschen der obigen Funktionen in `main.js` nicht mehr referenziert wird, die Deklaration `let levelDecor = {};` ebenfalls entfernen (unused variable).
+
+- [ ] **Step 5: Kamera-Limits anpassen**
+
+Mit einer echten Decke bei y ≈ 4.9 kann die Kamera bei den bisherigen Limits (`lowerBetaLimit = 0.65`, `upperRadiusLimit = 9.2`) rechnerisch bis y ≈ 8.1 aufsteigen (`targetY + radius * cos(beta)`), also oberhalb/durch die neue Decke – man würde dann nur noch die Deckenoberseite von außen sehen, statt ins Gym zu blicken. In `createCamera()` (`src/main.js:412-419`) die Limits so anpassen, dass die maximale Kamerahöhe sicher unter der Decke bleibt.
+
+Ersetze in `src/main.js:414`:
+
+```js
+  camera.lowerRadiusLimit = 4.7; camera.upperRadiusLimit = 9.2; camera.lowerBetaLimit = 0.65; camera.upperBetaLimit = 1.32;
+```
+
+durch:
+
+```js
+  camera.lowerRadiusLimit = 4.7; camera.upperRadiusLimit = 6.1; camera.lowerBetaLimit = 0.9; camera.upperBetaLimit = 1.32;
+```
+
+(Maximale Kamerahöhe damit ≈ 0.78 + 6.1 × cos(0.9) ≈ 4.57 – deutlich unter der Deckenunterseite bei 4.9.)
+
+- [ ] **Step 6: Vollständiger Smoke-Test + visuelle Verifikation**
 
 ```bash
 python start_game.py
 ```
 
-- Start-Bildschirm → Charakter/Level/Modus wählen → Runde starten.
-- Laufen, Item aufnehmen (`E`), zur richtigen Zone tragen, ablegen – Punktestand/Combo aktualisiert sich.
-- Kamera zurücksetzen (`C`), Pause (`Esc`), Fortsetzen – keine Fehler in der Konsole.
-- Level wechseln (Hauptmenü), erneut kurz anspielen.
-- `quality: "low"` umschalten, neu laden, erneut kurz anspielen.
+- Kamera mit Mausrad maximal rauszoomen und mit gedrückter Maustaste in den steilsten erlaubten Winkel schauen – es darf **kein schwarzer Void** mehr sichtbar sein, stattdessen die neue Decke mit Dachbindern und Pendelleuchten. Kamera darf nicht durch/über die Decke "springen".
+- Seitenwände zeigen Sichtbeton-Textur, Fenster mit Dämmerungs-Glas sind sichtbar, Rückwand zeigt das neue Mural.
+- Alle vier Zonen (Hantelregal, Wäschekorb, Flaschenbox, Mattenregal) an gewohnter Position, Beacon/Highlight funktioniert weiterhin.
+- Neue Pegboards mit Kettlebells/Resistance-Band/Springseilen an beiden hinteren Seitenwänden sichtbar, ohne Fenster zu überlappen.
+- Start-Bildschirm → Charakter/Level/Modus wählen → Runde starten; laufen, Item aufnehmen (`E`), zur richtigen Zone tragen, ablegen – Punktestand/Combo aktualisiert sich.
+- Kamera zurücksetzen (`C`), Pause (`Esc`), Fortsetzen – keine Fehler in der Browser-Konsole.
+- Alle drei Level (`closing`, `class`, `legday`) im Hauptmenü wechseln und kurz anspielen: Level-Deko schaltet korrekt um, keine Kollisions-/Bewegungsauffälligkeiten.
+- `quality: "low"` in den Spiel-Einstellungen aktivieren, neu laden, erneut kurz anspielen: Dachbinder-Streben, Dachkanal, Wandrohre fehlen/vereinfacht, Kettlebell-Segmente gröber, keine Fehler.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/environment/index.js src/main.js
-git commit -m "feat: wire up environment orchestrator module"
+git commit -m "feat: wire up environment orchestrator and fix camera ceiling clipping"
 ```
 
 ---
@@ -865,5 +840,7 @@ git commit -m "feat: wire up environment orchestrator module"
 ## Self-Review-Notizen (bereits eingearbeitet)
 
 - **Spec-Abdeckung:** Decke/Dachbinder/Pendelleuchten (Task 2), Sichtbeton-Wände (Task 2), Industriefenster (Task 2), Pegboard+Equipment (Task 3), Rohre/Kabelkanäle (Task 2), Mural (Task 2), Code-Organisation (alle Tasks) – alle Spec-Abschnitte sind abgedeckt.
-- **Zusätzlich identifiziert (nicht in der Spec, aber notwendige Konsequenz):** Die neue geschlossene Decke erfordert eine Anpassung der Kamera-Zoom-/Neigungslimits (Task 2, Step 3), sonst kann die Kamera rechnerisch über die Decke hinaus positioniert werden.
+- **Zusätzlich identifiziert (nicht in der Spec, aber notwendige Konsequenz):** Die neue geschlossene Decke erfordert eine Anpassung der Kamera-Zoom-/Neigungslimits (Task 4, Step 5), sonst kann die Kamera rechnerisch über die Decke hinaus positioniert werden.
 - **Typkonsistenz geprüft:** `buildStructure`, `buildDecor`, `buildEnvironment`, `setActiveLevelDecor`, `createMaterial`, `createTexturedMaterial` werden in allen Tasks identisch benannt und signaturkonsistent verwendet.
+- **Parallelisierung:** Task 2 und Task 3 sind gegenseitig unabhängig (beide nur von Task 1 abhängig) und ändern ausschließlich neue Dateien (`textures.js`+`structure.js` bzw. `decor.js`) – kein gemeinsames Datei-Write, daher sicher parallelisierbar. Die gesamte `main.js`-Verdrahtung (Imports, `createScene()`, `createCamera()`, Löschen alter Funktionen) ist bewusst in Task 4 gebündelt, um den in `subagent-driven-development` beschriebenen Konflikt aus parallelen Implementer-Subagenten auf derselben Datei zu vermeiden.
+- **Bekannte, akzeptierte Code-Duplikation:** Der zweizeilige `material()`-Wrapper (`return createMaterial(scene, ...)`) existiert identisch in `main.js` (Task 1) und `decor.js` (Task 3), jeweils über das eigene modul-lokale `scene` geschlossen. Bewusste Entscheidung, um nicht alle ~40+ bestehenden `material(...)`-Aufrufe pro Datei auf ein explizites `scene`-Argument umschreiben zu müssen. Ein Reviewer darf das als Duplikation anmerken – hier bewusst in Kauf genommen, kein Fix nötig.
