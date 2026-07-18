@@ -296,6 +296,7 @@ button { font: inherit; cursor: pointer; }
   touch-action: none;
 }
 .mobile-button.secondary { width: 68px; height: 68px; font-size: 11px; }
+.mobile-button.tertiary { width: 52px; height: 52px; font-size: 17px; }
 .mobile-button.primary-action { width: 88px; height: 88px; background: rgba(167,244,106,.88); color: #17200f; font-size: 14px; }
 .mobile-button.active { transform: scale(.94); filter: brightness(.9); }
 
@@ -331,6 +332,7 @@ button { font: inherit; cursor: pointer; }
   .joystick-knob { left: 28px; top: 28px; }
   .mobile-button.primary-action { width: 80px; height: 80px; }
   .mobile-button.secondary { width: 62px; height: 62px; }
+  .mobile-button.tertiary { width: 48px; height: 48px; }
 }
 
 @media (max-height: 680px) and (orientation: landscape) {
@@ -440,7 +442,6 @@ button { font: inherit; cursor: pointer; }
 .achievement-bar div { height: 100%; border-radius: 99px; background: var(--lime); }
 .result-actions { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 8px; }
 .result-actions .secondary-button { margin-top: 0; }
-.orientation-hint { position: fixed; z-index: 40; left: 50%; bottom: max(8px, env(safe-area-inset-bottom)); transform: translateX(-50%); padding: 8px 12px; border-radius: 999px; background: rgba(17,20,27,.9); color: var(--muted); font-size: 10px; pointer-events: none; }
 
 @media (max-width: 900px) {
   .main-actions { grid-template-columns: repeat(3, 1fr); }
@@ -466,9 +467,40 @@ button { font: inherit; cursor: pointer; }
   .speech-bubble { top: 178px; }
 }
 
-@media (orientation: portrait) and (hover: none) and (pointer: coarse) {
-  body.playing #orientationHint { display: block !important; }
-}
-
 .joystick { transform: scale(var(--control-scale, 1)); transform-origin: left bottom; }
 .mobile-buttons { transform: scale(var(--control-scale, 1)); transform-origin: right bottom; }
+
+/* Hochformat auf Touch-Geräten: Breite ist knapp, Höhe reichlich. Die HUD-Elemente
+   rücken deshalb nach oben zusammen, die Controls bekommen unten mehr Luft, weil der
+   Daumen im Hochformat tiefer greift. */
+@media (orientation: portrait) and (hover: none) and (pointer: coarse) {
+  .hud { inset-inline: 8px; }
+  .stats { grid-template-columns: repeat(4, auto); }
+  .stats > div { padding: 6px 8px; border-bottom: 0; }
+  .stats > div:nth-child(-n+3) { border-right: 1px solid var(--line); }
+  .stats strong { font-size: 13px; }
+
+  /* Die Abstände sind für ein ZWEIZEILIGES Objective gerechnet: bei 390px Breite
+     bricht der Text um und die Karte wird rund 50px hoch. Mit den Werten für eine
+     Zeile schnitt die Fortschrittsleiste mitten hinein. Im Browser nachgemessen. */
+  /* Harte Deckelung auf zwei Zeilen: die Abstände darunter sind fest, ein längerer
+     Aufgabentext würde sonst in die Fortschrittsleiste laufen. */
+  .objective {
+    top: 96px;
+    font-size: 12px;
+    max-width: 92vw;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .progress-track { top: 154px; width: min(320px, 86vw); }
+  .navigator { top: 174px; transform: translateX(-50%) scale(.82); }
+  .toast { top: 226px; }
+  .speech-bubble { top: 200px; }
+  .prompt { bottom: 232px; max-width: 90vw; white-space: normal; text-align: center; }
+
+  .mobile-controls { bottom: max(30px, env(safe-area-inset-bottom)); align-items: flex-end; }
+  .mobile-buttons { gap: 9px; }
+  .tutorial-coach { bottom: max(206px, calc(env(safe-area-inset-bottom) + 206px)); width: calc(100vw - 24px); }
+}

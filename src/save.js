@@ -39,7 +39,7 @@ export function createDefaultSave() {
     settings: {
       cameraSensitivity: 1,
       joystickScale: 1,
-      quality: "high",
+      quality: "auto",
       vibration: true,
     },
   };
