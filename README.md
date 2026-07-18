@@ -29,12 +29,13 @@ V5 macht aus der einfachen Aufräumrunde eine kleine Gym-Schicht: Gegenstände e
 
 | Bereich | Inhalt |
 |---|---|
-| **Living Shifts** | Drei Schichtphasen, gestaffelte Gegenstandswellen und wechselnde Bonusereignisse statt einer statischen Item-Verteilung. |
+| **Living Shifts** | Drei garantiert erreichbare Schichtphasen, leveltypische Gegenstände, inszenierte Wellenankünfte und wechselnde Bonusereignisse. |
 | **Drei Level-Identitäten** | Feierabend, Nach dem Kurs und Leg Day Chaos besitzen eigene Bodenflächen, ungespiegelte Crew-Beschilderung, Deko, Kollisionshindernisse, Item-Schwerpunkte und Ereignisse. |
-| **Zwei Critter** | Rocco ist stark mit schweren Lasten; Fibi ist schneller und trägt zwei leichte Gegenstände gleichzeitig. |
+| **Zwei Critter** | Rocco ist stark mit schweren Lasten; Fibi ist schneller, trägt zwei leichte Dinge und erhält +15 % auf passende Doppellieferungen. |
 | **Präzises Greifen** | Zwei-Knochen-IK richtet Schulter, Ellbogen und Pfoten an den Gegenständen aus; Tragehaltung und Gang reagieren auf die Gewichtsklasse. |
 | **Verlässliche Interaktion** | Reichweite, Blickrichtung und freie Sicht bestimmen das Ziel. Sichtbare Hindernisse blockieren Bewegung und Aufnahme konsistent; Matten und Hanteln landen in maßgenau abgestimmten, kollisionsfreien Ablage-Slots. |
-| **Physische Stolperfallen** | Beim Überlaufen eines Bodengegenstands stolpert die Figur, verliert ihre Combo und lässt getragene Dinge fallen; drei Risikostufen steuern Reichweite und Empfindlichkeit. |
+| **Physische Stolperfallen** | Dynamische Bodenimpulse warnen beim schnellen Annähern; beim Überlaufen stolpert die Figur, verliert ihre Combo und lässt getragene Dinge fallen. |
+| **Flow-Feedback** | Combo-Zeitleiste, dreistufige Flow-Vignette, eskalierende Lieferimpacts und animierte Wellen machen erfolgreiche Serien unmittelbar spürbar. |
 | **Vier Spielmodi** | Entspannt, Standard, Blitz und der neue Zen-Modus ohne Zeitlimit. |
 | **Level-Feintuning** | Gegenstandsmenge, Schichtdynamik, Stolperrisiko und Zielhilfe werden für jedes Level separat gespeichert. |
 | **Entwicklung über Zeit** | Bis zu 120 Runden bilden eine lokale Historie mit vergleichbarem Leistungsindex, Trend, Filterung und Verlaufskurve. |
@@ -83,7 +84,7 @@ Die Gegenstandsmenge in dieser Tabelle ist die jeweilige Modusbasis. Im Crew-Ter
 | Charakter | Tempo | Besonderheit |
 |---|---|---|
 | **Rocco** | 4,2 / 6,3 | Startcharakter, +20 % auf schwere Gegenstände und geringerer Tempoverlust mit schweren Lasten. |
-| **Fibi** | 5,0 / 7,25 | Für 250 Münzen freischaltbar, schneller und mit zwei Trageplätzen für leichte Gegenstände. |
+| **Fibi** | 5,0 / 7,25 | Für 250 Münzen freischaltbar, schneller, zwei leichte Tragplätze und +15 % auf passende Doppellieferungen. |
 
 ### Gegenstände
 
@@ -184,6 +185,7 @@ GymCritters/
 └── src/
     ├── main.js               # Szenen- und UI-Orchestrierung
     ├── config.js             # Balancing, Inhalte, Verträge und Meisterschaft
+    ├── game-feel.js          # Gefahrenlesbarkeit, Combo-Flow und Charakter-Lieferbonus
     ├── save.js               # Persistenz, Migration, Export/Import, Achievements
     ├── progression.js        # Bestwerte, Karriere und Meisterschaft
     ├── challenges.js         # Deterministische Tagesverträge

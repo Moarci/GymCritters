@@ -52,6 +52,7 @@ export class AudioSystem {
     if (!this.save.soundEnabled) return;
     const sequences = {
       start: [[330, 0], [440, 0.08], [660, 0.16]],
+      wave: [[260, 0], [390, 0.06], [520, 0.12], [780, 0.2]],
       pickup: [[520, 0], [700, 0.07]],
       drop: [[250, 0]],
       deliver: [[520, 0], [700, 0.07], [900, 0.14]],

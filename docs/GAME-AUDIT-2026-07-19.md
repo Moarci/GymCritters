@@ -25,13 +25,13 @@ Gym Critters besitzt inzwischen eine klare, charmante Grundidee, einen ungewöhn
 - [x] **Aktive Schichtregel dauerhaft zeigen.** Phase, Welle, aktuelles Ereignis, betroffene Gegenstandsgruppen und der echte Dynamik-Bonus bleiben im HUD sichtbar; wichtige Information hängt nicht länger nur an einem kurzen Toast.
 - [x] **Ergebnisbildschirm in Coaching verwandeln.** Abschlussquote, Stolperer, Fehlablagen, Fallenlassen, Combo, Tempo und Leistungstrend bestimmen eine konkrete nächste Empfehlung statt nur einer Rangnote.
 - [x] **Charakterwerte vor der Auswahl offenlegen.** Geh-/Sprinttempo, Tragkapazität, Tempo unter schwerer Last und Punktebonus stehen jetzt direkt auf den Karten. Roccos Text entspricht nun der tatsächlichen Mechanik für Hanteln und Kettlebells.
-- [ ] **Bodengefahren klarer lesen.** Stolpern ist spielerisch relevant, aber flache Matten, Items im Schatten und inaktive Wellen sind nicht immer früh genug erkennbar. Geplant: dezente Kontakt-Schatten und ein barrierefreier Gefahrenkontrast, ohne Arcade-Leuchtringe über die ganze Szene.
-- [ ] **Interaktionspriorität sichtbar erklären.** Wenn Gegenstand, Ablage und sicheres Fallenlassen gleichzeitig möglich sind, sollte die Aktionsanzeige zusätzlich das ausgewählte Ziel markieren und einen kurzen Grund nennen.
+- [x] **Bodengefahren klarer lesen.** Beim Laufen reagieren Gegenstände jetzt abhängig von Abstand, Gewicht, Tempo und Stolperrisiko mit einem dezenten Bodenimpuls. Im Stillstand bleibt die natürliche Gym-Optik ruhig.
+- [x] **Interaktionspriorität sichtbar erklären.** Bei vollen Pfoten nennt die Aktionsanzeige jetzt den blockierenden Grund – etwa schwere Last oder benötigte Doppelpfoten – und verbindet ihn mit der tatsächlich ausgelösten Ablegeaktion.
 - [ ] **Kamera in engen Wegen stabilisieren.** Automatische Rezentrierung, Hinderniszoom und manuelles Drehen funktionieren, benötigen aber eine weichere Übergabe und getrennte Horizontal-/Vertikalempfindlichkeit.
 
 ### P1 – Mehr spielerische Identität
 
-- [ ] **Rocco und Fibi unterschiedliche Routinen geben.** Rocco soll schwere Lieferketten bewusst planen können; Fibi soll für zwei passende leichte Gegenstände einen allgemeinen Kurierbonus erhalten, nicht nur im Kurs-Level. Beide Boni brauchen eigene Effekte und Ergebnisstatistiken.
+- [x] **Rocco und Fibi unterschiedliche Routinen geben.** Rocco erhält seinen Kraftbonus für schwere Lieferungen; Fibi bekommt levelübergreifend +15 % Kurierbonus für zwei leichte Gegenstände mit demselben Ziel. Auswahlkarten und Lieferfeedback zeigen beide Spielmuster.
 - [ ] **Eigene Reaktionen und Silhouetten ausbauen.** Gang und Proportionen unterscheiden sich, aber Pickup-, Fehler- und Siegesreaktionen verwenden weitgehend dieselbe Struktur. Charaktereigene Antizipation, Stolper-Erholung und Idle-Handlungen würden Persönlichkeit stärker vermitteln.
 - [ ] **Ereignisse mechanisch statt nur numerisch machen.** Derzeit verändern sie hauptsächlich Punkte. Gute nächste Varianten: kurzzeitig gesperrter Gang, rollender Medizinball, volle Wäschebox, verrutschtes Mattenregal oder ein Bonus für Lieferreihenfolge.
 - [ ] **Wellen mit einer sichtbaren Ursache verbinden.** Neue Gegenstände sollten nicht einfach erscheinen, sondern etwa aus einer geöffneten Kursraumtür, einem umgekippten Wagen oder einer hereingebrachten Trainingskiste stammen.
@@ -80,10 +80,10 @@ Gym Critters besitzt inzwischen eine klare, charmante Grundidee, einen ungewöhn
 
 Nach den in diesem Durchlauf abgeschlossenen Punkten folgt die Liste weiter von oben:
 
-1. Gefahrenkontrast und Bodengegenstands-Lesbarkeit.
-2. Eindeutigere Interaktionspriorität.
-3. Kameraübergänge in engen Wegen.
-4. Allgemeiner Fibi-Kurierbonus und eigene Charakterauswertung.
-5. Erstes mechanisches Levelereignis als vertikaler Prototyp.
+1. Kameraübergänge in engen Wegen.
+2. Charaktereigene Reaktionen und Ergebnisdetails.
+3. Erstes mechanisches Levelereignis als vertikaler Prototyp.
+4. Sichtbare Herkunft neuer Wellen aus der Umgebung.
+5. Räumliche Audioquellen für die drei Levelidentitäten.
 
 Jeder Punkt sollte mit einer kleinen reinen Regellogik, automatisierten Tests und einer visuellen Prüfung in mindestens Desktop- und schmaler Touch-Größe abgeschlossen werden.

@@ -224,18 +224,20 @@ export const CHARACTERS = {
     bulkyPenalty: 0.72,
     lightCapacity: 1,
     heavyScoreBonus: 1.2,
+    lightBatchBonus: 1,
   },
   squirrel: {
     id: "squirrel",
     name: "Fibi",
     species: "Eichhörnchen",
-    description: "Tempo-Critter: schneller und mit zwei leichten Gegenständen gleichzeitig unterwegs.",
+    description: "Tempo-Critter: schneller, zwei leichte Dinge und +15 % auf Doppellieferungen.",
     walkSpeed: 5.0,
     sprintSpeed: 7.25,
     heavyPenalty: 0.54,
     bulkyPenalty: 0.65,
     lightCapacity: 2,
     heavyScoreBonus: 1,
+    lightBatchBonus: 1.15,
   },
 };
 

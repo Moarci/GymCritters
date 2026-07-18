@@ -53,6 +53,7 @@ import { selectTripHazard, tripRule } from "./trip-physics.js";
 import { itemDisplaySlot, MEDBALL_DIAMETER, ROPE_ITEM_LAYOUT } from "./item-placement.js";
 import { buildRoundTypes, planSpawnPositions } from "./round-planner.js";
 import { roundCoaching } from "./round-coach.js";
+import { comboFlowState, courierBatchBonus, hazardCueIntensity } from "./game-feel.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -63,6 +64,7 @@ const ui = {
   tutorialText: $("tutorialText"), prompt: $("prompt"), toast: $("toast"),
   achievementToast: $("achievementToast"), achievementIcon: $("achievementIcon"), achievementName: $("achievementName"),
   scorePopLayer: $("scorePopLayer"), score: $("score"), progress: $("progress"), combo: $("combo"),
+  comboStat: $("comboStat"), comboTimeBar: $("comboTimeBar"), flowVignette: $("flowVignette"), flowLabel: $("flowLabel"),
   timer: $("timer"), coins: $("coins"), carrying: $("carrying"), carryCard: $("carryCard"),
   contractHud: $("contractHud"), contractTitle: $("contractTitle"), contractProgress: $("contractProgress"), contractProgressBar: $("contractProgressBar"),
   shiftStatus: $("shiftStatus"), shiftPhase: $("shiftPhase"), shiftWaveDots: $("shiftWaveDots"),
@@ -650,15 +652,18 @@ function spawnItems() {
     const root = new B.TransformNode(`item-${index}`, scene);
     root.position.set(x, 0.12, z);
     root.metadata = { baseY: 0.12, spinSpeed: 0.45 + (index % 3) * 0.08 };
+    const hazardRing = createHazardRing(root, index, definition.weight);
     const meshes = createItemMesh(type, root, index);
     meshes.forEach((mesh) => { mesh.isPickable = false; shadowGenerator.addShadowCaster(mesh); });
     const wave = state.tutorial ? 0 : waveForItem(state.level, index, specs.length);
     const active = wave <= state.activeWave;
     root.setEnabled(active);
-    items.push({
+    const item = {
       id: `item-${index}`, type, label: definition.label, points: definition.points, targetZone: definition.targetZone,
-      weight: definition.weight, root, meshes, delivered: false, tutorial: Boolean(spec.tutorial), wave, active,
-    });
+      weight: definition.weight, root, meshes, hazardRing, delivered: false, tutorial: Boolean(spec.tutorial), wave, active,
+    };
+    items.push(item);
+    if (active) animateItemReveal(item, index * 34);
   });
 }
 
@@ -672,12 +677,13 @@ function updateShiftDirector(initial = false) {
       if (!item.active && item.wave <= state.activeWave) {
         item.active = true;
         item.root.setEnabled(true);
+        animateItemReveal(item, activated * 55);
         activated += 1;
       }
     }
     if (activated && !initial) {
       showToast(`Neue Chaos-Welle: ${activated} Gegenstände`, "good");
-      audio.play("start");
+      audio.play("wave");
     }
   }
   const event = shiftEvent(state.level, state.delivered, items.length);
@@ -709,6 +715,48 @@ function updateShiftStatus() {
     dot.classList.toggle("active", index <= state.activeWave);
   });
   ui.shiftStatus.classList.remove("hidden");
+}
+
+function createHazardRing(root, index, weight) {
+  const diameter = weight === "bulky" ? 1.52 : weight === "heavy" ? 1.28 : 1.04;
+  const ring = B.MeshBuilder.CreateTorus(`hazardCue-${index}`, {
+    diameter,
+    thickness: weight === "bulky" ? 0.035 : 0.028,
+    tessellation: qualityTier() === "low" ? 18 : 30,
+  }, scene);
+  ring.parent = root;
+  ring.position.y = -0.087;
+  ring.isPickable = false;
+  ring.visibility = 0;
+  const ringMaterial = material(`hazardCueMat-${index}`, weight === "bulky" ? "#ff8f66" : "#ffb25f", 0.68);
+  ringMaterial.emissiveColor = B.Color3.FromHexString(weight === "bulky" ? "#ff704f" : "#ff9f43").scale(0.68);
+  ringMaterial.unlit = true;
+  ring.material = ringMaterial;
+  return ring;
+}
+
+function animateItemReveal(item, delay = 0) {
+  if (!item?.root) return;
+  const reduced = prefersReducedMotion();
+  const started = performance.now() + Math.max(0, delay);
+  const duration = reduced ? 240 : 560;
+  item.root.metadata.revealPulse = 1;
+  item.root.scaling.setAll(reduced ? 1 : 0.18);
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    const t = Math.max(0, Math.min(1, (performance.now() - started) / duration));
+    if (!reduced) {
+      const eased = 1 - Math.pow(1 - t, 3);
+      const overshoot = Math.sin(t * Math.PI) * 0.11;
+      item.root.scaling.setAll(0.18 + eased * 0.82 + overshoot);
+    }
+    item.root.metadata.revealPulse = 1 - t;
+    if (t < 1) return;
+    item.root.scaling.setAll(1);
+    item.root.metadata.revealPulse = 0;
+    scene.onBeforeRenderObservable.remove(observer);
+    deliveryObservers = deliveryObservers.filter((entry) => entry !== observer);
+  });
+  deliveryObservers.push(observer);
 }
 
 function createItemMesh(type, root, index) {
@@ -1244,7 +1292,25 @@ function animateWorld(dt) {
   if (state.paused) return;
   animateTrailSparks(dt);
   for (const item of items) {
-    if (!item.active || item.delivered || state.heldItems.includes(item)) continue;
+    const held = state.heldItems.includes(item);
+    if (item.hazardRing) {
+      if (!item.active || item.delivered || held || !state.playing) {
+        item.hazardRing.visibility = 0;
+      } else {
+        const intensity = state.tutorial ? 0 : hazardCueIntensity({
+          distance: horizontalDistance(player.position, item.root.getAbsolutePosition()),
+          speed: Math.hypot(state.velocity.x, state.velocity.z),
+          weight: item.weight,
+          risk: currentLevelSettings().tripRisk,
+        });
+        const reveal = Math.max(0, Number(item.root.metadata.revealPulse) || 0) * 0.62;
+        const targetVisibility = Math.max(intensity, reveal);
+        item.hazardRing.visibility = B.Scalar.Lerp(item.hazardRing.visibility, targetVisibility, 1 - Math.exp(-12 * dt));
+        const pulse = 1 + targetVisibility * (0.06 + Math.sin(state.elapsed * 7.2) * 0.025);
+        item.hazardRing.scaling.setAll(pulse);
+      }
+    }
+    if (!item.active || item.delivered || held) continue;
     item.root.rotation.y += item.root.metadata.spinSpeed * dt;
     item.root.position.y = item.root.metadata.baseY + Math.sin(state.elapsed * 2.3 + Number(item.id.split("-")[1])) * 0.025;
   }
@@ -1257,6 +1323,13 @@ function canPickUp(item) {
   if (item.weight === "heavy" || item.weight === "bulky") return state.heldItems.length === 0;
   if (carryingHeavy()) return false;
   return state.heldItems.length < character.lightCapacity;
+}
+
+function pickupBlockReason(item) {
+  if (!item || canPickUp(item)) return "";
+  if (item.weight === "heavy" || item.weight === "bulky") return `${item.label} braucht beide Pfoten`;
+  if (carryingHeavy()) return "Schwere Last zuerst ablegen";
+  return "Pfoten voll";
 }
 
 function updateInteraction() {
@@ -1296,9 +1369,13 @@ function updateInteraction() {
       clearItemHighlight();
       const matching = state.heldItems.filter((item) => item.targetZone === state.nearestZone.id);
       setPrompt(`<kbd>${actionKey}</kbd>${matching.length ? `${matching.length} Gegenstand${matching.length > 1 ? "e" : ""} ablegen` : `Das ist ${state.nearestZone.label}`}`, matching.length > 0);
-    } else if (state.nearestItem && canPickUp(state.nearestItem)) {
+    } else if (state.nearestItem) {
       highlightItem(state.nearestItem);
-      setPrompt(`<kbd>${actionKey}</kbd>${state.nearestItem.label} zusätzlich aufnehmen`);
+      if (canPickUp(state.nearestItem)) {
+        setPrompt(`<kbd>${actionKey}</kbd>${state.nearestItem.label} zusätzlich aufnehmen`);
+      } else {
+        setPrompt(`<kbd>${actionKey}</kbd>${state.heldItems.at(-1).label} ablegen · ${pickupBlockReason(state.nearestItem)}`);
+      }
     } else {
       clearItemHighlight();
       setPrompt(`<kbd>${actionKey}</kbd>${state.heldItems.at(-1).label} sicher ablegen`);
@@ -1530,8 +1607,10 @@ function deliverAtZone(zone) {
 
   const mode = MODES[state.mode];
   const activeEvent = shiftEvent(state.level, state.delivered, items.length);
+  const courierBonus = courierBatchBonus(currentCharacter(), matching);
   let batchScore = 0;
   let pending = matching.length;
+  if (courierBonus.active) showScorePop(`Kurier +${courierBonus.percent} %`, true);
   matching.forEach((item, index) => {
     state.combo += 1;
     state.comboTime = comboWindowSeconds();
@@ -1541,8 +1620,7 @@ function deliverAtZone(zone) {
     state.maxCombo = Math.max(state.maxCombo, state.combo);
     const strengthBonus = item.weight === "heavy" ? currentCharacter().heavyScoreBonus : 1;
     const eventBonus = shiftEventMultiplier(activeEvent, item, currentLevelSettings().dynamics);
-    const classBatchBonus = state.level === "class" && matching.length > 1 ? 1.15 : 1;
-    const gained = Math.round(item.points * comboMultiplier(state.combo) * mode.scoreMultiplier * strengthBonus * eventBonus * classBatchBonus);
+    const gained = Math.round(item.points * comboMultiplier(state.combo) * mode.scoreMultiplier * strengthBonus * eventBonus * courierBonus.multiplier);
     const milestone = { 3: 75, 5: 150, 8: 300, 10: 400 }[state.combo] || 0;
     batchScore += gained + milestone;
     state.score += gained + milestone;
@@ -1560,8 +1638,9 @@ function deliverAtZone(zone) {
       pending -= 1;
       if (pending === 0) {
         showDeliveryBurst(zone.position, zone.marker.material.albedoColor);
-        showToast(`${matching.length > 1 ? `${matching.length} Dinge` : matching[0].label} aufgeräumt · +${batchScore}`, "good");
-        characterSays(state.combo >= 5 ? "Die Combo läuft!" : "Sieht schon besser aus!");
+        const courierText = courierBonus.active ? ` · Kurier +${courierBonus.percent} %` : "";
+        showToast(`${matching.length > 1 ? `${matching.length} Dinge` : matching[0].label} aufgeräumt · +${batchScore}${courierText}`, "good");
+        characterSays(courierBonus.active ? "Doppellieferung – Fibi-Express!" : state.combo >= 5 ? "Die Combo läuft!" : "Sieht schon besser aus!");
         onDeliveryAnimationFinished();
       }
     });
@@ -1872,6 +1951,7 @@ function endRound(completed) {
   persistSave(save);
 
   ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.contractHud.classList.add("hidden"); ui.shiftStatus.classList.add("hidden"); ui.progressTrack.classList.add("hidden");
+  ui.flowVignette.classList.remove("active");
   ui.navigator.classList.add("hidden"); ui.mobileControls.classList.add("hidden"); ui.tutorialCoach.classList.add("hidden");
   ui.pauseScreen.classList.add("hidden"); ui.resultScreen.classList.remove("hidden"); document.body.classList.remove("playing");
   ui.resultBadge.textContent = completed ? "GESCHAFFT" : "ZEIT VORBEI"; ui.resultBadge.classList.toggle("timeout", !completed);
@@ -1917,6 +1997,7 @@ function returnToMenu() {
   state.playing = false; state.paused = false; state.ended = true; state.finishing = false; state.tutorial = false;
   state.keys.clear(); state.velocity.set(0, 0, 0); audio.stopMusic(); touchInput.reset(); clearItemHighlight(); hidePrompt();
   ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.contractHud.classList.add("hidden"); ui.shiftStatus.classList.add("hidden"); ui.progressTrack.classList.add("hidden"); ui.navigator.classList.add("hidden");
+  ui.flowVignette.classList.remove("active");
   ui.mobileControls.classList.add("hidden"); ui.pauseScreen.classList.add("hidden"); ui.resultScreen.classList.add("hidden"); ui.tutorialCoach.classList.add("hidden");
   ui.startScreen.classList.remove("hidden"); document.body.classList.remove("playing"); renderMenu();
 }
@@ -1925,8 +2006,16 @@ function setPaused(paused) {
   if (!state.playing || state.ended || state.finishing || state.paused === paused) return;
   state.paused = paused; state.keys.clear(); state.velocity.set(0, 0, 0); state.interactPressed = false; touchInput.reset();
   ui.pauseScreen.classList.toggle("hidden", !paused); ui.mobileControls.classList.toggle("hidden", paused || !isTouchDevice);
-  if (paused) { hidePrompt(); audio.stopMusic(); audio.play("pause"); }
-  else { audio.startMusic(); ui.canvas.focus(); }
+  if (paused) {
+    hidePrompt();
+    ui.flowVignette.classList.remove("active");
+    audio.stopMusic();
+    audio.play("pause");
+  } else {
+    updateHUD();
+    audio.startMusic();
+    ui.canvas.focus();
+  }
 }
 
 function updateHUD() {
@@ -1937,6 +2026,13 @@ function updateHUD() {
     ? `×${comboMultiplier(state.combo).toFixed(1).replace(".", ",")} · ${Math.ceil(state.comboTime)}s`
     : "×1,0";
   ui.combo.classList.toggle("hot", state.combo >= 3);
+  const flow = comboFlowState(state.combo, state.comboTime, comboWindowSeconds());
+  ui.comboStat.dataset.tier = String(flow.tier);
+  ui.comboTimeBar.style.transform = `scaleX(${flow.ratio})`;
+  ui.flowVignette.dataset.tier = String(flow.tier);
+  ui.flowVignette.style.setProperty("--flow-strength", flow.intensity.toFixed(2));
+  ui.flowVignette.classList.toggle("active", flow.tier > 0 && state.playing && !state.ended);
+  ui.flowLabel.textContent = flow.label;
   const untimed = state.tutorial || MODES[state.mode].timed === false;
   ui.timer.textContent = untimed ? "∞" : formatTime(state.timeLeft);
   ui.timer.style.color = !untimed && state.timeLeft <= 20 ? "#ff7c74" : "";
@@ -2018,9 +2114,10 @@ function renderCharacterSelector() {
     const speed = `${String(character.walkSpeed).replace(".", ",")} / ${String(character.sprintSpeed).replace(".", ",")}`;
     const heavyTempo = `${Math.round(character.heavyPenalty * 100)} %`;
     const heavyBonus = Math.round((character.heavyScoreBonus - 1) * 100);
+    const courierBonus = Math.round((character.lightBatchBonus - 1) * 100);
     const card = document.createElement("button");
     card.className = `character-card${state.character === character.id ? " active" : ""}${unlocked ? "" : " locked"}`;
-    card.innerHTML = `<span class="character-avatar">${character.id === "raccoon" ? "🦝" : "🐿️"}</span><span class="character-copy"><strong>${character.name} · ${character.species}</strong><small>${character.description}</small><span class="character-stats"><span>Tempo <b>${speed}</b></span><span>Leicht <b>${character.lightCapacity}×</b></span><span>Schwer <b>${heavyTempo}</b></span>${heavyBonus ? `<span>Bonus <b>+${heavyBonus} %</b></span>` : ""}</span></span><span class="character-badge">${unlocked ? (state.character === character.id ? "Aktiv" : "Wählen") : "🔒 Shop"}</span>`;
+    card.innerHTML = `<span class="character-avatar">${character.id === "raccoon" ? "🦝" : "🐿️"}</span><span class="character-copy"><strong>${character.name} · ${character.species}</strong><small>${character.description}</small><span class="character-stats"><span>Tempo <b>${speed}</b></span><span>Leicht <b>${character.lightCapacity}×</b></span><span>Schwer <b>${heavyTempo}</b></span>${heavyBonus ? `<span>Kraft <b>+${heavyBonus} %</b></span>` : ""}${courierBonus ? `<span>Kurier <b>+${courierBonus} %</b></span>` : ""}</span></span><span class="character-badge">${unlocked ? (state.character === character.id ? "Aktiv" : "Wählen") : "🔒 Shop"}</span>`;
     card.addEventListener("click", () => {
       if (!unlocked) { showModal(ui.shopScreen); return; }
       state.character = character.id; save.selectedCharacter = character.id; persistSave(save); buildCharacter(character.id); renderMenu();
