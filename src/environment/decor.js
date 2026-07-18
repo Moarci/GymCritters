@@ -141,16 +141,21 @@ function createMatZone(pos, detailed) {
 
 function createKettlebellRack(pos, detailed) {
   const metal = material("kettleMetal", "#3d434d", 0.4, 0.5);
-  const iron = material("kettleIron", "#23262c", 0.55, 0.4);
   const base = B.MeshBuilder.CreateBox("kettleBase", { width: 1.5, height: 0.14, depth: 0.8 }, scene);
   base.position.set(pos.x, 0.07, pos.z); base.material = metal; addShadow(base, detailed);
   const body = [base];
-  for (const x of [-0.42, 0, 0.42]) {
-    const bell = B.MeshBuilder.CreateSphere("kettleBell", { diameter: 0.42, segments: detailed ? 16 : 8 }, scene);
-    bell.position.set(pos.x + x, 0.35, pos.z); bell.scaling.y = 1.08; bell.material = iron; addShadow(bell, detailed);
-    const handle = B.MeshBuilder.CreateTorus("kettleHandle", { diameter: 0.24, thickness: 0.05, tessellation: detailed ? 16 : 8 }, scene);
-    handle.position.set(pos.x + x, 0.58, pos.z); handle.rotation.x = Math.PI / 2; handle.material = metal; addShadow(handle, detailed);
-    body.push(bell, handle);
+  const shelf = B.MeshBuilder.CreateBox("kettleShelf", { width: 1.5, height: 0.1, depth: 0.8 }, scene);
+  shelf.position.set(pos.x, 0.73, pos.z); shelf.material = metal; addShadow(shelf, detailed);
+  body.push(shelf);
+  for (const x of [-0.72, 0.72]) {
+    const post = B.MeshBuilder.CreateBox("kettleRackPost", { width: 0.08, height: 1.25, depth: 0.1 }, scene);
+    post.position.set(pos.x + x, 0.625, pos.z + 0.34); post.material = metal; addShadow(post, detailed);
+    body.push(post);
+  }
+  for (const y of [0.28, 0.92]) {
+    const guard = B.MeshBuilder.CreateBox("kettleRackGuard", { width: 1.45, height: 0.08, depth: 0.08 }, scene);
+    guard.position.set(pos.x, y, pos.z + 0.36); guard.material = metal; addShadow(guard, detailed);
+    body.push(guard);
   }
   addZone("kettlebells", "Kettlebell-Ecke", "kettlebell", pos, 1.8, "#c9c2b6", body);
   obstacles.push({ x: pos.x, z: pos.z, halfX: 0.8, halfZ: 0.5 });
@@ -161,15 +166,14 @@ function createRopeHooks(pos, detailed) {
   const metal = material("ropeHookMetal", "#3d434d", 0.4, 0.5);
   const panel = B.MeshBuilder.CreateBox("ropePanel", { width: 0.14, height: 1.5, depth: 1.4 }, scene);
   panel.position.set(pos.x, 0.85, pos.z); panel.material = board; addShadow(panel, detailed);
-  const ropeColors = ["#e9a767", "#70c7c2", "#d36b61"];
   const body = [panel];
-  for (const [i, z] of [-0.42, 0, 0.42].entries()) {
-    const hook = B.MeshBuilder.CreateCylinder("ropeHookPeg", { diameter: 0.08, height: 0.18, tessellation: detailed ? 10 : 6 }, scene);
-    hook.position.set(pos.x + 0.08, 1.35, pos.z + z); hook.rotation.z = Math.PI / 2; hook.material = metal;
-    const coil = B.MeshBuilder.CreateTorus("ropeCoil", { diameter: 0.34, thickness: 0.05, tessellation: detailed ? 20 : 10 }, scene);
-    coil.position.set(pos.x + 0.16, 0.95, pos.z + z); coil.rotation.y = Math.PI / 2; coil.material = material(`ropeCoilMat${i}`, ropeColors[i % ropeColors.length], 0.85);
-    addShadow(hook, detailed); addShadow(coil, detailed);
-    body.push(hook, coil);
+  for (const z of [-0.42, 0, 0.42]) {
+    const collar = B.MeshBuilder.CreateCylinder("ropeHookCollar", { diameter: 0.16, height: 0.04, tessellation: detailed ? 12 : 8 }, scene);
+    collar.position.set(pos.x - 0.09, 1.35, pos.z + z); collar.rotation.z = Math.PI / 2; collar.material = metal;
+    const hook = B.MeshBuilder.CreateCylinder("ropeHookPeg", { diameter: 0.07, height: 0.5, tessellation: detailed ? 10 : 6 }, scene);
+    hook.position.set(pos.x - 0.22, 1.35, pos.z + z); hook.rotation.z = Math.PI / 2; hook.material = metal;
+    addShadow(collar, detailed); addShadow(hook, detailed);
+    body.push(collar, hook);
   }
   addZone("ropes", "Seilhaken", "rope", pos, 1.8, "#e9a767", body);
   obstacles.push({ x: pos.x, z: pos.z, halfX: 0.4, halfZ: 0.75 });
@@ -177,17 +181,24 @@ function createRopeHooks(pos, detailed) {
 
 function createMedballNet(pos, detailed) {
   const metal = material("medNetMetal", "#3d434d", 0.4, 0.5);
-  const net = material("medNetMesh", "#8f9199", 0.7); net.alpha = 0.55;
-  const base = B.MeshBuilder.CreateCylinder("medNetBase", { diameter: 1.6, height: 0.12, tessellation: detailed ? 20 : 10 }, scene);
+  const net = material("medNetMesh", "#8f9199", 0.82);
+  const base = B.MeshBuilder.CreateCylinder("medNetBase", { diameter: 1.7, height: 0.12, tessellation: detailed ? 24 : 12 }, scene);
   base.position.set(pos.x, 0.06, pos.z); base.material = metal; addShadow(base, detailed);
   const body = [base];
-  for (const angle of [0, Math.PI / 2]) {
-    const hoop = B.MeshBuilder.CreateTorus("medNetHoop", { diameter: 1.4, thickness: 0.05, tessellation: detailed ? 24 : 12 }, scene);
-    hoop.position.set(pos.x, 0.75, pos.z); hoop.rotation.x = Math.PI / 2; hoop.rotation.y = angle; hoop.material = net;
-    body.push(hoop);
+  for (const y of [0.2, 0.9, 1.6, 2.3]) {
+    const ring = B.MeshBuilder.CreateTorus("medNetRing", { diameter: 1.65, thickness: 0.045, tessellation: detailed ? 28 : 14 }, scene);
+    ring.position.set(pos.x, y, pos.z); ring.material = net; addShadow(ring, detailed);
+    body.push(ring);
+  }
+  for (let index = 0; index < 6; index++) {
+    const angle = (index / 6) * Math.PI * 2;
+    const post = B.MeshBuilder.CreateCylinder("medNetPost", { diameter: 0.045, height: 2.2, tessellation: detailed ? 10 : 6 }, scene);
+    post.position.set(pos.x + Math.cos(angle) * 0.78, 1.2, pos.z + Math.sin(angle) * 0.78);
+    post.material = net; addShadow(post, detailed);
+    body.push(post);
   }
   addZone("medballs", "Ballnetz", "medball", pos, 1.9, "#8f9199", body);
-  obstacles.push({ x: pos.x, z: pos.z, halfX: 0.9, halfZ: 0.6 });
+  obstacles.push({ x: pos.x, z: pos.z, halfX: 0.95, halfZ: 0.95 });
 }
 
 function createBaseDecor(detailed) {

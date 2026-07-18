@@ -5,6 +5,9 @@
 ### Gameplay und Schichtplanung
 
 - Herumliegende Gegenstände sind jetzt echte Stolperfallen: Bei ausreichendem Lauftempo stolpert der Critter, verliert seine Combo und lässt getragene Gegenstände kontrolliert auf freie Bodenpositionen fallen.
+- Alle sieben Ablagen nutzen eindeutige, an ihre sichtbare Geometrie angepasste Plätze: Gegenstände schneiden nicht mehr in Träger oder Wände, schweben nicht über ihren Flächen und überschreiben keine bereits belegten Slots.
+- Kettlebell-Regal und Seilhaken sind als wirklich leere Ablagen aufgebaut; echte Items überlagern dadurch keine dekorativen Duplikate mehr.
+- Medizinbälle sind deutlich größer, besitzen sichtbare Nahtlinien und landen in einem offenen, deckenden Ballkorb mit klaren Stapelpositionen.
 - Abgelegte Trainingsmatten nutzen ein eindeutiges 4×4-Regalraster und deckende Materialien, sodass sich Farben nicht mehr durch Z-Fighting überlagern.
 - Drei Stolperrisiken verändern Auslöseradius, Mindesttempo, Abklingzeit und Dauer der Reaktion; Tutorial und unmittelbare Wiederholungen bleiben geschützt.
 - Der neue Zen-Modus besitzt kein Zeitlimit. Verstrichene Zeit wird für die private Entwicklungsauswertung erfasst, aber bewusst nicht als Bestzeit gewertet.
@@ -23,7 +26,7 @@
 
 - Neue Babylon-unabhängige Module kapseln Stolpererkennung und Schichteinstellungen für deterministische Tests.
 - Service Worker, Manifest, HTTP-Smoke-Test und UI-Shell wurden um die neuen Module und Oberflächen erweitert.
-- Die vollständige Suite umfasst 208 Tests sowie Syntax- und HTTP-Smoke-Prüfungen.
+- Die vollständige Suite umfasst 213 Tests sowie Syntax- und HTTP-Smoke-Prüfungen.
 
 ## V5.0.0 – Living Shifts (2026-07-18)
 
