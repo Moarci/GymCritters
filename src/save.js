@@ -468,6 +468,9 @@ export function evaluateAchievements(save, round = null) {
     if (round.droppedItems === 0) unlock("sticky-paws");
     if (round.maxCombo >= round.totalItems && round.wrongPlacements === 0) unlock("perfect-order");
     if (round.mode === "standard" && round.elapsed <= 75) unlock("speed-cleaner");
+    if (round.mode === "sprint") unlock("sprint-ace");
+    if (round.mode === "nightshift") unlock("night-owl");
+    if (round.mode === "marathon") unlock("endurance-crew");
   }
 
   persistSave(save);

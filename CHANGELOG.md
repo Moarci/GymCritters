@@ -1,5 +1,30 @@
 # Changelog
 
+## V5.2.0 – Mehr Modi (2026-07-18)
+
+### Gameplay
+
+- Fünf neue Spielmodi ergänzen das Crew-Terminal und decken zusätzliche Nischen ab:
+  - **Sprint** (⏱️): 45 Sekunden, sechs Gegenstände und Punktefaktor ×1,55 für eine ultrakurze Höchstleistungsschicht.
+  - **Marathon** (🏃): 300 Sekunden und 16 Gegenstände für eine lange Ausdauerschicht mit vielen gestaffelten Wellen.
+  - **Nachtschicht** (🌙): 130 Sekunden ganz ohne Navigator – nur Überblick und Erinnerung führen ans Ziel, dafür Punktefaktor ×1,45.
+  - **Perfektionist** (🎯): höchster Punktefaktor ×1,6 bei knappem Combo-Zeitfenster; jede Serie muss sitzen.
+  - **Flow** (🌊): zeitlos wie Zen, aber mit vielen Gegenständen, langem Combo-Fenster und Zielhilfe nur beim Tragen.
+- Jeder Modus besitzt jetzt ein eigenes, konfigurierbares Combo-Zeitfenster statt einer fest verdrahteten Sonderregel für einzelne Modi.
+- Die Rang-Details der zeitlosen Modi sind nicht länger auf „Zen" festgelegt und passen damit auch zum neuen Flow-Modus.
+
+### Fortschritt
+
+- Drei neue Achievements würdigen die neuen Modi: **Sprintass**, **Nachteule** und **Ausdauercrew** (insgesamt nun 18 Achievements).
+- Zwei neue Tagesverträge – **Nachtdienst** und **Langstrecke** – erweitern den deterministischen Schicht-Vertragspool.
+- Bestwerte, Modus-Statistiken und die Entwicklungshistorie werden für alle neuen Modi automatisch geführt; wie bei Zen führen die zeitlosen Modi bewusst keine Bestzeit.
+
+### Qualität
+
+- Neue Babylon-unabhängige Tests sichern die Konfiguration aller neun Modi, die Navigator- und Umfangslogik sowie das Freischalten der modusbezogenen Achievements ab.
+- Die vollständige Suite umfasst nun 236 Tests sowie Syntax- und HTTP-Smoke-Prüfungen.
+- Bestehende Spielstände werden ohne Schemaänderung übernommen: Statistik-Container für neue Modi entstehen additiv beim Laden.
+
 ## V5.1.0 – Crew Terminal (2026-07-18)
 
 ### Gameplay und Schichtplanung
