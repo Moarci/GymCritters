@@ -1,9 +1,10 @@
 import { B } from "../babylon.js";
 import { createMaterial, createTexturedMaterial } from "../materials.js";
 import { DUMBBELL_RACK_LAYOUT, MAT_RACK_LAYOUT } from "../item-placement.js";
-import { createMuralTexture } from "./textures.js";
+import { createShiftBannerTexture } from "./textures.js";
 import {
   CLASS_FLOOR_MAT_LAYOUT,
+  INTERIOR_SIGN_ROTATION_Y,
   LEVEL_DECOR_SPECS,
   classFloorMatPlacement,
 } from "./level-decor-specs.js";
@@ -200,10 +201,10 @@ function createKettlebellRack(pos, detailed) {
 function createRopeHooks(pos, detailed) {
   const board = material("ropeBoard", "#5c4a3a", 0.9);
   const metal = material("ropeHookMetal", "#3d434d", 0.4, 0.5);
-  const panel = B.MeshBuilder.CreateBox("ropePanel", { width: 0.14, height: 1.5, depth: 1.4 }, scene);
+  const panel = B.MeshBuilder.CreateBox("ropePanel", { width: 0.14, height: 1.5, depth: 2.1 }, scene);
   panel.position.set(pos.x, 0.85, pos.z); panel.material = board; addShadow(panel, detailed);
   const body = [panel];
-  for (const z of [-0.42, 0, 0.42]) {
+  for (const z of [-0.6, 0, 0.6]) {
     const collar = B.MeshBuilder.CreateCylinder("ropeHookCollar", { diameter: 0.16, height: 0.04, tessellation: detailed ? 12 : 8 }, scene);
     collar.position.set(pos.x - 0.09, 1.35, pos.z + z); collar.rotation.z = Math.PI / 2; collar.material = metal;
     const hook = B.MeshBuilder.CreateCylinder("ropeHookPeg", { diameter: 0.07, height: 0.5, tessellation: detailed ? 10 : 6 }, scene);
@@ -212,7 +213,7 @@ function createRopeHooks(pos, detailed) {
     body.push(collar, hook);
   }
   addZone("ropes", "Seilhaken", "rope", pos, 1.8, "#e9a767", body);
-  obstacles.push({ x: pos.x, z: pos.z, halfX: 0.4, halfZ: 0.75 });
+  obstacles.push({ x: pos.x, z: pos.z, halfX: 0.4, halfZ: 1.1 });
 }
 
 function createMedballNet(pos, detailed) {
@@ -381,21 +382,21 @@ function createLevelFloor(root, id, spec, detailed) {
 }
 
 function createLevelSign(root, id, spec, detailed) {
-  const texture = createMuralTexture(scene, `${id}ShiftSignTexture`, {
-    width: detailed ? 1024 : 512,
-    height: detailed ? 256 : 128,
+  const texture = createShiftBannerTexture(scene, `${id}ShiftSignTexture`, {
+    width: detailed ? 2048 : 1024,
+    height: detailed ? 192 : 96,
     phrase: spec.sign.phrase,
     accent: spec.accent,
   });
   const signMat = createTexturedMaterial(scene, `${id}ShiftSignMaterial`, texture, { roughness: 0.72 });
   signMat.emissiveTexture = texture;
   signMat.emissiveColor = B.Color3.FromHexString(spec.accent).scale(detailed ? 0.2 : 0.11);
-  signMat.backFaceCulling = false;
+  signMat.backFaceCulling = true;
 
-  const sign = B.MeshBuilder.CreatePlane(`${id}ShiftSign`, { width: spec.sign.width, height: 1.28 }, scene);
+  const sign = B.MeshBuilder.CreatePlane(`${id}ShiftSign`, { width: spec.sign.width, height: 0.56 }, scene);
   sign.parent = root;
-  sign.position.set(0, 3.35, 8.88);
-  sign.rotation.y = Math.PI;
+  sign.position.set(0, 4.05, 8.98);
+  sign.rotation.y = INTERIOR_SIGN_ROTATION_Y;
   sign.material = signMat;
   sign.isPickable = false;
 
@@ -404,11 +405,11 @@ function createLevelSign(root, id, spec, detailed) {
   for (const x of [-spec.sign.width * 0.36, spec.sign.width * 0.36]) {
     const cable = B.MeshBuilder.CreateCylinder(`${id}SignCable`, {
       diameter: 0.025,
-      height: 1.25,
+      height: 0.48,
       tessellation: 6,
     }, scene);
     cable.parent = root;
-    cable.position.set(x, 4.08, 8.9);
+    cable.position.set(x, 4.41, 9.0);
     cable.material = cableMat;
   }
 }

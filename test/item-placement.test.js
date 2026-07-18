@@ -5,6 +5,7 @@ import {
   DUMBBELL_RACK_LAYOUT,
   MAT_RACK_LAYOUT,
   MEDBALL_DIAMETER,
+  ROPE_ITEM_LAYOUT,
   itemDisplaySlot,
   matRackSlot,
 } from "../src/item-placement.js";
@@ -101,11 +102,40 @@ test("Kettlebells stehen auf genau zwei echten Regalebenen", () => {
   }
 });
 
-test("Seile hängen auf der Raumseite und in der Ebene ihrer Haken", () => {
+test("Springseile besitzen eine erkennbare Schlaufe mit zwei langen Griffen", () => {
+  const xs = ROPE_ITEM_LAYOUT.path.map(([x]) => x);
+  const zs = ROPE_ITEM_LAYOUT.path.map(([, , z]) => z);
+  assert.ok(Math.max(...xs) - Math.min(...xs) >= 1, "die Seilschlaufe ist zu schmal");
+  assert.ok(Math.max(...zs) - Math.min(...zs) >= 0.8, "die Seilschlaufe ist zu kurz");
+  assert.ok(ROPE_ITEM_LAYOUT.handleX * 2 >= 0.8, "die beiden Griffe sind nicht klar getrennt");
+  assert.ok(
+    ROPE_ITEM_LAYOUT.handleLength >= ROPE_ITEM_LAYOUT.cableRadius * 10,
+    "die Griffe heben sich nicht deutlich genug vom Seil ab",
+  );
+  assert.ok(
+    ROPE_ITEM_LAYOUT.handleDiameter >= ROPE_ITEM_LAYOUT.cableRadius * 4,
+    "die Griffe sind nicht kräftiger als das Seil",
+  );
+});
+
+test("Springseile hängen auf der Raumseite mit beiden Griffen auf Hakenhöhe", () => {
   for (let index = 0; index < 16; index++) {
     const slot = itemDisplaySlot("ropes", index);
-    assert.ok(slot.x < -0.14, "Seil liegt hinter dem Wandboard");
+    const handleCenterY = slot.y - ROPE_ITEM_LAYOUT.handleCenterZ * slot.scale;
+    assert.ok(slot.x <= -0.25, "Seil liegt hinter dem Wandboard");
+    assert.ok(Math.abs(handleCenterY - 1.35 + Math.floor(index / 3) * 0.008) < 0.001);
+    assert.equal(slot.rotationX, Math.PI / 2);
     assert.equal(slot.rotationY, -Math.PI / 2);
+  }
+
+  const firstHookLayer = [0, 1, 2].map((index) => itemDisplaySlot("ropes", index));
+  const halfWidth = Math.max(...ROPE_ITEM_LAYOUT.path.map(([x]) => Math.abs(x)))
+    * firstHookLayer[0].scale;
+  for (let index = 1; index < firstHookLayer.length; index++) {
+    assert.ok(
+      firstHookLayer[index].z - firstHookLayer[index - 1].z > halfWidth * 2,
+      "benachbarte Springseile überdecken sich",
+    );
   }
 });
 

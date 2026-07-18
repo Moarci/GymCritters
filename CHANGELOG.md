@@ -11,6 +11,10 @@
 - Die Kursmatten liegen mit festen Abständen einzeln auf dem Boden statt fast deckungsgleich; deckende Materialien und eine stabile Tiefenreihenfolge verhindern den perspektivabhängigen Farbwechsel.
 - Das Mattenregal besitzt zwei offene, exakt vermessene Ebenen für je acht liegende Rollen. Die doppelte Mattenrotation und Kollisionen mit den früheren Führungspfosten entfallen.
 - Hantelregal und Hantel-Slots teilen sich dieselben Breiten-, Tiefen- und Höhenmaße; beide Hantelreihen liegen vollständig auf den verbreiterten Querträgern und halten sichtbar Abstand zum Rahmen.
+- Springseile bestehen jetzt aus einer großen U-förmigen Seilschlaufe, zwei kontrastreichen Griffen und metallischen Griffringen statt aus einem kleinen, nicht erkennbaren Torus.
+- Die Seilhaken wurden verbreitert und ihre Ablage-Slots richten jedes Springseil mit beiden Griffen auf Hakenhöhe aus.
+- Das große Gym-Plakat besitzt ein neues gerahmtes Crew-Code-Design mit klarer Typografie, Badge, Akzentlinien und kontrollierter Beleuchtung; Plakat und Level-Schilder zeigen nun mit der korrekten, ungespiegelten Vorderseite in den Raum.
+- Der aktuelle Levelname liegt als eigene schmale Live-Shift-Statusleiste oben im Plakatrahmen und verdeckt nicht länger die große Markenbotschaft.
 - Drei Stolperrisiken verändern Auslöseradius, Mindesttempo, Abklingzeit und Dauer der Reaktion; Tutorial und unmittelbare Wiederholungen bleiben geschützt.
 - Der neue Zen-Modus besitzt kein Zeitlimit. Verstrichene Zeit wird für die private Entwicklungsauswertung erfasst, aber bewusst nicht als Bestzeit gewertet.
 - Gegenstandsmenge, Wellendynamik, Stolperrisiko und Zielhilfe lassen sich für jedes Level separat konfigurieren.
@@ -28,7 +32,7 @@
 
 - Neue Babylon-unabhängige Module kapseln Stolpererkennung und Schichteinstellungen für deterministische Tests.
 - Service Worker, Manifest, HTTP-Smoke-Test und UI-Shell wurden um die neuen Module und Oberflächen erweitert.
-- Die vollständige Suite umfasst 214 Tests sowie Syntax- und HTTP-Smoke-Prüfungen.
+- Die vollständige Suite umfasst 216 Tests sowie Syntax- und HTTP-Smoke-Prüfungen.
 
 ## V5.0.0 – Living Shifts (2026-07-18)
 
