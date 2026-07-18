@@ -1,5 +1,14 @@
 # Changelog
 
+## Mobile-Optimierung
+
+- Hochformat vollwertig spielbar: eigenes HUD-Layout, stabiles horizontales Sichtfeld, Orientierungshinweis entfällt
+- eigene Look-Zone auf Touch: Laufen und Umsehen gleichzeitig, ohne Kamerasprung durch den zweiten Finger
+- Joystick mit Deadzone gegen Daumen-Drift, sauberes Clamping und Recentering
+- Kamera-Ausrichten auch unten rechts in Daumenreichweite
+- gehaltene Eingaben lösen sich beim Tab-Wechsel, statt die Figur weiterlaufen zu lassen
+- neue Grafikeinstellung „Automatisch": regelt Auflösung und Detailstufe nach gemessener Bildrate
+
 ## V4 – Critter Crew
 
 - vollständiges Progressionssystem mit Shop und Ausrüstung
