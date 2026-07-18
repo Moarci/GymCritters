@@ -33,7 +33,7 @@ V5 macht aus der einfachen Aufräumrunde eine kleine Gym-Schicht: Gegenstände e
 | **Drei Level-Identitäten** | Feierabend, Nach dem Kurs und Leg Day Chaos besitzen eigene Bodenflächen, Beschilderung, Deko, Kollisionshindernisse, Item-Schwerpunkte und Ereignisse. |
 | **Zwei Critter** | Rocco ist stark mit schweren Lasten; Fibi ist schneller und trägt zwei leichte Gegenstände gleichzeitig. |
 | **Präzises Greifen** | Zwei-Knochen-IK richtet Schulter, Ellbogen und Pfoten an den Gegenständen aus; Tragehaltung und Gang reagieren auf die Gewichtsklasse. |
-| **Verlässliche Interaktion** | Reichweite, Blickrichtung und freie Sicht bestimmen das Ziel. Sichtbare Hindernisse blockieren Bewegung und Aufnahme konsistent. |
+| **Verlässliche Interaktion** | Reichweite, Blickrichtung und freie Sicht bestimmen das Ziel. Sichtbare Hindernisse blockieren Bewegung und Aufnahme konsistent; Matten und Hanteln landen in maßgenau abgestimmten, kollisionsfreien Ablage-Slots. |
 | **Physische Stolperfallen** | Beim Überlaufen eines Bodengegenstands stolpert die Figur, verliert ihre Combo und lässt getragene Dinge fallen; drei Risikostufen steuern Reichweite und Empfindlichkeit. |
 | **Vier Spielmodi** | Entspannt, Standard, Blitz und der neue Zen-Modus ohne Zeitlimit. |
 | **Level-Feintuning** | Gegenstandsmenge, Schichtdynamik, Stolperrisiko und Zielhilfe werden für jedes Level separat gespeichert. |

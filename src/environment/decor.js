@@ -1,7 +1,12 @@
 import { B } from "../babylon.js";
 import { createMaterial, createTexturedMaterial } from "../materials.js";
+import { DUMBBELL_RACK_LAYOUT, MAT_RACK_LAYOUT } from "../item-placement.js";
 import { createMuralTexture } from "./textures.js";
-import { LEVEL_DECOR_SPECS } from "./level-decor-specs.js";
+import {
+  CLASS_FLOOR_MAT_LAYOUT,
+  LEVEL_DECOR_SPECS,
+  classFloorMatPlacement,
+} from "./level-decor-specs.js";
 
 let scene;
 let shadowGenerator;
@@ -89,13 +94,21 @@ function createDumbbellRack(pos, detailed) {
   const metal = material("rackMetal", "#393f49", 0.43, 0.45);
   const accent = material("rackAccent", "#a7f46a", 0.75);
   const body = [];
-  for (const x of [-1.05, 1.05]) {
-    const post = B.MeshBuilder.CreateBox("rackPost", { width: 0.16, height: 2.05, depth: 0.32 }, scene);
+  for (const x of [-DUMBBELL_RACK_LAYOUT.postX, DUMBBELL_RACK_LAYOUT.postX]) {
+    const post = B.MeshBuilder.CreateBox("rackPost", {
+      width: DUMBBELL_RACK_LAYOUT.postWidth,
+      height: 2.05,
+      depth: DUMBBELL_RACK_LAYOUT.depth,
+    }, scene);
     post.position.set(pos.x + x, 1.02, pos.z); post.material = metal; addShadow(post, detailed);
     body.push(post);
   }
-  for (const y of [0.45, 1.05, 1.65]) {
-    const beam = B.MeshBuilder.CreateBox("rackBeam", { width: 2.3, height: 0.13, depth: 0.42 }, scene);
+  for (const y of DUMBBELL_RACK_LAYOUT.shelfCenters) {
+    const beam = B.MeshBuilder.CreateBox("rackBeam", {
+      width: DUMBBELL_RACK_LAYOUT.width,
+      height: DUMBBELL_RACK_LAYOUT.shelfHeight,
+      depth: DUMBBELL_RACK_LAYOUT.depth,
+    }, scene);
     beam.position.set(pos.x, y, pos.z); beam.material = metal; addShadow(beam, detailed);
     body.push(beam);
   }
@@ -127,14 +140,37 @@ function createBottleZone(pos, detailed) {
 function createMatZone(pos, detailed) {
   const rackMat = material("matRack", "#d97f6c", 0.88);
   const metal = material("matMetal", "#404650", 0.45, 0.4);
-  const base = B.MeshBuilder.CreateBox("matRackBase", { width: 2.2, height: 0.15, depth: 1.25 }, scene);
+  const base = B.MeshBuilder.CreateBox("matRackBase", {
+    width: MAT_RACK_LAYOUT.width,
+    height: 0.15,
+    depth: MAT_RACK_LAYOUT.depth,
+  }, scene);
   base.position.set(pos.x, 0.08, pos.z); base.material = metal;
   const body = [base];
-  for (const x of [-0.8, 0, 0.8]) {
-    const guide = B.MeshBuilder.CreateBox("matGuide", { width: 0.08, height: 1.55, depth: 0.8 }, scene);
-    guide.position.set(pos.x + x, 0.78, pos.z); guide.material = rackMat;
-    body.push(guide);
+  const upperShelf = B.MeshBuilder.CreateBox("matRackShelf", {
+    width: MAT_RACK_LAYOUT.width,
+    height: 0.11,
+    depth: MAT_RACK_LAYOUT.depth,
+  }, scene);
+  upperShelf.position.set(pos.x, MAT_RACK_LAYOUT.upperShelfTop - 0.055, pos.z);
+  upperShelf.material = metal;
+  body.push(upperShelf);
+  for (const x of [-MAT_RACK_LAYOUT.sideX, MAT_RACK_LAYOUT.sideX]) {
+    const side = B.MeshBuilder.CreateBox("matRackSide", {
+      width: MAT_RACK_LAYOUT.sideWidth,
+      height: 1.15,
+      depth: MAT_RACK_LAYOUT.depth,
+    }, scene);
+    side.position.set(pos.x + x, 0.575, pos.z); side.material = rackMat;
+    body.push(side);
   }
+  const top = B.MeshBuilder.CreateBox("matRackTop", {
+    width: MAT_RACK_LAYOUT.width,
+    height: 0.08,
+    depth: MAT_RACK_LAYOUT.depth,
+  }, scene);
+  top.position.set(pos.x, 1.11, pos.z); top.material = rackMat;
+  body.push(top);
   addZone("mats", "Mattenregal", "mat", pos, 2.0, "#ed8c78", body);
   obstacles.push({ x: pos.x, z: pos.z, halfX: 1.25, halfZ: 0.7 });
 }
@@ -495,14 +531,22 @@ function createClassDecor(root, spec, detailed) {
   }
 
   const matColors = [spec.accent, "#63b4ef", "#ed8c78"];
-  const matCount = detailed ? 6 : 3;
+  const matCount = CLASS_FLOOR_MAT_LAYOUT.xPositions.length;
   for (let i = 0; i < matCount; i++) {
-    const mat = B.MeshBuilder.CreateBox("classFloorMat", { width: 1.35, height: 0.022, depth: 2.35 }, scene);
+    const mat = B.MeshBuilder.CreateBox("classFloorMat", {
+      width: CLASS_FLOOR_MAT_LAYOUT.width,
+      height: 0.022,
+      depth: CLASS_FLOOR_MAT_LAYOUT.depth,
+    }, scene);
+    const placement = classFloorMatPlacement(i);
+    const matSurface = material(`classFloorMat${i % matColors.length}`, matColors[i % matColors.length], 0.96);
+    matSurface.alpha = 1;
+    matSurface.transparencyMode = 0;
+    matSurface.forceDepthWrite = true;
     mat.parent = root;
-    const row = i % 2;
-    mat.position.set(-6.4 + Math.floor(i / 2) * 3.15, 0.045, 0.7 + row * 0.3);
-    mat.rotation.y = row ? 0.06 : -0.06;
-    mat.material = material(`classFloorMat${i % matColors.length}`, matColors[i % matColors.length], 0.96);
+    mat.position.set(placement.x, placement.y, placement.z);
+    mat.rotation.y = placement.rotationY;
+    mat.material = matSurface;
     mat.isPickable = false;
   }
 

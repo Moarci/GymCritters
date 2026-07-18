@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { LEVELS } from "../src/config.js";
-import { LEVEL_DECOR_SPECS, getLevelObstacleDescriptors } from "../src/environment/level-decor-specs.js";
+import {
+  CLASS_FLOOR_MAT_LAYOUT,
+  LEVEL_DECOR_SPECS,
+  classFloorMatPlacement,
+  getLevelObstacleDescriptors,
+} from "../src/environment/level-decor-specs.js";
 
 const LEVEL_IDS = ["closing", "class", "legday"];
 
@@ -45,6 +50,32 @@ test("Gegenstände spawnen nicht in levelgebundener Dekoration", () => {
       const overlapsSpawn = Math.abs(x - obstacle.x) <= obstacle.halfX + 0.5
         && Math.abs(z - obstacle.z) <= obstacle.halfZ + 0.5;
       assert.equal(overlapsSpawn, false, `${obstacle.id} überlappt Spawn (${x}, ${z})`);
+    }
+  }
+});
+
+test("Kursmatten liegen einzeln auf dem Boden und nicht in den Step-Plattformen", () => {
+  const mats = CLASS_FLOOR_MAT_LAYOUT.xPositions.map((_, index) => classFloorMatPlacement(index));
+  const floor = LEVEL_DECOR_SPECS.class.floor;
+  const steps = LEVEL_DECOR_SPECS.class.obstacles.filter(({ kind }) => kind === "step-platform");
+
+  for (let index = 0; index < mats.length; index++) {
+    const mat = mats[index];
+    assert.ok(Math.abs(mat.x - floor.x) + CLASS_FLOOR_MAT_LAYOUT.width / 2 < floor.width / 2);
+    assert.ok(Math.abs(mat.z - floor.z) + CLASS_FLOOR_MAT_LAYOUT.depth / 2 < floor.depth / 2);
+
+    for (let other = index + 1; other < mats.length; other++) {
+      const overlapsX = Math.abs(mat.x - mats[other].x) < CLASS_FLOOR_MAT_LAYOUT.width;
+      const overlapsZ = Math.abs(mat.z - mats[other].z) < CLASS_FLOOR_MAT_LAYOUT.depth;
+      assert.equal(overlapsX && overlapsZ, false, `Kursmatten ${index} und ${other} überlagern sich`);
+    }
+
+    for (const step of steps) {
+      const overlapsX = Math.abs(mat.x - step.position[0])
+        < CLASS_FLOOR_MAT_LAYOUT.width / 2 + step.halfX;
+      const overlapsZ = Math.abs(mat.z - step.position[1])
+        < CLASS_FLOOR_MAT_LAYOUT.depth / 2 + step.halfZ;
+      assert.equal(overlapsX && overlapsZ, false, `Kursmatte ${index} steckt in ${step.id}`);
     }
   }
 });

@@ -1,8 +1,30 @@
 export const MEDBALL_DIAMETER = 0.82;
 
-const MAT_COLUMNS = 4;
-const MAT_ROWS = 4;
 const MAX_DISPLAY_ITEMS = 16;
+
+export const DUMBBELL_RACK_LAYOUT = Object.freeze({
+  width: 2.52,
+  depth: 0.86,
+  postX: 1.19,
+  postWidth: 0.12,
+  shelfCenters: Object.freeze([0.45, 1.05, 1.65]),
+  shelfHeight: 0.13,
+  columns: Object.freeze([-0.68, 0, 0.68]),
+  lanes: Object.freeze([-0.2, 0.2]),
+  itemScale: 0.5,
+});
+
+export const MAT_RACK_LAYOUT = Object.freeze({
+  width: 2.2,
+  depth: 1.32,
+  sideX: 1.07,
+  sideWidth: 0.1,
+  baseTop: 0.155,
+  upperShelfTop: 0.715,
+  columns: Object.freeze([-0.5, 0.5]),
+  lanes: Object.freeze([-0.45, -0.15, 0.15, 0.45]),
+  itemScale: 0.52,
+});
 
 function safeSlot(index) {
   return Math.max(0, Math.floor(Number(index) || 0)) % MAX_DISPLAY_ITEMS;
@@ -13,22 +35,21 @@ function placement(x, y, z, scale, rotationX = 0, rotationY = 0, rotationZ = 0) 
 }
 
 /**
- * Liefert einen eindeutigen Platz im Mattenregal. Die 4 × 4 Anordnung nutzt
- * Breite und Tiefe des Regals, statt ab der fünften Matte dieselbe Position
- * erneut zu verwenden.
+ * Zwei offene Regalebenen nehmen jeweils acht liegende, gerollte Matten auf.
+ * Die Matte ist im Mesh bereits waagerecht gedreht; eine weitere Root-Drehung
+ * würde ihren Mittelpunkt in den seitlichen Rahmen verschieben.
  */
 export function matRackSlot(index) {
   const slot = safeSlot(index);
-  const column = slot % MAT_COLUMNS;
-  const row = Math.floor(slot / MAT_COLUMNS);
+  const tier = Math.floor(slot / 8);
+  const tierSlot = slot % 8;
+  const column = tierSlot % MAT_RACK_LAYOUT.columns.length;
+  const lane = Math.floor(tierSlot / MAT_RACK_LAYOUT.columns.length);
   return placement(
-    (column - (MAT_COLUMNS - 1) / 2) * 0.38,
-    0.61,
-    (row - (MAT_ROWS - 1) / 2) * 0.31,
-    0.54,
-    0,
-    0,
-    Math.PI / 2,
+    MAT_RACK_LAYOUT.columns[column],
+    tier === 0 ? MAT_RACK_LAYOUT.baseTop : MAT_RACK_LAYOUT.upperShelfTop,
+    MAT_RACK_LAYOUT.lanes[lane],
+    MAT_RACK_LAYOUT.itemScale,
   );
 }
 
@@ -43,9 +64,18 @@ export function itemDisplaySlot(zoneId, index) {
   if (zoneId === "rack") {
     const shelf = Math.floor(slot / 6);
     const shelfSlot = slot % 6;
-    const column = shelfSlot % 3;
-    const lane = Math.floor(shelfSlot / 3);
-    return placement((column - 1) * 0.65, 0.53 + shelf * 0.6, lane ? 0.25 : -0.25, 0.5);
+    const column = shelfSlot % DUMBBELL_RACK_LAYOUT.columns.length;
+    const lane = Math.floor(shelfSlot / DUMBBELL_RACK_LAYOUT.columns.length);
+    const shelfTop = DUMBBELL_RACK_LAYOUT.shelfCenters[shelf]
+      + DUMBBELL_RACK_LAYOUT.shelfHeight / 2;
+    // Die Scheibenunterkante liegt im lokalen Mesh bei y = -0,03.
+    const rootY = shelfTop + 0.03 * DUMBBELL_RACK_LAYOUT.itemScale;
+    return placement(
+      DUMBBELL_RACK_LAYOUT.columns[column],
+      rootY,
+      DUMBBELL_RACK_LAYOUT.lanes[lane],
+      DUMBBELL_RACK_LAYOUT.itemScale,
+    );
   }
 
   if (zoneId === "laundry") {
