@@ -15,7 +15,7 @@ Dazu kommt, dass alle Rückmeldung gleichzeitig und gleich laut feuert — es gi
 
 Das Abliefern körperlich machen: Der Gegenstand kommt spürbar an, und die Zone nimmt ihn sichtbar und hörbar entgegen.
 
-Umfang: **Phase 1 (der einzelne Moment).** Die Eskalation über die Runde ist Phase 2 und bekommt eine eigene Spec; dieses Design legt nur die Nahtstelle dafür.
+Umfang: **Phase 1 (der einzelne Moment)** und **Phase 2 (Eskalation über die Serie)** — beide umgesetzt. Phase 2 dreht ausschließlich an den Reglern aus Phase 1.
 
 ## Ton
 
@@ -109,9 +109,21 @@ Die imperative Anwendung (Babylon-Meshes animieren, Ton abspielen) bleibt in `ma
 
 Bei `save.settings.quality === "low"` entfallen Staubwölkchen und Kamera-Stups. Stauchung und Aufschlag-Sound bleiben — sie kosten praktisch nichts und tragen den Effekt allein.
 
-### 9. Nahtstelle für Phase 2
+### 9. Phase 2 — Eskalation über die Serie *(umgesetzt)*
 
-`impactSound()` nimmt einen optionalen `pitchFactor` mit Standardwert `1`. Die Eskalation in Phase 2 ändert damit nur den Aufrufer, nicht die Klangdefinitionen. Ebenso lässt sich `impactStrength` später mit der Combo skalieren, ohne die Kurve anzufassen.
+Phase 2 dreht ausschließlich an den Reglern aus Phase 1, ohne neue Effekte:
+
+| Regler | Verhalten |
+|---|---|
+| `deliveryPitch(combo)` | Jeder Aufschlag in ununterbrochener Folge klingt einen Halbton höher, gedeckelt bei einer Quinte (erreicht ab Combo 8) |
+| `comboImpactScale(combo)` | Stauchung, Staub und Kamera-Stups wachsen um 5 % je Schritt, gedeckelt bei 1,35 |
+| `comboBreak`-Klang | Fällt die Serie ab drei Gegenständen, rutscht eine absteigende Tonfolge hörbar herunter |
+
+Der Deckel bei einer Quinte ist bewusst: ohne ihn wird eine lange Serie schrill statt belohnend. Der Abbruch-Klang erst ab Combo 3, weil es darunter nichts zu verlieren gab und der Fehlerton allein genügt.
+
+**Wichtig bei der Umsetzung:** Der Combo-Stand wird beim Abwurf festgehalten, nicht beim Aufschlag ausgelesen — `state.combo` zählt während der 500 ms Flugzeit weiter, der Aufschlag gehört aber zu dem Stand, mit dem er geworfen wurde.
+
+Die Hintergrundmusik bleibt bewusst unangetastet: Mit Lautstärke 0,011 ist sie fast unhörbar, der Aufwand lohnt nicht.
 
 ## Randfälle
 

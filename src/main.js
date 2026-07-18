@@ -7,7 +7,7 @@ import {
   MODES,
   SHOP_ITEMS,
 } from "./config.js";
-import { buyOrEquip, evaluateAchievements, loadSave, owns, persistSave } from "./save.js";
+import { achievementProgress, buyOrEquip, evaluateAchievements, loadSave, nextGoal, owns, persistSave } from "./save.js";
 import { AudioSystem } from "./audio.js";
 import { B } from "./babylon.js";
 import { createMaterial } from "./materials.js";
@@ -18,6 +18,7 @@ import { SQUASH_DURATION, comboImpactScale, deliveryPitch, impactSound, impactSt
 import { createTouchInput } from "./input/index.js";
 import { clampPitch } from "./input/touch-look.js";
 import { createQualityState, stepQuality } from "./perf/adaptive-quality.js";
+import { carryPose, curveLean, dominantWeight, gaitParams, idleMotion } from "./character-motion.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -41,7 +42,7 @@ const ui = {
   resultRank: $("resultRank"), resultRankDetail: $("resultRankDetail"), resultRankBox: document.querySelector(".result-rank"),
   resultTitle: $("resultTitle"), resultText: $("resultText"), finalScore: $("finalScore"),
   earnedCoins: $("earnedCoins"), highScore: $("highScore"), bestTime: $("bestTime"),
-  newAchievements: $("newAchievements"), restartButton: $("restartButton"), resultShopButton: $("resultShopButton"),
+  newAchievements: $("newAchievements"), nextGoal: $("nextGoal"), restartButton: $("restartButton"), resultShopButton: $("resultShopButton"),
   resultMenuButton: $("resultMenuButton"), shopScreen: $("shopScreen"), shopCoins: $("shopCoins"), shopGrid: $("shopGrid"),
   achievementsScreen: $("achievementsScreen"), achievementGrid: $("achievementGrid"), statsScreen: $("statsScreen"),
   careerStats: $("careerStats"), modeStats: $("modeStats"), settingsScreen: $("settingsScreen"),
@@ -65,9 +66,9 @@ const state = {
   level: LEVELS[save.lastLevel] ? save.lastLevel : "closing",
   character: owns(save, save.selectedCharacter) ? save.selectedCharacter : "raccoon",
   score: 0, combo: 0, delivered: 0, timeLeft: 120, roundSeconds: 120, wrongPlacements: 0,
-  droppedItems: 0, maxCombo: 0, deliveredDumbbells: 0, heldItems: [], nearestItem: null, nearestZone: null,
+  droppedItems: 0, maxCombo: 0, deliveredDumbbells: 0, deliveredByType: {}, heldItems: [], nearestItem: null, nearestZone: null,
   keys: new Set(), interactPressed: false, elapsed: 0, hudAccumulator: 0,
-  velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 },
+  velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 }, lean: 0,
   toastTimer: null, speechTimer: null, achievementTimer: null,
 };
 
@@ -564,7 +565,13 @@ function updatePlayer(dt) {
     resolvePlayerPosition(next);
   }
   if (moveDirection) {
-    player.rotation.y = lerpAngle(player.rotation.y, yawTowards(moveDirection.x, moveDirection.z), Math.min(1, dt * 11));
+    const yVorher = player.rotation.y;
+    player.rotation.y = lerpAngle(yVorher, yawTowards(moveDirection.x, moveDirection.z), Math.min(1, dt * 11));
+    // Drehgeschwindigkeit -> Kurvenneigung. updateReaction wendet sie als
+    // Ruhelage von rotation.z an, damit Reaktionen (Kopfschütteln) gewinnen.
+    state.lean = dt > 0 ? curveLean(normalizeAngle(player.rotation.y - yVorher) / dt) : 0;
+  } else {
+    state.lean = 0;
   }
 
   animateCharacter(dt, isMoving || state.velocity.lengthSquared() > 0.08, sprinting);
@@ -599,27 +606,34 @@ function resolvePlayerPosition(next) {
 }
 
 function animateCharacter(dt, moving, sprinting) {
-  const intensity = moving ? (sprinting ? 1.1 : 0.78) : 0.12;
-  const frequency = moving ? (sprinting ? 13 : 9) : 2.2;
-  const phase = state.elapsed * frequency;
-  const armSwing = Math.sin(phase) * 0.55 * intensity;
-  const legSwing = Math.sin(phase) * 0.5 * intensity;
+  const weight = dominantWeight(state.heldItems.map((item) => item.weight));
+  const gait = gaitParams(weight, sprinting, moving);
+  const phase = state.elapsed * gait.frequency;
+  const armSwing = Math.sin(phase) * 0.55 * gait.intensity * gait.armSwing;
+  const legSwing = Math.sin(phase) * 0.5 * gait.intensity;
   if (state.heldItems.length) {
-    playerParts.leftArm.rotation.x = -1.05;
-    playerParts.rightArm.rotation.x = -1.05;
-    playerParts.leftArm.rotation.z = -0.35;
-    playerParts.rightArm.rotation.z = 0.35;
+    // Die Haltung zeigt, was geschleppt wird: schwer hängt tief mit Rücklage,
+    // sperrig umklammert breit, leicht bleibt locker.
+    const pose = carryPose(weight);
+    playerParts.leftArm.rotation.x = pose.armX;
+    playerParts.rightArm.rotation.x = pose.armX;
+    playerParts.leftArm.rotation.z = -pose.armZ;
+    playerParts.rightArm.rotation.z = pose.armZ;
+    playerVisual.rotation.x = B.Scalar.Lerp(playerVisual.rotation.x, pose.torsoLean, 0.15);
   } else {
     playerParts.leftArm.rotation.x = armSwing;
     playerParts.rightArm.rotation.x = -armSwing;
     playerParts.leftArm.rotation.z = state.character === "squirrel" ? -0.17 : -0.22;
     playerParts.rightArm.rotation.z = state.character === "squirrel" ? 0.17 : 0.22;
+    playerVisual.rotation.x = B.Scalar.Lerp(playerVisual.rotation.x, 0, 0.15);
   }
   playerParts.leftLeg.rotation.x = -legSwing;
   playerParts.rightLeg.rotation.x = legSwing;
-  playerParts.tailRoot.rotation.y = Math.sin(state.elapsed * (state.character === "squirrel" ? 4 : 3.2)) * 0.28;
+  const idle = !moving && !state.heldItems.length ? idleMotion(state.elapsed) : null;
+  playerParts.body.scaling.y = 1 + (idle ? idle.breath : 0);
+  playerParts.tailRoot.rotation.y = Math.sin(state.elapsed * (state.character === "squirrel" ? 4 : 3.2)) * 0.28 + (idle ? idle.tailFlick : 0);
   playerParts.tailRoot.rotation.x = 0.13 + Math.sin(state.elapsed * 2.1) * 0.06;
-  playerVisual.position.y = -0.84 + Math.abs(Math.sin(phase)) * 0.035 * intensity;
+  playerVisual.position.y = -0.84 + Math.abs(Math.sin(phase)) * 0.035 * gait.intensity * gait.bob;
   updateReaction(dt);
 }
 
@@ -629,7 +643,7 @@ function setReaction(type, duration = 0.7) {
 
 function updateReaction(dt) {
   if (!state.reaction.type) {
-    playerVisual.rotation.z = B.Scalar.Lerp(playerVisual.rotation.z, 0, 0.22);
+    playerVisual.rotation.z = B.Scalar.Lerp(playerVisual.rotation.z, state.lean, 0.22);
     playerVisual.rotation.y = B.Scalar.Lerp(playerVisual.rotation.y, 0, 0.22);
     playerVisual.scaling.copyFrom(B.Vector3.Lerp(playerVisual.scaling, B.Vector3.One(), 0.18));
     return;
@@ -927,6 +941,7 @@ function deliverAtZone(zone) {
     state.score += gained + milestone;
     state.delivered += 1;
     if (item.type === "dumbbell") state.deliveredDumbbells += 1;
+    state.deliveredByType[item.type] = (state.deliveredByType[item.type] || 0) + 1;
     item.delivered = true;
     state.heldItems = state.heldItems.filter((entry) => entry !== item);
     showScorePop(`+${gained}`, false);
@@ -1128,7 +1143,7 @@ function startRound() {
 function resetRoundState() {
   state.playing = true; state.paused = false; state.ended = false; state.finishing = false;
   state.score = 0; state.combo = 0; state.delivered = 0; state.wrongPlacements = 0; state.droppedItems = 0;
-  state.maxCombo = 0; state.deliveredDumbbells = 0; state.heldItems = []; state.nearestItem = null; state.nearestZone = null;
+  state.maxCombo = 0; state.deliveredDumbbells = 0; state.deliveredByType = {}; state.heldItems = []; state.nearestItem = null; state.nearestZone = null;
   state.hudAccumulator = 0; state.interactPressed = false; state.keys.clear(); state.velocity.set(0, 0, 0);
   touchInput.reset(); resetZoneGuidance(); clearItemHighlight();
   // Jede Runde beginnt mit frischer Warmlaufphase: Szenenaufbau verzerrt die Messung.
@@ -1210,6 +1225,9 @@ function endRound(completed) {
   save.stats.totalRounds += 1;
   save.stats.totalDelivered += state.delivered;
   save.stats.totalDumbbells += state.deliveredDumbbells;
+  for (const [type, anzahl] of Object.entries(state.deliveredByType)) {
+    save.stats.byType[type] = (save.stats.byType[type] || 0) + anzahl;
+  }
   save.stats.maxCombo = Math.max(save.stats.maxCombo, state.maxCombo);
   save.stats.totalCoinsEarned += earned;
   if (completed && state.wrongPlacements === 0 && state.maxCombo >= items.length) save.stats.perfectRounds += 1;
@@ -1232,7 +1250,7 @@ function endRound(completed) {
   ui.resultRankBox.className = `result-rank rank-${rank.grade.toLowerCase()}`;
   ui.finalScore.textContent = String(state.score); ui.earnedCoins.textContent = `+${earned}`;
   ui.highScore.textContent = String(modeStats.highScore); ui.bestTime.textContent = modeStats.bestTime ? formatTime(modeStats.bestTime) : "–";
-  renderNewAchievements(unlocked); updateCoinDisplays(); renderMenu();
+  renderNewAchievements(unlocked); renderNextGoal(); updateCoinDisplays(); renderMenu();
   if (unlocked.length) showAchievementSequence(unlocked);
   setReaction("celebrate", completed ? 2.5 : 0.8);
   audio.play(completed ? "success" : "timeout");
@@ -1344,7 +1362,16 @@ function renderAchievements() {
   for (const achievement of ACHIEVEMENTS) {
     const unlocked = Boolean(save.achievements[achievement.id]);
     const card = document.createElement("article"); card.className = `achievement-card ${unlocked ? "unlocked" : "locked"}`;
-    card.innerHTML = `<span class="achievement-icon">${unlocked ? achievement.icon : "❔"}</span><h3>${achievement.name}</h3><p>${achievement.description}</p><span class="achievement-status">${unlocked ? "Freigeschaltet" : "Noch offen"}</span>`;
+    // Nur zählbare Ziele bekommen einen Balken. Ja/Nein-Bedingungen pro Runde
+    // behalten "Noch offen" — ein Balken, der nie wächst, wäre irreführend.
+    const stand = unlocked ? null : achievementProgress(save, achievement);
+    const status = unlocked
+      ? `<span class="achievement-status">Freigeschaltet</span>`
+      : stand
+        ? `<span class="achievement-status">${stand.aktuell} / ${stand.ziel}</span>
+           <div class="achievement-bar"><div style="width:${Math.round((stand.aktuell / stand.ziel) * 100)}%"></div></div>`
+        : `<span class="achievement-status">Noch offen</span>`;
+    card.innerHTML = `<span class="achievement-icon">${unlocked ? achievement.icon : "❔"}</span><h3>${achievement.name}</h3><p>${achievement.description}</p>${status}`;
     ui.achievementGrid.appendChild(card);
   }
 }
@@ -1374,6 +1401,20 @@ function renderNewAchievements(unlocked) {
   if (!unlocked.length) { ui.newAchievements.classList.add("hidden"); ui.newAchievements.innerHTML = ""; return; }
   ui.newAchievements.innerHTML = `<strong>Neu freigeschaltet</strong>${unlocked.map((entry) => `<span>${entry.icon} ${entry.name}</span>`).join("")}`;
   ui.newAchievements.classList.remove("hidden");
+}
+
+// Der Anstoß für die nächste Runde: direkt nach dem Ergebnis zeigen, was als
+// Nächstes in Reichweite liegt. Genau hier entscheidet sich, ob nochmal
+// gedrückt wird.
+function renderNextGoal() {
+  const ziel = nextGoal(save);
+  if (!ziel) { ui.nextGoal.classList.add("hidden"); ui.nextGoal.innerHTML = ""; return; }
+  const anteil = Math.round((ziel.aktuell / ziel.ziel) * 100);
+  ui.nextGoal.innerHTML = `<small>Nächstes Ziel</small>
+    <strong>${ziel.achievement.icon} ${ziel.achievement.name}</strong>
+    <span>noch ${ziel.rest} · ${ziel.aktuell} von ${ziel.ziel}</span>
+    <div class="next-goal-bar"><div style="width:${anteil}%"></div></div>`;
+  ui.nextGoal.classList.remove("hidden");
 }
 
 function showAchievementSequence(unlocked) {
