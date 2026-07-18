@@ -1,9 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { scoreTarget } from "../src/targeting.js";
+import { hasClearLineOfSight, scoreTarget } from "../src/targeting.js";
 
 test("außerhalb der Reichweite ist kein gültiges Ziel", () => {
   assert.equal(scoreTarget(3.0, 0, 2.18), Infinity);
+});
+
+test("ein Hindernis zwischen Figur und Gegenstand blockiert die Aufnahme", () => {
+  const obstacles = [{ x: 1, z: 0, halfX: 0.25, halfZ: 0.5 }];
+  assert.equal(hasClearLineOfSight({ x: 0, z: 0 }, { x: 2, z: 0 }, obstacles), false);
+  assert.equal(hasClearLineOfSight({ x: 0, z: 1.2 }, { x: 2, z: 1.2 }, obstacles), true);
+});
+
+test("Sichtprüfung ignoriert Dekoration eines inaktiven Levels", () => {
+  const obstacles = [{ x: 1, z: 0, halfX: 0.25, halfZ: 0.5, level: "legday" }];
+  assert.equal(hasClearLineOfSight({ x: 0, z: 0 }, { x: 2, z: 0 }, obstacles, "closing"), true);
+  assert.equal(hasClearLineOfSight({ x: 0, z: 0 }, { x: 2, z: 0 }, obstacles, "legday"), false);
 });
 
 test("bei gleicher Blickrichtung gewinnt der nähere Gegenstand", () => {

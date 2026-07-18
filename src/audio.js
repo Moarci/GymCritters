@@ -20,13 +20,15 @@ export class AudioSystem {
   tone(frequency, delay = 0, duration = 0.13, volume = 0.05, type = "sine") {
     const context = this.ensure();
     if (!context) return;
+    const masterVolume = Math.max(0, Math.min(1, Number(this.save.settings?.masterVolume) || 0));
+    if (masterVolume <= 0) return;
     const now = context.currentTime + delay;
     const oscillator = context.createOscillator();
     const gain = context.createGain();
     oscillator.type = type;
     oscillator.frequency.setValueAtTime(frequency, now);
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(volume, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(volume * masterVolume, now + 0.012);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
     oscillator.connect(gain);
     gain.connect(context.destination);

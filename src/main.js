@@ -7,20 +7,33 @@ import {
   MODES,
   SHOP_ITEMS,
 } from "./config.js";
-import { achievementProgress, buyOrEquip, evaluateAchievements, loadSave, nextGoal, owns, persistSave } from "./save.js";
+import {
+  achievementProgress,
+  buyOrEquip,
+  evaluateAchievements,
+  loadSave,
+  nextGoal,
+  owns,
+  parseSaveImport,
+  persistSave,
+  serializeSaveExport,
+} from "./save.js";
+import { ensureDailyContracts, contractDefinition } from "./challenges.js";
+import { recordRoundProgress } from "./progression.js";
 import { AudioSystem } from "./audio.js";
 import { B } from "./babylon.js";
 import { createMaterial } from "./materials.js";
 import { buildEnvironment, setActiveLevelDecor } from "./environment/index.js";
-import { cameraAlphaBehind, cameraYaw, comboMultiplier, formatTime, forwardFromYaw, horizontalDistance, lerpAngle, normalizeAngle, rankValue, shuffle, yawTowards } from "./utils.js";
-import { scoreTarget } from "./targeting.js";
+import { cameraAlphaBehind, cameraYaw, comboMultiplier, formatTime, forwardFromYaw, horizontalDistance, lerpAngle, normalizeAngle, shuffle, yawTowards } from "./utils.js";
+import { hasClearLineOfSight, scoreTarget } from "./targeting.js";
 import { SQUASH_DURATION, comboImpactScale, deliveryPitch, impactSound, impactStrength, squashAt } from "./impact.js";
 import { createTouchInput } from "./input/index.js";
 import { clampPitch } from "./input/touch-look.js";
 import { createQualityState, stepQuality } from "./perf/adaptive-quality.js";
 import { deviceScalingFloor, fixedQualityScaling } from "./perf/render-scale.js";
 import { fovModeForViewport } from "./camera-fov.js";
-import { carryPose, curveLean, dominantWeight, facingRotation, gaitParams, idleMotion, raccoonTailSpec, squirrelTailSpec, surfacePoint } from "./character-motion.js";
+import { carryPose, curveLean, dominantWeight, facingRotation, gaitParams, idleMotion, raccoonTailSpec, solveTwoBoneIK, squirrelTailSpec, surfacePoint } from "./character-motion.js";
+import { shiftEvent, shiftEventMultiplier, unlockedWave, waveForItem } from "./shift-director.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -32,6 +45,7 @@ const ui = {
   achievementToast: $("achievementToast"), achievementIcon: $("achievementIcon"), achievementName: $("achievementName"),
   scorePopLayer: $("scorePopLayer"), score: $("score"), progress: $("progress"), combo: $("combo"),
   timer: $("timer"), coins: $("coins"), carrying: $("carrying"), carryCard: $("carryCard"),
+  contractHud: $("contractHud"), contractTitle: $("contractTitle"), contractProgress: $("contractProgress"), contractProgressBar: $("contractProgressBar"),
   cameraButton: $("cameraButton"), cameraRecenterButton: $("cameraRecenterButton"), fullscreenHudButton: $("fullscreenHudButton"), soundButton: $("soundButton"),
   pauseButton: $("pauseButton"), mobileControls: $("mobileControls"), joystick: $("joystick"),
   joystickKnob: $("joystickKnob"), sprintButton: $("sprintButton"), interactButton: $("interactButton"),
@@ -45,15 +59,21 @@ const ui = {
   resultTitle: $("resultTitle"), resultText: $("resultText"), finalScore: $("finalScore"),
   earnedCoins: $("earnedCoins"), highScore: $("highScore"), bestTime: $("bestTime"),
   newAchievements: $("newAchievements"), nextGoal: $("nextGoal"), restartButton: $("restartButton"), resultShopButton: $("resultShopButton"),
+  resultContracts: $("resultContracts"), masteryResult: $("masteryResult"), masteryLevel: $("masteryLevel"),
+  masteryProgressText: $("masteryProgressText"), masteryProgressBar: $("masteryProgressBar"),
   resultMenuButton: $("resultMenuButton"), shopScreen: $("shopScreen"), shopCoins: $("shopCoins"), shopGrid: $("shopGrid"),
   achievementsScreen: $("achievementsScreen"), achievementGrid: $("achievementGrid"), statsScreen: $("statsScreen"),
   careerStats: $("careerStats"), modeStats: $("modeStats"), settingsScreen: $("settingsScreen"),
   cameraSensitivity: $("cameraSensitivity"), joystickScale: $("joystickScale"), qualitySetting: $("qualitySetting"),
-  vibrationSetting: $("vibrationSetting"), resetTutorialButton: $("resetTutorialButton"),
+  vibrationSetting: $("vibrationSetting"), masterVolume: $("masterVolume"), reducedMotionSetting: $("reducedMotionSetting"),
+  exportSaveButton: $("exportSaveButton"), importSaveButton: $("importSaveButton"), importSaveInput: $("importSaveInput"),
+  resetTutorialButton: $("resetTutorialButton"),
 };
 
 const isTouchDevice = window.matchMedia("(hover: none), (pointer: coarse)").matches;
 const save = loadSave();
+const dailyContracts = ensureDailyContracts(save);
+if (dailyContracts.changed) persistSave(save);
 const audio = new AudioSystem(save);
 const engine = new B.Engine(ui.canvas, true, { preserveDrawingBuffer: false, stencil: true, antialias: true });
 // Muss vor dem ersten applyRenderQuality()-Aufruf existieren (der folgt sofort unten,
@@ -68,9 +88,12 @@ const state = {
   level: LEVELS[save.lastLevel] ? save.lastLevel : "closing",
   character: owns(save, save.selectedCharacter) ? save.selectedCharacter : "raccoon",
   score: 0, combo: 0, delivered: 0, timeLeft: 120, roundSeconds: 120, wrongPlacements: 0,
+  comboTime: 0,
   droppedItems: 0, maxCombo: 0, deliveredDumbbells: 0, deliveredByType: {}, heldItems: [], nearestItem: null, nearestZone: null,
   keys: new Set(), interactPressed: false, elapsed: 0, hudAccumulator: 0,
   velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 }, lean: 0,
+  activeWave: 0, shiftEventId: null,
+  cameraPreferredRadius: 5.6, cameraOccluded: false,
   toastTimer: null, speechTimer: null, achievementTimer: null,
 };
 
@@ -103,9 +126,28 @@ let obstacles = [];
 let highlightedItem = null;
 let deliveryObservers = [];
 let trailAccumulator = 0;
+let trailSparkPool = [];
+
+const CARRY_PROFILES = {
+  dumbbell: { scale: 0.72, rootY: -0.12, gripX: 0.22, gripY: 0.84, rotationZ: 0 },
+  towel: { scale: 0.76, rootY: -0.04, gripX: 0.24, gripY: 0.84, rotationZ: 0 },
+  bottle: { scale: 0.72, rootY: -0.37, gripX: 0.17, gripY: 0.85, rotationZ: 0 },
+  mat: { scale: 0.68, rootY: -0.17, gripX: 0.27, gripY: 0.84, rotationZ: 0.2 },
+  kettlebell: { scale: 0.74, rootY: -0.34, gripX: 0.14, gripY: 0.84, rotationZ: 0 },
+  rope: { scale: 0.76, rootY: -0.06, gripX: 0.17, gripY: 0.84, rotationZ: 0 },
+  medball: { scale: 0.76, rootY: -0.17, gripX: 0.22, gripY: 0.84, rotationZ: 0 },
+};
 
 function material(name, color, roughness = 0.85, metallic = 0) {
   return createMaterial(scene, name, color, roughness, metallic);
+}
+
+function shopItem(id) {
+  return SHOP_ITEMS.find((item) => item.id === id) || null;
+}
+
+function prefersReducedMotion() {
+  return Boolean(save.settings.reducedMotion || window.matchMedia("(prefers-reduced-motion: reduce)").matches);
 }
 
 function vibrate(pattern) {
@@ -173,6 +215,23 @@ function createScene() {
   scene.onBeforeRenderObservable.add(update);
 }
 
+function rebuildSceneForQuality() {
+  if (!scene || state.playing) return;
+  scene.dispose();
+  player = null;
+  playerVisual = null;
+  playerParts = {};
+  carryAnchors = [];
+  items = [];
+  zones = [];
+  obstacles = [];
+  deliveryObservers = [];
+  trailSparkPool = [];
+  highlightedItem = null;
+  createScene();
+  renderMenu();
+}
+
 function createPlayerCollider() {
   player = B.MeshBuilder.CreateCapsule("playerCollider", { radius: 0.48, height: 1.75 }, scene);
   player.position.set(0, 0.9, -6.7);
@@ -199,9 +258,9 @@ function createCarryAnchors() {
   // Brusthöhe und innerhalb der realen Reichweite der 0,66 Einheiten langen
   // Armkette. Die alten Werte (-0,84 z / 1,04 y) ließen Gegenstände vor der
   // Schnauze schweben; keine Schulter-/Ellbogenpose konnte sie erreichen.
-  const center = new B.TransformNode("carryCenter", scene); center.parent = playerVisual; center.position.set(0, 0.82, -0.52);
-  const left = new B.TransformNode("carryLeft", scene); left.parent = playerVisual; left.position.set(-0.27, 0.82, -0.52);
-  const right = new B.TransformNode("carryRight", scene); right.parent = playerVisual; right.position.set(0.27, 0.82, -0.52);
+  const center = new B.TransformNode("carryCenter", scene); center.parent = playerVisual; center.position.set(0, 0.82, -0.42);
+  const left = new B.TransformNode("carryLeft", scene); left.parent = playerVisual; left.position.set(-0.27, 0.82, -0.42);
+  const right = new B.TransformNode("carryRight", scene); right.parent = playerVisual; right.position.set(0.27, 0.82, -0.42);
   carryAnchors.push(center, left, right);
 }
 
@@ -274,6 +333,7 @@ function buildRaccoon() {
   return {
     body, head, eyes: eyeSockets, eyeSockets,
     leftArm: armL.root, leftElbow: armL.joint, rightArm: armR.root, rightElbow: armR.joint,
+    leftArmRig: armL, rightArmRig: armR,
     leftLeg: legL.root, leftKnee: legL.joint, rightLeg: legR.root, rightKnee: legR.joint,
     tailRoot,
   };
@@ -332,6 +392,7 @@ function buildSquirrel() {
   return {
     body, head, eyes: eyeSockets, eyeSockets,
     leftArm: armL.root, leftElbow: armL.joint, rightArm: armR.root, rightElbow: armR.joint,
+    leftArmRig: armL, rightArmRig: armR,
     leftLeg: legL.root, leftKnee: legL.joint, rightLeg: legR.root, rightKnee: legR.joint,
     tailRoot,
   };
@@ -404,20 +465,21 @@ function jointedLimb(name, pivot, upperLen, lowerLen, radius, upperMat, lowerMat
   lower.parent = joint; lower.position.y = -lowerLen / 2; lower.material = lowerMat;
   const tip = new B.TransformNode(name + "Tip", scene);
   tip.parent = joint; tip.position.y = -lowerLen;
-  return { root, joint, tip };
+  return { root, joint, tip, upperLen, lowerLen };
 }
 
 function applyCosmetics() {
-  const headColors = { "headband-lime": "#a7f46a", "headband-red": "#ef6161", "headband-blue": "#63b4ef" };
   const headId = save.equipped.head || "headband-lime";
+  const headVisual = shopItem(headId)?.visual || { color: "#a7f46a" };
   const headband = B.MeshBuilder.CreateTorus("cosmeticHeadband", { diameter: state.character === "squirrel" ? 0.66 : 0.71, thickness: 0.075, tessellation: 28 }, scene);
   headband.parent = playerVisual; headband.position.set(0, 1.72, -0.02); headband.rotation.x = Math.PI / 2; headband.scaling.y = 0.93;
-  headband.material = material("headbandMat", headColors[headId] || headColors["headband-lime"], 0.7);
+  headband.material = material("headbandMat", headVisual.color || "#a7f46a", 0.7, headVisual.metallic || 0);
 
-  if (save.equipped.face === "sunglasses") {
+  if (save.equipped.face) {
     // Die Glaeser haengen an den Augen-Ankern und sitzen damit exakt vor den
     // Pupillen — auf jeder Kopfform, ohne geratene Koordinaten.
-    const lensMat = material("sunglassLens", "#151b24", 0.3, 0.15);
+    const faceVisual = shopItem(save.equipped.face)?.visual || { color: "#151b24" };
+    const lensMat = material("sunglassLens", faceVisual.color || "#151b24", 0.3, faceVisual.metallic ?? 0.15);
     for (const socket of playerParts.eyeSockets) {
       const lens = B.MeshBuilder.CreateBox("sunglassLens", { width: 0.24, height: 0.15, depth: 0.028 }, scene);
       lens.parent = socket; lens.position.set(0, 0, 0.012); lens.material = lensMat;
@@ -428,8 +490,9 @@ function applyCosmetics() {
     bridge.position.set((l.position.x + r.position.x) / 2, (l.position.y + r.position.y) / 2, Math.min(l.position.z, r.position.z) - 0.015);
     bridge.material = lensMat;
   }
-  if (save.equipped.wrist === "wristbands") {
-    const wristMat = material("wristMat", "#f7f6f1", 0.8);
+  if (save.equipped.wrist) {
+    const wristVisual = shopItem(save.equipped.wrist)?.visual || { color: "#f7f6f1" };
+    const wristMat = material("wristMat", wristVisual.color || "#f7f6f1", 0.8, wristVisual.metallic || 0);
     // Schweissbaender gehoeren ans Handgelenk — also an den Unterarm, wo sie
     // die Ellbogenbeugung mitmachen.
     for (const elbow of [playerParts.leftElbow, playerParts.rightElbow]) {
@@ -440,8 +503,8 @@ function applyCosmetics() {
 }
 
 function createCamera() {
-  camera = new B.ArcRotateCamera("camera", Math.PI / 2, 1.03, 7.2, player.position.add(new B.Vector3(0, 0.75, 0)), scene);
-  camera.lowerRadiusLimit = 4.7; camera.upperRadiusLimit = 6.1; camera.lowerBetaLimit = 1.1; camera.upperBetaLimit = 1.32;
+  camera = new B.ArcRotateCamera("camera", Math.PI / 2, 1.03, 5.6, player.position.add(new B.Vector3(0, 0.75, 0)), scene);
+  camera.lowerRadiusLimit = 3.15; camera.upperRadiusLimit = 6.1; camera.lowerBetaLimit = 1.1; camera.upperBetaLimit = 1.32;
   camera.wheelDeltaPercentage = 0.01; camera.panningSensibility = 0; camera.pinchPrecision = 65;
   camera.inertia = 0.78;
   applyCameraFovMode();
@@ -507,11 +570,42 @@ function spawnItems() {
     root.metadata = { baseY: 0.12, spinSpeed: 0.45 + (index % 3) * 0.08 };
     const meshes = createItemMesh(type, root, index);
     meshes.forEach((mesh) => { mesh.isPickable = false; shadowGenerator.addShadowCaster(mesh); });
+    const wave = state.tutorial ? 0 : waveForItem(state.level, index, specs.length);
+    const active = wave <= state.activeWave;
+    root.setEnabled(active);
     items.push({
       id: `item-${index}`, type, label: definition.label, points: definition.points, targetZone: definition.targetZone,
-      weight: definition.weight, root, meshes, delivered: false, tutorial: Boolean(spec.tutorial),
+      weight: definition.weight, root, meshes, delivered: false, tutorial: Boolean(spec.tutorial), wave, active,
     });
   });
+}
+
+function updateShiftDirector(initial = false) {
+  if (state.tutorial || !items.length) return;
+  const nextWave = unlockedWave(state.delivered, items.length);
+  if (nextWave > state.activeWave) {
+    state.activeWave = nextWave;
+    let activated = 0;
+    for (const item of items) {
+      if (!item.active && item.wave <= state.activeWave) {
+        item.active = true;
+        item.root.setEnabled(true);
+        activated += 1;
+      }
+    }
+    if (activated && !initial) {
+      showToast(`Neue Chaos-Welle: ${activated} Gegenstände`, "good");
+      audio.play("start");
+    }
+  }
+  const event = shiftEvent(state.level, state.delivered, items.length);
+  if (event.id !== state.shiftEventId) {
+    state.shiftEventId = event.id;
+    if (!initial) {
+      showToast(event.title, "good");
+      characterSays(event.description);
+    }
+  }
 }
 
 function createItemMesh(type, root, index) {
@@ -608,6 +702,7 @@ function update() {
   updateZoneGuidance();
   if (state.finishing) return;
   if (!state.tutorial && !updateTimer(dt)) return;
+  updateComboTimer(dt);
   updatePlayer(dt);
   updateInteraction();
   if (state.interactPressed) {
@@ -627,13 +722,40 @@ function updateCamera(dt) {
   }
   const desired = player.position.add(new B.Vector3(0, 0.78, 0));
   camera.target = B.Vector3.Lerp(camera.target, desired, 1 - Math.exp(-9 * dt));
+  updateCameraOcclusion(dt);
+}
+
+function updateCameraOcclusion(dt) {
+  const direction = camera.position.subtract(camera.target);
+  if (direction.lengthSquared() < 0.001) return;
+  direction.normalize();
+  if (!state.cameraOccluded) state.cameraPreferredRadius = camera.radius;
+  const ray = new B.Ray(camera.target, direction, state.cameraPreferredRadius);
+  const hit = scene.pickWithRay(ray, (mesh) => {
+    if (!mesh.isVisible || !mesh.isEnabled() || mesh === player || mesh.isDescendantOf(player)) return false;
+    if (mesh.name.startsWith("zone-") || mesh.name.startsWith("beacon-")) return false;
+    let node = mesh.parent;
+    while (node) {
+      if (node.name?.startsWith("item-")) return false;
+      node = node.parent;
+    }
+    return mesh.isPickable;
+  });
+  const occluded = Boolean(hit?.hit && hit.distance > 0.45 && hit.distance < state.cameraPreferredRadius - 0.15);
+  const targetRadius = occluded
+    ? Math.max(camera.lowerRadiusLimit, hit.distance - 0.24)
+    : state.cameraPreferredRadius;
+  camera.radius = B.Scalar.Lerp(camera.radius, targetRadius, 1 - Math.exp(-(occluded ? 18 : 7) * dt));
+  state.cameraOccluded = occluded;
 }
 
 function resetCamera(showFeedback = true) {
   if (!camera || !player) return;
   camera.alpha = cameraAlphaBehind(player.rotation.y);
   camera.beta = 1.03;
-  camera.radius = 7.2;
+  camera.radius = 5.6;
+  state.cameraPreferredRadius = 5.6;
+  state.cameraOccluded = false;
   camera.target = player.position.add(new B.Vector3(0, 0.78, 0));
   if (showFeedback && state.playing && !state.paused) showToast("Kamera ausgerichtet", "");
 }
@@ -749,16 +871,13 @@ function animateCharacter(dt, moving, sprinting) {
     // Die Haltung zeigt, was geschleppt wird: schwer haengt tief, der Ellbogen
     // traegt die eigentliche Beugung — erst das Gelenk macht Halten sichtbar.
     const pose = carryPose(weight);
-    playerParts.leftArm.rotation.x = pose.armX;
-    playerParts.rightArm.rotation.x = pose.armX;
-    // Linke Schulter positiv, rechte negativ: beide Pfoten drehen nach innen
-    // zum getragenen Gegenstand statt seitlich vom Griff weg.
-    playerParts.leftArm.rotation.z = pose.armZ;
-    playerParts.rightArm.rotation.z = -pose.armZ;
-    playerParts.leftElbow.rotation.x = pose.elbowX;
-    playerParts.rightElbow.rotation.x = pose.elbowX;
+    applyCarryIK();
     playerVisual.rotation.x = B.Scalar.Lerp(playerVisual.rotation.x, pose.torsoLean, 0.15);
   } else {
+    playerParts.leftArm.rotationQuaternion = null;
+    playerParts.rightArm.rotationQuaternion = null;
+    playerParts.leftElbow.rotationQuaternion = null;
+    playerParts.rightElbow.rotationQuaternion = null;
     playerParts.leftArm.rotation.x = armSwing;
     playerParts.rightArm.rotation.x = -armSwing;
     playerParts.leftArm.rotation.z = state.character === "squirrel" ? -0.17 : -0.22;
@@ -779,6 +898,78 @@ function animateCharacter(dt, moving, sprinting) {
   playerParts.tailRoot.rotation.x = 0.13 + Math.sin(state.elapsed * 2.1) * 0.06;
   playerVisual.position.y = -0.84 + Math.abs(Math.sin(phase)) * 0.035 * gait.intensity * gait.bob;
   updateReaction(dt);
+}
+
+function updateComboTimer(dt) {
+  if (state.combo <= 0 || state.comboTime <= 0) return;
+  state.comboTime = Math.max(0, state.comboTime - dt);
+  if (state.comboTime > 0) return;
+  state.combo = 0;
+  audio.play("comboBreak");
+  showToast("Serie abgelaufen", "bad");
+  updateHUD();
+}
+
+function comboWindowSeconds() {
+  return state.mode === "relaxed" ? 18 : state.mode === "blitz" ? 10 : 14;
+}
+
+function applyCarryIK() {
+  const single = state.heldItems.length === 1 ? state.heldItems[0] : null;
+  const profile = CARRY_PROFILES[single?.type] || CARRY_PROFILES.towel;
+  const targets = single
+    ? {
+        left: [-profile.gripX, profile.gripY, carryAnchors[0].position.z],
+        right: [profile.gripX, profile.gripY, carryAnchors[0].position.z],
+      }
+    : {
+        left: [carryAnchors[1].position.x, 0.84, carryAnchors[1].position.z],
+        right: [carryAnchors[2].position.x, 0.84, carryAnchors[2].position.z],
+      };
+  applyArmIK(playerParts.leftArmRig, targets.left, [-0.82, 1.02, -0.08]);
+  applyArmIK(playerParts.rightArmRig, targets.right, [0.82, 1.02, -0.08]);
+}
+
+function applyArmIK(rig, target, pole) {
+  const shoulder = [rig.root.position.x, rig.root.position.y, rig.root.position.z];
+  const solved = solveTwoBoneIK({
+    shoulder,
+    target,
+    pole,
+    upperLength: rig.upperLen,
+    lowerLength: rig.lowerLen,
+  });
+  const upperDirection = new B.Vector3(
+    solved.elbow[0] - shoulder[0],
+    solved.elbow[1] - shoulder[1],
+    solved.elbow[2] - shoulder[2],
+  ).normalize();
+  const lowerDirection = new B.Vector3(
+    solved.target[0] - solved.elbow[0],
+    solved.target[1] - solved.elbow[1],
+    solved.target[2] - solved.elbow[2],
+  ).normalize();
+  const down = new B.Vector3(0, -1, 0);
+  const upperRotation = rotationBetween(down, upperDirection);
+  const upperMatrix = B.Matrix.Identity();
+  B.Matrix.FromQuaternionToRef(upperRotation, upperMatrix);
+  upperMatrix.invert();
+  const lowerLocalDirection = B.Vector3.TransformNormal(lowerDirection, upperMatrix).normalize();
+  const lowerRotation = rotationBetween(down, lowerLocalDirection);
+  rig.root.rotationQuaternion = rig.root.rotationQuaternion
+    ? B.Quaternion.Slerp(rig.root.rotationQuaternion, upperRotation, 0.28)
+    : upperRotation;
+  rig.joint.rotationQuaternion = rig.joint.rotationQuaternion
+    ? B.Quaternion.Slerp(rig.joint.rotationQuaternion, lowerRotation, 0.28)
+    : lowerRotation;
+}
+
+function rotationBetween(from, to) {
+  const dot = B.Scalar.Clamp(B.Vector3.Dot(from, to), -1, 1);
+  if (dot < -0.9999) return B.Quaternion.RotationAxis(B.Axis.X, Math.PI);
+  const axis = B.Vector3.Cross(from, to);
+  const quaternion = new B.Quaternion(axis.x, axis.y, axis.z, 1 + dot);
+  return quaternion.normalize();
 }
 
 function setReaction(type, duration = 0.7) {
@@ -804,26 +995,51 @@ function updateReaction(dt) {
 }
 
 function updateTrail(dt, active) {
-  if (save.equipped.trail !== "golden-trail" || !active || qualityTier() === "low") return;
+  if (!save.equipped.trail || !active || qualityTier() === "low" || prefersReducedMotion()) return;
   trailAccumulator += dt;
   if (trailAccumulator < 0.08) return;
   trailAccumulator = 0;
-  const spark = B.MeshBuilder.CreateSphere("trailSpark", { diameter: 0.09, segments: 5 }, scene);
-  spark.position = player.position.add(new B.Vector3((Math.random() - 0.5) * 0.45, 0.22, (Math.random() - 0.5) * 0.45));
-  const mat = new B.StandardMaterial("trailSparkMat", scene);
-  mat.diffuseColor = new B.Color3(1, 0.72, 0.18); mat.emissiveColor = new B.Color3(0.7, 0.35, 0.04); spark.material = mat;
-  const started = performance.now();
-  const observer = scene.onBeforeRenderObservable.add(() => {
-    const t = (performance.now() - started) / 420;
-    if (t >= 1) { scene.onBeforeRenderObservable.remove(observer); spark.dispose(); mat.dispose(); return; }
-    spark.position.y += 0.007; spark.scaling.setAll(1 - t);
-  });
+  let entry = trailSparkPool.find((candidate) => !candidate.active);
+  if (!entry && trailSparkPool.length < 14) {
+    const mesh = B.MeshBuilder.CreateSphere("trailSpark", { diameter: 0.09, segments: 5 }, scene);
+    const sparkMaterial = new B.StandardMaterial("trailSparkMat", scene);
+    mesh.material = sparkMaterial;
+    mesh.setEnabled(false);
+    entry = { mesh, material: sparkMaterial, active: false, age: 0 };
+    trailSparkPool.push(entry);
+  }
+  if (!entry) entry = trailSparkPool.reduce((oldest, candidate) => candidate.age > oldest.age ? candidate : oldest);
+  entry.active = true;
+  entry.age = 0;
+  entry.mesh.setEnabled(true);
+  entry.mesh.position.copyFrom(player.position.add(new B.Vector3((Math.random() - 0.5) * 0.45, 0.22, (Math.random() - 0.5) * 0.45)));
+  entry.mesh.scaling.setAll(1);
+  const trailVisual = shopItem(save.equipped.trail)?.visual || { primary: "#ffd66e", secondary: "#fff2b0" };
+  const sparkColor = B.Color3.FromHexString(Math.random() > 0.5 ? trailVisual.primary : (trailVisual.secondary || trailVisual.primary));
+  entry.material.diffuseColor = sparkColor;
+  entry.material.emissiveColor = sparkColor.scale(0.55);
+}
+
+function animateTrailSparks(dt) {
+  for (const entry of trailSparkPool) {
+    if (!entry.active) continue;
+    entry.age += dt;
+    const t = entry.age / 0.42;
+    if (t >= 1) {
+      entry.active = false;
+      entry.mesh.setEnabled(false);
+      continue;
+    }
+    entry.mesh.position.y += dt * 0.42;
+    entry.mesh.scaling.setAll(1 - t);
+  }
 }
 
 function animateWorld(dt) {
   if (state.paused) return;
+  animateTrailSparks(dt);
   for (const item of items) {
-    if (item.delivered || state.heldItems.includes(item)) continue;
+    if (!item.active || item.delivered || state.heldItems.includes(item)) continue;
     item.root.rotation.y += item.root.metadata.spinSpeed * dt;
     item.root.position.y = item.root.metadata.baseY + Math.sin(state.elapsed * 2.3 + Number(item.id.split("-")[1])) * 0.025;
   }
@@ -831,7 +1047,7 @@ function animateWorld(dt) {
 }
 
 function canPickUp(item) {
-  if (!item || item.delivered) return false;
+  if (!item || !item.active || item.delivered) return false;
   const character = currentCharacter();
   if (item.weight === "heavy" || item.weight === "bulky") return state.heldItems.length === 0;
   if (carryingHeavy()) return false;
@@ -844,8 +1060,9 @@ function updateInteraction() {
   state.nearestZone = null;
   let bestItemScore = Infinity;
   for (const item of items) {
-    if (item.delivered || state.heldItems.includes(item)) continue;
+    if (!item.active || item.delivered || state.heldItems.includes(item)) continue;
     const itemPosition = item.root.getAbsolutePosition();
+    if (!hasClearLineOfSight(player.position, itemPosition, obstacles, state.level)) continue;
     const distance = horizontalDistance(player.position, itemPosition);
     const angleToItem = yawTowards(itemPosition.x - player.position.x, itemPosition.z - player.position.z);
     const angleDelta = normalizeAngle(angleToItem - player.rotation.y);
@@ -883,7 +1100,10 @@ function updateInteraction() {
     }
   } else {
     ui.objective.classList.remove("carrying");
-    ui.objective.textContent = state.tutorial ? "Deine erste Aufgabe: Räume das Handtuch auf." : `Noch ${items.length - state.delivered} Gegenstände aufräumen.`;
+    const event = state.tutorial ? null : shiftEvent(state.level, state.delivered, items.length);
+    ui.objective.textContent = state.tutorial
+      ? "Deine erste Aufgabe: Räume das Handtuch auf."
+      : `${event.title} · Noch ${items.length - state.delivered} Gegenstände`;
     if (state.nearestItem) {
       highlightItem(state.nearestItem);
       setPrompt(`<kbd>${actionKey}</kbd>${state.nearestItem.label} aufnehmen`);
@@ -921,7 +1141,7 @@ function updateNavigator() {
   } else {
     let closest = null; let closestDistance = Infinity;
     for (const item of items) {
-      if (item.delivered) continue;
+      if (!item.active || item.delivered) continue;
       const distance = horizontalDistance(player.position, item.root.getAbsolutePosition());
       if (distance < closestDistance) { closestDistance = distance; closest = item; }
     }
@@ -995,24 +1215,25 @@ function pickupQuip() {
 function reflowHeldItems(animate = false) {
   state.heldItems.forEach((item, index) => {
     const anchor = state.heldItems.length === 1 ? carryAnchors[0] : carryAnchors[index + 1];
+    const profile = CARRY_PROFILES[item.type] || CARRY_PROFILES.towel;
     const absoluteStart = item.root.getAbsolutePosition().clone();
     item.root.parent = anchor;
-    const targetPosition = B.Vector3.Zero();
-    const targetScaleValue = item.type === "mat" ? 0.68 : item.type === "dumbbell" ? 0.76 : 0.78;
+    const targetPosition = new B.Vector3(0, profile.rootY, 0);
+    const targetScaleValue = profile.scale;
     if (!animate) {
-      item.root.position.copyFrom(targetPosition); item.root.rotation.set(0, 0, item.type === "mat" ? 0.2 : 0); item.root.scaling.setAll(targetScaleValue); return;
+      item.root.position.copyFrom(targetPosition); item.root.rotation.set(0, 0, profile.rotationZ); item.root.scaling.setAll(targetScaleValue); return;
     }
     item.root.parent = null; item.root.position.copyFrom(absoluteStart);
     const started = performance.now();
     const observer = scene.onBeforeRenderObservable.add(() => {
       const t = Math.min(1, (performance.now() - started) / 230);
       const eased = 1 - Math.pow(1 - t, 3);
-      const targetAbsolute = anchor.getAbsolutePosition();
+      const targetAbsolute = B.Vector3.TransformCoordinates(targetPosition, anchor.getWorldMatrix());
       const position = B.Vector3.Lerp(absoluteStart, targetAbsolute, eased); position.y += Math.sin(Math.PI * t) * 0.35;
       item.root.position.copyFrom(position); item.root.scaling.setAll(B.Scalar.Lerp(1, targetScaleValue, eased));
       if (t >= 1) {
         scene.onBeforeRenderObservable.remove(observer);
-        item.root.parent = anchor; item.root.position.set(0, 0, 0); item.root.rotation.set(0, 0, item.type === "mat" ? 0.2 : 0); item.root.scaling.setAll(targetScaleValue);
+        item.root.parent = anchor; item.root.position.copyFrom(targetPosition); item.root.rotation.set(0, 0, profile.rotationZ); item.root.scaling.setAll(targetScaleValue);
       }
     });
   });
@@ -1049,7 +1270,7 @@ function isDropPositionFree(position) {
     if (obstacle.level && obstacle.level !== state.level) continue;
     if (Math.abs(position.x - obstacle.x) < obstacle.halfX + 0.45 && Math.abs(position.z - obstacle.z) < obstacle.halfZ + 0.45) return false;
   }
-  return items.every((item) => item.delivered || state.heldItems.includes(item) || horizontalDistance(position, item.root.getAbsolutePosition()) > 0.75);
+  return items.every((item) => !item.active || item.delivered || state.heldItems.includes(item) || horizontalDistance(position, item.root.getAbsolutePosition()) > 0.75);
 }
 
 function deliverAtZone(zone) {
@@ -1059,7 +1280,7 @@ function deliverAtZone(zone) {
     // Gegenständen rutscht die Tonleiter vernehmbar wieder herunter; darunter
     // gab es nichts zu verlieren und der Fehlerton allein genügt.
     const hatteSerie = state.combo >= 3;
-    state.combo = 0; state.wrongPlacements += 1; audio.play("wrong"); vibrate([30, 30, 30]); setReaction("wrong", 0.7);
+    state.combo = 0; state.comboTime = 0; state.wrongPlacements += 1; audio.play("wrong"); vibrate([30, 30, 30]); setReaction("wrong", 0.7);
     if (hatteSerie) {
       window.setTimeout(() => audio.play("comboBreak"), 180);
       showToast(`Serie gerissen – hierhin gehören ${ITEM_TYPES[zone.type].plural}`, "bad");
@@ -1070,16 +1291,20 @@ function deliverAtZone(zone) {
   }
 
   const mode = MODES[state.mode];
+  const activeEvent = shiftEvent(state.level, state.delivered, items.length);
   let batchScore = 0;
   let pending = matching.length;
   matching.forEach((item, index) => {
     state.combo += 1;
+    state.comboTime = comboWindowSeconds();
     // Für die Eskalation festhalten: bis zur Landung zählt state.combo weiter,
     // dieser Aufschlag gehört aber zu genau diesem Stand.
     const comboDiesesWurfs = state.combo;
     state.maxCombo = Math.max(state.maxCombo, state.combo);
     const strengthBonus = item.weight === "heavy" ? currentCharacter().heavyScoreBonus : 1;
-    const gained = Math.round(item.points * comboMultiplier(state.combo) * mode.scoreMultiplier * strengthBonus);
+    const eventBonus = shiftEventMultiplier(activeEvent, item);
+    const classBatchBonus = state.level === "class" && matching.length > 1 ? 1.15 : 1;
+    const gained = Math.round(item.points * comboMultiplier(state.combo) * mode.scoreMultiplier * strengthBonus * eventBonus * classBatchBonus);
     const milestone = { 3: 75, 5: 150, 8: 300, 10: 400 }[state.combo] || 0;
     batchScore += gained + milestone;
     state.score += gained + milestone;
@@ -1110,6 +1335,7 @@ function deliverAtZone(zone) {
   // Das Tutorial bleibt ausgenommen: dort läuft ohnehin kein Timer, und
   // finishTutorial() steigt bei gesetztem finishing an seinem eigenen Wächter aus.
   if (!state.tutorial && state.delivered === items.length) state.finishing = true;
+  updateShiftDirector();
   reflowHeldItems(false);
   // Nur die Quittung auf den Tastendruck — die Wucht sitzt auf der Landung.
   audio.play("release"); setReaction("pickup", 0.28);
@@ -1127,11 +1353,13 @@ function animateDeliveredItem(item, zone, delay, onComplete) {
   item.root.parent = null; item.root.position.copyFrom(startPosition);
   const placement = getDisplayPlacement(zone, item, zone.deliveredCount++);
   const started = performance.now() + delay; let last = started;
+  const duration = prefersReducedMotion() ? 180 : 500;
   const observer = scene.onBeforeRenderObservable.add(() => {
     const now = performance.now();
     if (now < started) return;
-    const t = Math.min(1, (now - started) / 500); const eased = 1 - Math.pow(1 - t, 3);
-    const position = B.Vector3.Lerp(startPosition, placement.position, eased); position.y += Math.sin(Math.PI * t) * 0.85;
+    const t = Math.min(1, (now - started) / duration); const eased = 1 - Math.pow(1 - t, 3);
+    const position = B.Vector3.Lerp(startPosition, placement.position, eased);
+    if (!prefersReducedMotion()) position.y += Math.sin(Math.PI * t) * 0.85;
     item.root.position.copyFrom(position); item.root.rotation.y += (now - last) * 0.01; last = now;
     item.root.scaling.copyFrom(B.Vector3.Lerp(startScale, new B.Vector3(placement.scale, placement.scale, placement.scale), eased));
     if (t >= 1) {
@@ -1170,19 +1398,34 @@ function getDisplayPlacement(zone, item, index) {
 }
 
 function showDeliveryBurst(position, color) {
-  const count = qualityTier() === "low" ? 6 : 12;
+  const count = prefersReducedMotion() ? 3 : qualityTier() === "low" ? 6 : 12;
+  const origin = position.add(new B.Vector3(0, 0.7, 0));
+  const mat = new B.StandardMaterial("rewardParticleMat", scene);
+  mat.diffuseColor = color;
+  mat.emissiveColor = color.scale(0.5);
+  const particles = [];
   for (let i = 0; i < count; i++) {
     const particle = B.MeshBuilder.CreateSphere("rewardParticle", { diameter: 0.1, segments: 6 }, scene);
-    const origin = position.add(new B.Vector3(0, 0.7, 0)); particle.position.copyFrom(origin);
-    const mat = new B.StandardMaterial("rewardParticleMat", scene); mat.diffuseColor = color; mat.emissiveColor = color.scale(0.5); particle.material = mat;
+    particle.position.copyFrom(origin);
+    particle.material = mat;
     const velocity = new B.Vector3(Math.random() - 0.5, Math.random() * 0.8 + 0.5, Math.random() - 0.5).normalize().scale(2.2 + Math.random() * 1.2);
-    const started = performance.now();
-    const observer = scene.onBeforeRenderObservable.add(() => {
-      const t = (performance.now() - started) / 650;
-      if (t >= 1) { scene.onBeforeRenderObservable.remove(observer); particle.dispose(); mat.dispose(); return; }
+    particles.push({ particle, velocity });
+  }
+  const started = performance.now();
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    const t = (performance.now() - started) / (prefersReducedMotion() ? 260 : 650);
+    if (t >= 1) {
+      scene.onBeforeRenderObservable.remove(observer);
+      deliveryObservers = deliveryObservers.filter((entry) => entry !== observer);
+      particles.forEach(({ particle }) => particle.dispose());
+      mat.dispose();
+      return;
+    }
+    particles.forEach(({ particle, velocity }) => {
       particle.position.copyFrom(origin.add(velocity.scale(t)).add(new B.Vector3(0, -1.9 * t * t, 0))); particle.scaling.setAll(Math.max(0.01, 1 - t));
     });
-  }
+  });
+  deliveryObservers.push(observer);
 }
 
 // Der Moment, in dem ein Gegenstand tatsächlich landet. Bewusst getrennt vom
@@ -1193,7 +1436,7 @@ function playImpact(zone, item, combo) {
   audio.playImpact(impactSound(item.type, deliveryPitch(combo)), strength);
   vibrate(Math.round(12 + strength * 22));
   squashZone(zone, strength);
-  if (qualityTier() !== "low") {
+  if (qualityTier() !== "low" && !prefersReducedMotion()) {
     kickCamera(strength);
     showImpactDust(zone.position, strength);
   }
@@ -1203,7 +1446,7 @@ function playImpact(zone, item, combo) {
 // Animation laufen — ein zweiter Aufschlag setzt sie zurück, statt einen
 // weiteren Observer auf dieselben Meshes zu legen.
 function squashZone(zone, strength) {
-  if (!zone.bodyMeshes?.length) return;
+  if (!zone.bodyMeshes?.length || prefersReducedMotion()) return;
   if (zone.squash) {
     scene.onBeforeRenderObservable.remove(zone.squash);
     deliveryObservers = deliveryObservers.filter((entry) => entry !== zone.squash);
@@ -1238,7 +1481,7 @@ function squashZone(zone, strength) {
 // Kurzer Radius-Impuls. Fasst camera.alpha bewusst NICHT an — Kameraausrichtung
 // und Spielerrotation müssen strikt einseitig gekoppelt bleiben.
 function kickCamera(strength) {
-  if (!camera) return;
+  if (!camera || prefersReducedMotion()) return;
   const base = camera.radius;
   const depth = 0.06 * strength;
   const started = performance.now();
@@ -1258,31 +1501,37 @@ function kickCamera(strength) {
 // Kleine graue Wolke am Aufschlagpunkt — bewusst anders als der bunte
 // Belohnungs-Burst, damit beide nebeneinander lesbar bleiben.
 function showImpactDust(position, strength) {
+  if (prefersReducedMotion()) return;
   const count = Math.round(3 + strength * 4);
+  const mat = new B.StandardMaterial("impactDustMat", scene);
+  mat.diffuseColor = new B.Color3(0.62, 0.62, 0.6);
+  mat.alpha = 0.4;
+  const puffs = [];
   for (let i = 0; i < count; i++) {
     const puff = B.MeshBuilder.CreateSphere("impactDust", { diameter: 0.16, segments: 5 }, scene);
     const origin = position.add(new B.Vector3((Math.random() - 0.5) * 0.5, 0.12, (Math.random() - 0.5) * 0.5));
     puff.position.copyFrom(origin);
-    const mat = new B.StandardMaterial("impactDustMat", scene);
-    mat.diffuseColor = new B.Color3(0.62, 0.62, 0.6);
-    mat.alpha = 0.4;
     puff.material = mat;
     const drift = new B.Vector3((Math.random() - 0.5) * 1.1, 0.35 + Math.random() * 0.3, (Math.random() - 0.5) * 1.1);
-    const started = performance.now();
-    const observer = scene.onBeforeRenderObservable.add(() => {
-      const t = (performance.now() - started) / 420;
-      if (t >= 1) {
-        scene.onBeforeRenderObservable.remove(observer);
-        deliveryObservers = deliveryObservers.filter((entry) => entry !== observer);
-        puff.dispose(); mat.dispose();
-        return;
-      }
+    puffs.push({ puff, origin, drift });
+  }
+  const started = performance.now();
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    const t = (performance.now() - started) / 420;
+    if (t >= 1) {
+      scene.onBeforeRenderObservable.remove(observer);
+      deliveryObservers = deliveryObservers.filter((entry) => entry !== observer);
+      puffs.forEach(({ puff }) => puff.dispose());
+      mat.dispose();
+      return;
+    }
+    mat.alpha = 0.4 * (1 - t);
+    puffs.forEach(({ puff, origin, drift }) => {
       puff.position.copyFrom(origin.add(drift.scale(t)));
       puff.scaling.setAll(0.6 + t * 1.3);
-      mat.alpha = 0.4 * (1 - t);
     });
-    deliveryObservers.push(observer);
-  }
+  });
+  deliveryObservers.push(observer);
 }
 
 function startRound() {
@@ -1293,8 +1542,9 @@ function startRound() {
 
 function resetRoundState() {
   state.playing = true; state.paused = false; state.ended = false; state.finishing = false;
-  state.score = 0; state.combo = 0; state.delivered = 0; state.wrongPlacements = 0; state.droppedItems = 0;
+  state.score = 0; state.combo = 0; state.comboTime = 0; state.delivered = 0; state.wrongPlacements = 0; state.droppedItems = 0;
   state.maxCombo = 0; state.deliveredDumbbells = 0; state.deliveredByType = {}; state.heldItems = []; state.nearestItem = null; state.nearestZone = null;
+  state.activeWave = 0; state.shiftEventId = null;
   state.hudAccumulator = 0; state.interactPressed = false; state.keys.clear(); state.velocity.set(0, 0, 0);
   touchInput.reset(); resetZoneGuidance(); clearItemHighlight();
   // Jede Runde beginnt mit frischer Warmlaufphase: Szenenaufbau verzerrt die Messung.
@@ -1309,10 +1559,11 @@ function prepareSceneForRound() {
   const [startX, startZ] = LEVELS[activeLevel].start;
   player.position.set(startX, 0.9, startZ); player.rotation.y = 0; resetCamera(false);
   spawnItems();
+  updateShiftDirector(true);
   ui.startScreen.classList.add("hidden"); ui.pauseScreen.classList.add("hidden"); ui.resultScreen.classList.add("hidden");
   ui.hud.classList.remove("hidden"); ui.objective.classList.remove("hidden"); ui.progressTrack.classList.remove("hidden");
   ui.mobileControls.classList.toggle("hidden", !isTouchDevice); ui.coins.textContent = String(save.coins);
-  document.body.classList.add("playing"); updateHUD(); ui.canvas.focus();
+  document.body.classList.add("playing"); updateHUD(); renderContractHud(); ui.canvas.focus();
 }
 
 function startTutorial() {
@@ -1353,7 +1604,7 @@ function finishTutorial() {
   ui.tutorialTitle.textContent = "Tutorial geschafft";
   ui.tutorialText.textContent = "Perfekt. Jetzt beginnt deine erste richtige Schicht!";
   characterSays("Perfekt! Jetzt räumen wir den Rest auf.");
-  setTimeout(() => beginGameplayRound(), 1450);
+  setTimeout(() => beginGameplayRound(), prefersReducedMotion() ? 350 : 1450);
 }
 
 function endRound(completed) {
@@ -1366,30 +1617,31 @@ function endRound(completed) {
   const earned = state.score > 0 ? Math.max(1, Math.floor(state.score / 115)) : 0;
   const elapsed = Math.max(0, state.roundSeconds - state.timeLeft);
   const rank = calculateRank(completed);
-  const modeStats = save.modeStats[state.mode];
-  modeStats.highScore = Math.max(modeStats.highScore || 0, state.score);
-  modeStats.rounds = (modeStats.rounds || 0) + 1;
-  if (completed && (!modeStats.bestTime || elapsed < modeStats.bestTime)) modeStats.bestTime = elapsed;
-  if (!modeStats.bestRank || rankValue(rank.grade) > rankValue(modeStats.bestRank)) modeStats.bestRank = rank.grade;
-
-  save.coins += earned;
-  save.stats.totalRounds += 1;
-  save.stats.totalDelivered += state.delivered;
-  save.stats.totalDumbbells += state.deliveredDumbbells;
-  for (const [type, anzahl] of Object.entries(state.deliveredByType)) {
-    save.stats.byType[type] = (save.stats.byType[type] || 0) + anzahl;
-  }
-  save.stats.maxCombo = Math.max(save.stats.maxCombo, state.maxCombo);
-  save.stats.totalCoinsEarned += earned;
-  if (completed && state.wrongPlacements === 0 && state.maxCombo >= items.length) save.stats.perfectRounds += 1;
-  save.lastMode = state.mode; save.lastLevel = state.level; save.selectedCharacter = state.character;
+  const roundRecord = {
+    level: state.level,
+    mode: state.mode,
+    character: state.character,
+    completed,
+    score: state.score,
+    elapsed,
+    rank: rank.grade,
+    delivered: state.delivered,
+    deliveredByType: { ...state.deliveredByType },
+    droppedItems: state.droppedItems,
+    wrongPlacements: state.wrongPlacements,
+    maxCombo: state.maxCombo,
+    totalItems: items.length,
+    coinsEarned: earned,
+  };
+  const progressResult = recordRoundProgress(save, roundRecord);
+  const modeStats = progressResult.levelModeStats;
   const unlocked = evaluateAchievements(save, {
     completed, droppedItems: state.droppedItems, maxCombo: state.maxCombo, totalItems: items.length,
-    wrongPlacements: state.wrongPlacements, mode: state.mode, elapsed,
+    wrongPlacements: state.wrongPlacements, mode: state.mode, level: state.level, elapsed,
   });
   persistSave(save);
 
-  ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.progressTrack.classList.add("hidden");
+  ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.contractHud.classList.add("hidden"); ui.progressTrack.classList.add("hidden");
   ui.navigator.classList.add("hidden"); ui.mobileControls.classList.add("hidden"); ui.tutorialCoach.classList.add("hidden");
   ui.pauseScreen.classList.add("hidden"); ui.resultScreen.classList.remove("hidden"); document.body.classList.remove("playing");
   ui.resultBadge.textContent = completed ? "GESCHAFFT" : "ZEIT VORBEI"; ui.resultBadge.classList.toggle("timeout", !completed);
@@ -1399,8 +1651,9 @@ function endRound(completed) {
     : `${state.delivered} von ${items.length} Gegenständen wurden aufgeräumt. Deine sichtbaren Ablagen zeigen, wie weit du gekommen bist.`;
   ui.resultRank.textContent = rank.grade; ui.resultRankDetail.textContent = rank.detail;
   ui.resultRankBox.className = `result-rank rank-${rank.grade.toLowerCase()}`;
-  ui.finalScore.textContent = String(state.score); ui.earnedCoins.textContent = `+${earned}`;
+  ui.finalScore.textContent = String(state.score); ui.earnedCoins.textContent = `+${progressResult.coinsEarned}`;
   ui.highScore.textContent = String(modeStats.highScore); ui.bestTime.textContent = modeStats.bestTime ? formatTime(modeStats.bestTime) : "–";
+  renderRoundProgress(progressResult);
   renderNewAchievements(unlocked); renderNextGoal(); updateCoinDisplays(); renderMenu();
   if (unlocked.length) showAchievementSequence(unlocked);
   setReaction("celebrate", completed ? 2.5 : 0.8);
@@ -1423,7 +1676,7 @@ function calculateRank(completed) {
 function returnToMenu() {
   state.playing = false; state.paused = false; state.ended = true; state.finishing = false; state.tutorial = false;
   state.keys.clear(); state.velocity.set(0, 0, 0); audio.stopMusic(); touchInput.reset(); clearItemHighlight(); hidePrompt();
-  ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.progressTrack.classList.add("hidden"); ui.navigator.classList.add("hidden");
+  ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.contractHud.classList.add("hidden"); ui.progressTrack.classList.add("hidden"); ui.navigator.classList.add("hidden");
   ui.mobileControls.classList.add("hidden"); ui.pauseScreen.classList.add("hidden"); ui.resultScreen.classList.add("hidden"); ui.tutorialCoach.classList.add("hidden");
   ui.startScreen.classList.remove("hidden"); document.body.classList.remove("playing"); renderMenu();
 }
@@ -1440,7 +1693,9 @@ function updateHUD() {
   ui.score.textContent = String(state.score);
   ui.progress.textContent = `${state.delivered}/${items.length}`;
   ui.progressBar.style.width = `${items.length ? (state.delivered / items.length) * 100 : 0}%`;
-  ui.combo.textContent = `×${comboMultiplier(state.combo).toFixed(1).replace(".", ",")}`;
+  ui.combo.textContent = state.combo > 0
+    ? `×${comboMultiplier(state.combo).toFixed(1).replace(".", ",")} · ${Math.ceil(state.comboTime)}s`
+    : "×1,0";
   ui.combo.classList.toggle("hot", state.combo >= 3);
   ui.timer.textContent = state.tutorial ? "∞" : formatTime(state.timeLeft);
   ui.timer.style.color = !state.tutorial && state.timeLeft <= 20 ? "#ff7c74" : "";
@@ -1529,22 +1784,32 @@ function renderAchievements() {
 
 function renderStats() {
   const stats = save.stats;
+  const masteryLevels = Object.values(save.career?.levels || {}).reduce((sum, entry) => sum + (entry.level || 1), 0);
   ui.careerStats.innerHTML = [
     ["Runden", stats.totalRounds], ["Aufgeräumt", stats.totalDelivered], ["Hanteln", stats.totalDumbbells],
     ["Beste Combo", stats.maxCombo], ["Perfekte Runden", stats.perfectRounds], ["Münzen verdient", stats.totalCoinsEarned],
+    ["Verträge", stats.completedContracts || 0], ["Meisterschaft", masteryLevels],
     ["Shop-Artikel", save.owned.length - 1], ["Achievements", Object.keys(save.achievements).length],
   ].map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
-  ui.modeStats.innerHTML = Object.entries(MODES).map(([id, mode]) => {
-    const entry = save.modeStats[id];
-    return `<div class="mode-stat-row"><strong>${mode.label}</strong><div><span>Highscore</span><strong>${entry.highScore || 0}</strong></div><div><span>Bestzeit</span><strong>${entry.bestTime ? formatTime(entry.bestTime) : "–"}</strong></div><div><span>Rang</span><strong>${entry.bestRank || "–"}</strong></div><div><span>Runden</span><strong>${entry.rounds || 0}</strong></div></div>`;
-  }).join("");
+  ui.modeStats.innerHTML = Object.entries(LEVELS).map(([levelId, level]) => `
+    <section class="level-stat-group">
+      <h4>${level.label} · Meisterschaft ${save.career?.levels?.[levelId]?.level || 1}</h4>
+      ${Object.entries(MODES).map(([modeId, mode]) => {
+        const entry = save.levelModeStats?.[levelId]?.[modeId] || {};
+        return `<div class="mode-stat-row"><strong>${mode.label}</strong><div><span>Highscore</span><strong>${entry.highScore || 0}</strong></div><div><span>Bestzeit</span><strong>${entry.bestTime ? formatTime(entry.bestTime) : "–"}</strong></div><div><span>Rang</span><strong>${entry.bestRank || "–"}</strong></div><div><span>Runden</span><strong>${entry.rounds || 0}</strong></div></div>`;
+      }).join("")}
+    </section>
+  `).join("");
 }
 
 function renderSettings() {
+  ui.masterVolume.value = save.settings.masterVolume;
   ui.cameraSensitivity.value = save.settings.cameraSensitivity;
   ui.joystickScale.value = save.settings.joystickScale;
   ui.qualitySetting.value = save.settings.quality;
   ui.vibrationSetting.checked = save.settings.vibration;
+  ui.reducedMotionSetting.checked = save.settings.reducedMotion;
+  document.body.classList.toggle("reduce-motion", save.settings.reducedMotion);
   applyJoystickScale();
 }
 
@@ -1566,6 +1831,48 @@ function renderNextGoal() {
     <span>noch ${ziel.rest} · ${ziel.aktuell} von ${ziel.ziel}</span>
     <div class="next-goal-bar"><div style="width:${anteil}%"></div></div>`;
   ui.nextGoal.classList.remove("hidden");
+}
+
+function renderContractHud() {
+  if (state.tutorial) {
+    ui.contractHud.classList.add("hidden");
+    return;
+  }
+  const ensured = ensureDailyContracts(save);
+  if (ensured.changed) persistSave(save);
+  const contract = ensured.contracts.find((entry) => !entry.completed) || ensured.contracts[0];
+  const definition = contractDefinition(contract);
+  if (!contract || !definition) {
+    ui.contractHud.classList.add("hidden");
+    return;
+  }
+  ui.contractTitle.textContent = `${definition.icon} ${definition.name}`;
+  ui.contractProgress.textContent = contract.completed
+    ? `Erledigt · +${contract.reward} Münzen`
+    : `${contract.progress} / ${contract.target} · +${contract.reward} Münzen`;
+  ui.contractProgressBar.style.width = `${Math.min(100, (contract.progress / Math.max(1, contract.target)) * 100)}%`;
+  ui.contractHud.classList.remove("hidden");
+}
+
+function renderRoundProgress(progressResult) {
+  const mastery = progressResult.masteryAfter;
+  ui.masteryLevel.textContent = `Stufe ${mastery.level}`;
+  ui.masteryProgressText.textContent = mastery.maxed
+    ? `Maximalstufe · +${progressResult.xpEarned} EP`
+    : `${mastery.xpIntoLevel} EP in dieser Stufe · noch ${mastery.xpForNextLevel} · +${progressResult.xpEarned} EP`;
+  ui.masteryProgressBar.style.width = `${Math.round(mastery.ratio * 100)}%`;
+  ui.masteryResult.classList.remove("hidden");
+
+  const completed = progressResult.contracts.completed;
+  if (!completed.length) {
+    ui.resultContracts.innerHTML = "";
+    ui.resultContracts.classList.add("hidden");
+    return;
+  }
+  ui.resultContracts.innerHTML = `<strong>Schichtauftrag erfüllt</strong>${completed.map(({ contract, definition }) => (
+    `<span>${definition.icon} ${definition.name} · +${contract.reward} Münzen</span>`
+  )).join("")}`;
+  ui.resultContracts.classList.remove("hidden");
 }
 
 function showAchievementSequence(unlocked) {
@@ -1656,6 +1963,11 @@ ui.shopButton.addEventListener("click", () => showModal(ui.shopScreen)); ui.achi
 ui.statsButton.addEventListener("click", () => showModal(ui.statsScreen)); ui.settingsButton.addEventListener("click", () => showModal(ui.settingsScreen));
 document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => $(button.getAttribute("data-close")).classList.add("hidden")));
 ui.soundButton.addEventListener("click", () => { save.soundEnabled = !save.soundEnabled; audio.setEnabled(save.soundEnabled); persistSave(save); updateSoundButton(); if (save.soundEnabled) { audio.play("pickup"); if (state.playing && !state.paused) audio.startMusic(); } });
+ui.masterVolume.addEventListener("input", () => {
+  save.settings.masterVolume = Number(ui.masterVolume.value);
+  persistSave(save);
+  if (save.settings.masterVolume > 0) audio.play("pickup");
+});
 ui.cameraSensitivity.addEventListener("input", () => { save.settings.cameraSensitivity = Number(ui.cameraSensitivity.value); persistSave(save); updateCameraSensitivity(); });
 ui.joystickScale.addEventListener("input", () => { save.settings.joystickScale = Number(ui.joystickScale.value); persistSave(save); applyJoystickScale(); });
 ui.qualitySetting.addEventListener("change", () => {
@@ -1663,9 +1975,44 @@ ui.qualitySetting.addEventListener("change", () => {
   persistSave(save);
   qualityState = createAdaptiveState();
   applyRenderQuality();
+  rebuildSceneForQuality();
   showToast("Grafikqualität angepasst", "good");
 });
 ui.vibrationSetting.addEventListener("change", () => { save.settings.vibration = ui.vibrationSetting.checked; persistSave(save); vibrate(20); });
+ui.reducedMotionSetting.addEventListener("change", () => {
+  save.settings.reducedMotion = ui.reducedMotionSetting.checked;
+  document.body.classList.toggle("reduce-motion", save.settings.reducedMotion);
+  persistSave(save);
+});
+ui.exportSaveButton.addEventListener("click", () => {
+  const blob = new Blob([serializeSaveExport(save)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `gym-critters-save-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showToast("Spielstand exportiert", "good");
+});
+ui.importSaveButton.addEventListener("click", () => ui.importSaveInput.click());
+ui.importSaveInput.addEventListener("change", async () => {
+  const file = ui.importSaveInput.files?.[0];
+  ui.importSaveInput.value = "";
+  if (!file) return;
+  const result = parseSaveImport(await file.text());
+  if (!result.ok) {
+    showToast(result.error, "bad");
+    audio.play("wrong");
+    return;
+  }
+  if (!window.confirm("Den aktuellen Spielstand durch dieses Backup ersetzen?")) return;
+  for (const key of Object.keys(save)) delete save[key];
+  Object.assign(save, result.save);
+  persistSave(save);
+  window.location.reload();
+});
 ui.resetTutorialButton.addEventListener("click", () => { save.tutorialCompleted = false; persistSave(save); showToast("Tutorial wird bei der nächsten Schicht gezeigt", "good"); });
 
 try {

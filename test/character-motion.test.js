@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   dominantWeight, carryPose, gaitParams, curveLean, idleMotion, squirrelTailSpec, raccoonTailSpec,
-  surfacePoint, facingRotation, LEAN_CAP,
+  surfacePoint, facingRotation, solveTwoBoneIK, LEAN_CAP,
 } from "../src/character-motion.js";
 
 test("dominantWeight wählt die schwerste Klasse aus der Liste", () => {
@@ -13,6 +13,39 @@ test("dominantWeight wählt die schwerste Klasse aus der Liste", () => {
 
 test("dominantWeight liefert null für leere Pfoten", () => {
   assert.equal(dominantWeight([]), null);
+});
+
+test("Zwei-Knochen-IK setzt die Pfote exakt auf ein erreichbares Ziel", () => {
+  const result = solveTwoBoneIK({
+    shoulder: [-0.42, 1.28, 0],
+    target: [-0.24, 0.82, -0.42],
+    pole: [-0.8, 1.05, -0.15],
+    upperLength: 0.34,
+    lowerLength: 0.32,
+  });
+  assert.ok(Math.hypot(
+    result.target[0] + 0.24,
+    result.target[1] - 0.82,
+    result.target[2] + 0.42,
+  ) < 1e-6);
+  assert.equal(result.clamped, false);
+});
+
+test("Zwei-Knochen-IK klemmt unerreichbare Ziele kontrolliert", () => {
+  const result = solveTwoBoneIK({
+    shoulder: [0.42, 1.28, 0],
+    target: [0.2, 1, -4],
+    pole: [0.8, 1, -0.2],
+    upperLength: 0.34,
+    lowerLength: 0.32,
+  });
+  const reach = Math.hypot(
+    result.target[0] - 0.42,
+    result.target[1] - 1.28,
+    result.target[2],
+  );
+  assert.ok(reach < 0.66);
+  assert.equal(result.clamped, true);
 });
 
 test("carryPose unterscheidet die drei Gewichtsklassen sichtbar", () => {
