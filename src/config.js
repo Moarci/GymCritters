@@ -1,5 +1,5 @@
 export const SAVE_KEY = "gymCrittersSave";
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export const MODES = {
   relaxed: {
@@ -212,14 +212,43 @@ export const SHOP_ITEMS = [
   },
 ];
 
+// `progress` beschreibt rein deklarativ, wie der Verlauf zu zählen ist — die
+// Auswertung liegt in save.js, damit config.js reine Daten bleibt. Ziele ohne
+// `progress` sind Ja/Nein-Bedingungen pro Runde und bekommen bewusst keinen
+// Fortschrittsbalken: ein Balken, der nie wächst, verspricht Nähe, wo keine ist.
 export const ACHIEVEMENTS = [
   { id: "first-shift", name: "Erste Schicht", description: "Eine Runde beenden.", icon: "🔑" },
   { id: "sticky-paws", name: "Klebrige Pfoten", description: "Eine Runde ohne Fallenlassen schaffen.", icon: "🐾" },
   { id: "perfect-order", name: "Perfekte Ordnung", description: "Eine komplette Runde ohne Combo-Unterbrechung schaffen.", icon: "🏆" },
-  { id: "heavy-lifter", name: "Schwerarbeiter", description: "Insgesamt 10 Hanteln aufräumen.", icon: "🏋️" },
-  { id: "gym-hero", name: "Gym-Held", description: "Insgesamt 50 Gegenstände aufräumen.", icon: "🦸" },
+  {
+    id: "heavy-lifter", name: "Schwerarbeiter", description: "Insgesamt 10 Hanteln aufräumen.", icon: "🏋️",
+    progress: { kind: "itemType", type: "dumbbell", target: 10 },
+  },
+  {
+    id: "kettlebell-king", name: "Kettlebell-König", description: "Insgesamt 10 Kettlebells aufräumen.", icon: "🔔",
+    progress: { kind: "itemType", type: "kettlebell", target: 10 },
+  },
+  {
+    id: "rope-skipper", name: "Seilspringer", description: "Insgesamt 15 Springseile aufräumen.", icon: "🪢",
+    progress: { kind: "itemType", type: "rope", target: 15 },
+  },
+  {
+    id: "ball-artist", name: "Ballkünstler", description: "Insgesamt 10 Medizinbälle aufräumen.", icon: "🥎",
+    progress: { kind: "itemType", type: "medball", target: 10 },
+  },
+  {
+    id: "full-range", name: "Vollsortiment", description: "Von jeder Gegenstandsart mindestens eine aufräumen.", icon: "🎯",
+    progress: { kind: "distinctTypes", target: 7 },
+  },
+  {
+    id: "gym-hero", name: "Gym-Held", description: "Insgesamt 50 Gegenstände aufräumen.", icon: "🦸",
+    progress: { kind: "totalDelivered", target: 50 },
+  },
   { id: "speed-cleaner", name: "Blitzsauber", description: "Standard in höchstens 75 Sekunden schaffen.", icon: "⚡" },
-  { id: "collector", name: "Sammler", description: "Vier Shop-Artikel besitzen.", icon: "🛍️" },
+  {
+    id: "collector", name: "Sammler", description: "Vier Shop-Artikel besitzen.", icon: "🛍️",
+    progress: { kind: "ownedExtras", target: 4 },
+  },
 ];
 
 export const CONFIG = {

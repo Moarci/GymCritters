@@ -7,7 +7,7 @@ import {
   MODES,
   SHOP_ITEMS,
 } from "./config.js";
-import { buyOrEquip, evaluateAchievements, loadSave, owns, persistSave } from "./save.js";
+import { achievementProgress, buyOrEquip, evaluateAchievements, loadSave, nextGoal, owns, persistSave } from "./save.js";
 import { AudioSystem } from "./audio.js";
 import { B } from "./babylon.js";
 import { createMaterial } from "./materials.js";
@@ -38,7 +38,7 @@ const ui = {
   resultRank: $("resultRank"), resultRankDetail: $("resultRankDetail"), resultRankBox: document.querySelector(".result-rank"),
   resultTitle: $("resultTitle"), resultText: $("resultText"), finalScore: $("finalScore"),
   earnedCoins: $("earnedCoins"), highScore: $("highScore"), bestTime: $("bestTime"),
-  newAchievements: $("newAchievements"), restartButton: $("restartButton"), resultShopButton: $("resultShopButton"),
+  newAchievements: $("newAchievements"), nextGoal: $("nextGoal"), restartButton: $("restartButton"), resultShopButton: $("resultShopButton"),
   resultMenuButton: $("resultMenuButton"), shopScreen: $("shopScreen"), shopCoins: $("shopCoins"), shopGrid: $("shopGrid"),
   achievementsScreen: $("achievementsScreen"), achievementGrid: $("achievementGrid"), statsScreen: $("statsScreen"),
   careerStats: $("careerStats"), modeStats: $("modeStats"), settingsScreen: $("settingsScreen"),
@@ -58,7 +58,7 @@ const state = {
   level: LEVELS[save.lastLevel] ? save.lastLevel : "closing",
   character: owns(save, save.selectedCharacter) ? save.selectedCharacter : "raccoon",
   score: 0, combo: 0, delivered: 0, timeLeft: 120, roundSeconds: 120, wrongPlacements: 0,
-  droppedItems: 0, maxCombo: 0, deliveredDumbbells: 0, heldItems: [], nearestItem: null, nearestZone: null,
+  droppedItems: 0, maxCombo: 0, deliveredDumbbells: 0, deliveredByType: {}, heldItems: [], nearestItem: null, nearestZone: null,
   keys: new Set(), interactPressed: false, elapsed: 0, hudAccumulator: 0,
   velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 },
   touch: { x: 0, z: 0, sprint: false, pointerId: null },
@@ -861,6 +861,7 @@ function deliverAtZone(zone) {
     state.score += gained + milestone;
     state.delivered += 1;
     if (item.type === "dumbbell") state.deliveredDumbbells += 1;
+    state.deliveredByType[item.type] = (state.deliveredByType[item.type] || 0) + 1;
     item.delivered = true;
     state.heldItems = state.heldItems.filter((entry) => entry !== item);
     showScorePop(`+${gained}`, false);
@@ -1062,7 +1063,7 @@ function startRound() {
 function resetRoundState() {
   state.playing = true; state.paused = false; state.ended = false; state.finishing = false;
   state.score = 0; state.combo = 0; state.delivered = 0; state.wrongPlacements = 0; state.droppedItems = 0;
-  state.maxCombo = 0; state.deliveredDumbbells = 0; state.heldItems = []; state.nearestItem = null; state.nearestZone = null;
+  state.maxCombo = 0; state.deliveredDumbbells = 0; state.deliveredByType = {}; state.heldItems = []; state.nearestItem = null; state.nearestZone = null;
   state.hudAccumulator = 0; state.interactPressed = false; state.keys.clear(); state.velocity.set(0, 0, 0);
   resetTouchInput(); resetZoneGuidance(); clearItemHighlight();
   zones.forEach((zone) => { zone.deliveredCount = 0; });
@@ -1142,6 +1143,9 @@ function endRound(completed) {
   save.stats.totalRounds += 1;
   save.stats.totalDelivered += state.delivered;
   save.stats.totalDumbbells += state.deliveredDumbbells;
+  for (const [type, anzahl] of Object.entries(state.deliveredByType)) {
+    save.stats.byType[type] = (save.stats.byType[type] || 0) + anzahl;
+  }
   save.stats.maxCombo = Math.max(save.stats.maxCombo, state.maxCombo);
   save.stats.totalCoinsEarned += earned;
   if (completed && state.wrongPlacements === 0 && state.maxCombo >= items.length) save.stats.perfectRounds += 1;
@@ -1164,7 +1168,7 @@ function endRound(completed) {
   ui.resultRankBox.className = `result-rank rank-${rank.grade.toLowerCase()}`;
   ui.finalScore.textContent = String(state.score); ui.earnedCoins.textContent = `+${earned}`;
   ui.highScore.textContent = String(modeStats.highScore); ui.bestTime.textContent = modeStats.bestTime ? formatTime(modeStats.bestTime) : "–";
-  renderNewAchievements(unlocked); updateCoinDisplays(); renderMenu();
+  renderNewAchievements(unlocked); renderNextGoal(); updateCoinDisplays(); renderMenu();
   if (unlocked.length) showAchievementSequence(unlocked);
   setReaction("celebrate", completed ? 2.5 : 0.8);
   audio.play(completed ? "success" : "timeout");
@@ -1276,7 +1280,16 @@ function renderAchievements() {
   for (const achievement of ACHIEVEMENTS) {
     const unlocked = Boolean(save.achievements[achievement.id]);
     const card = document.createElement("article"); card.className = `achievement-card ${unlocked ? "unlocked" : "locked"}`;
-    card.innerHTML = `<span class="achievement-icon">${unlocked ? achievement.icon : "❔"}</span><h3>${achievement.name}</h3><p>${achievement.description}</p><span class="achievement-status">${unlocked ? "Freigeschaltet" : "Noch offen"}</span>`;
+    // Nur zählbare Ziele bekommen einen Balken. Ja/Nein-Bedingungen pro Runde
+    // behalten "Noch offen" — ein Balken, der nie wächst, wäre irreführend.
+    const stand = unlocked ? null : achievementProgress(save, achievement);
+    const status = unlocked
+      ? `<span class="achievement-status">Freigeschaltet</span>`
+      : stand
+        ? `<span class="achievement-status">${stand.aktuell} / ${stand.ziel}</span>
+           <div class="achievement-bar"><div style="width:${Math.round((stand.aktuell / stand.ziel) * 100)}%"></div></div>`
+        : `<span class="achievement-status">Noch offen</span>`;
+    card.innerHTML = `<span class="achievement-icon">${unlocked ? achievement.icon : "❔"}</span><h3>${achievement.name}</h3><p>${achievement.description}</p>${status}`;
     ui.achievementGrid.appendChild(card);
   }
 }
@@ -1306,6 +1319,20 @@ function renderNewAchievements(unlocked) {
   if (!unlocked.length) { ui.newAchievements.classList.add("hidden"); ui.newAchievements.innerHTML = ""; return; }
   ui.newAchievements.innerHTML = `<strong>Neu freigeschaltet</strong>${unlocked.map((entry) => `<span>${entry.icon} ${entry.name}</span>`).join("")}`;
   ui.newAchievements.classList.remove("hidden");
+}
+
+// Der Anstoß für die nächste Runde: direkt nach dem Ergebnis zeigen, was als
+// Nächstes in Reichweite liegt. Genau hier entscheidet sich, ob nochmal
+// gedrückt wird.
+function renderNextGoal() {
+  const ziel = nextGoal(save);
+  if (!ziel) { ui.nextGoal.classList.add("hidden"); ui.nextGoal.innerHTML = ""; return; }
+  const anteil = Math.round((ziel.aktuell / ziel.ziel) * 100);
+  ui.nextGoal.innerHTML = `<small>Nächstes Ziel</small>
+    <strong>${ziel.achievement.icon} ${ziel.achievement.name}</strong>
+    <span>noch ${ziel.rest} · ${ziel.aktuell} von ${ziel.ziel}</span>
+    <div class="next-goal-bar"><div style="width:${anteil}%"></div></div>`;
+  ui.nextGoal.classList.remove("hidden");
 }
 
 function showAchievementSequence(unlocked) {

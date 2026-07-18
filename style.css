@@ -428,6 +428,16 @@ button { font: inherit; cursor: pointer; }
 .new-achievements { margin: 15px 0; padding: 12px; border: 1px solid rgba(255,173,92,.35); border-radius: 13px; background: rgba(255,173,92,.06); }
 .new-achievements strong { display: block; color: var(--orange); margin-bottom: 6px; }
 .new-achievements span { display: inline-block; margin: 3px 5px; font-size: 11px; }
+
+.next-goal { margin: 13px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,255,255,.035); text-align: left; }
+.next-goal small { display: block; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.next-goal strong { display: block; margin: 4px 0 2px; font-size: 14px; }
+.next-goal span { color: var(--muted); font-size: 11px; }
+.next-goal-bar { margin-top: 8px; height: 6px; border-radius: 99px; background: rgba(255,255,255,.09); overflow: hidden; }
+.next-goal-bar div { height: 100%; border-radius: 99px; background: var(--lime); transition: width .4s ease; }
+
+.achievement-bar { margin-top: 6px; height: 5px; border-radius: 99px; background: rgba(255,255,255,.09); overflow: hidden; }
+.achievement-bar div { height: 100%; border-radius: 99px; background: var(--lime); }
 .result-actions { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 8px; }
 .result-actions .secondary-button { margin-top: 0; }
 .orientation-hint { position: fixed; z-index: 40; left: 50%; bottom: max(8px, env(safe-area-inset-bottom)); transform: translateX(-50%); padding: 8px 12px; border-radius: 999px; background: rgba(17,20,27,.9); color: var(--muted); font-size: 10px; pointer-events: none; }
