@@ -12,7 +12,7 @@
 [![Dependencies](https://img.shields.io/badge/npm_Dependencies-0-success?style=flat-square)]()
 [![Play](https://img.shields.io/badge/▶_Play-Live_Demo-2ea44f?style=flat-square)](https://moarci.github.io/GymCritters/)
 [![GitHub Pages](https://img.shields.io/badge/Deployed_on-GitHub_Pages-222222?style=flat-square&logo=github&logoColor=white)](https://moarci.github.io/GymCritters/)
-[![License](https://img.shields.io/badge/License-unspecified-lightgrey?style=flat-square)](#-lizenz)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 Kamera-relative 3D-Steuerung — Synthetisches Audio via Web Audio API — localStorage-Spielstand — Zero Server-Side State
 
@@ -179,7 +179,7 @@ GymCritters/
 ├── start_server.js         # Node-Static-Server (freier Port, öffnet Browser automatisch)
 ├── start_game.py           # Äquivalenter Python-Server/Launcher
 ├── start-game.bat / .sh    # Doppelklick-Starter für Windows / Unix
-├── vendor/                  # Optionaler lokaler Babylon.js-Build (Offline-Fallback, aktuell leer)
+├── test/                    # Unit-Tests (node --test, ohne Framework)
 └── src/
     ├── config.js           # Modi, Level, Items, Charaktere, Shop, Achievements — Single Source of Truth
     ├── save.js              # localStorage-Persistenz, Save-Migration, Achievement-Auswertung
@@ -208,7 +208,7 @@ Keine Build-Pipeline: `index.html` lädt `src/main.js` direkt als ES-Modul. `pac
 | Anforderung | Details |
 |---|---|
 | Browser | Aktueller Chrome / Edge / Firefox / Safari mit WebGL2 |
-| Internetverbindung | Nötig, außer `vendor/babylon.js` liegt lokal vor (Fallback-Kette: lokal → `cdn.babylonjs.com` → `cdn.jsdelivr.net`) |
+| Internetverbindung | **Erforderlich** — Babylon.js wird beim Start vom CDN geladen (`cdn.babylonjs.com`, Fallback `cdn.jsdelivr.net`) |
 | Node.js **oder** Python 3 | Nur für den lokalen Dev-Server — keine Laufzeit-Abhängigkeit des Spiels selbst |
 
 ### Lokal starten
@@ -274,7 +274,7 @@ Der komplette Spielstand ist ein einziges JSON-Objekt unter dem `localStorage`-K
 - **Kein Server-seitiger Zustand** — `start_server.js` / `start_game.py` liefern ausschließlich Dateien aus dem Projektordner aus, keine Schreiboperationen, kein Datenbankzugriff.
 - **Pfad-Traversal-Schutz** — `start_server.js` prüft `filePath.startsWith(root)` vor jeder Dateiauslieferung und lehnt Anfragen außerhalb des Projektordners mit `403` ab.
 - **Keine Accounts, kein Tracking** — Der komplette Spielstand liegt ausschließlich lokal im Browser. Keine Online-Rangliste, keine Analytics, keine Echtgeldkäufe.
-- **Einzige externe Netzwerk-Abhängigkeit** — Babylon.js per CDN (`cdn.babylonjs.com`, Fallback `cdn.jsdelivr.net`), ausschließlich falls `vendor/babylon.js` nicht lokal vorliegt.
+- **Einzige externe Netzwerk-Abhängigkeit** — Babylon.js per CDN (`cdn.babylonjs.com`, Fallback `cdn.jsdelivr.net`). Die Engine liegt bewusst nicht im Repo: der Build ist ~8 MB und würde das Projekt um das Vierzigfache aufblähen.
 
 ---
 
@@ -337,18 +337,31 @@ Der komplette Spielstand ist ein einziges JSON-Objekt unter dem `localStorage`-K
 Branch-Namenskonvention: `feature/`, `fix/`, `refactor/`, `docs/`
 Commit-Format: Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:` etc.)
 
-Es gibt aktuell keine automatisierte CI-Pipeline. Vor jedem Commit manuell prüfen:
+Es gibt keine CI-Pipeline. Vor jedem Commit manuell prüfen:
 
 ```bash
-node --check src/main.js src/config.js src/audio.js src/save.js   # Syntax-Check
-node start_server.js                                               # Lokal im Browser testen
+npm test                                            # Unit-Tests (node --test, keine Dependencies)
+for f in src/*.js src/environment/*.js; do node --check "$f"; done   # Syntax-Check
+node start_server.js                                # Lokal im Browser testen
 ```
+
+### Tests
+
+Getestet wird, was ohne Browser und ohne Babylon.js läuft — reine Logik:
+
+| Datei | Abdeckung |
+|---|---|
+| `test/save.test.js` | Spielstand-Defaults, Kauf-/Ausrüstlogik, V3-Migration, Achievement-Regeln |
+| `test/utils.test.js` | Zeit-/Winkel-/Distanz-Helfer, Combo-Multiplikator, `shuffle` |
+| `test/targeting.test.js` | Bewertung der Aufnahme-Kandidaten (Distanz + Blickrichtung) |
+
+Szene-Aufbau, Rendering und Eingabe sind bewusst nicht abgedeckt — sie brauchen einen echten Browser und werden über den Smoke-Test in `node start_server.js` geprüft.
 
 ---
 
 ## 📄 Lizenz
 
-Für dieses Repository ist aktuell keine `LICENSE`-Datei hinterlegt — der Code ist damit standardmäßig **alle Rechte vorbehalten** (Standardverhalten für unlizenzierte öffentliche GitHub-Repos: sichtbar, aber nicht zur Wiederverwendung freigegeben). Bei Bedarf einer offenen Lizenz (z. B. MIT) gerne Bescheid geben.
+[MIT](LICENSE) — frei nutzbar, verändern und weitergeben erlaubt, ohne Gewährleistung.
 
 ---
 

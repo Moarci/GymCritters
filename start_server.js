@@ -17,7 +17,12 @@ const server = http.createServer((request, response) => {
   const requested = new URL(request.url || "/", "http://127.0.0.1").pathname;
   const relative = requested === "/" ? "index.html" : requested.replace(/^\//, "");
   const filePath = path.resolve(root, relative);
-  if (!filePath.startsWith(root)) {
+  // Der WHATWG-URL-Parser oben entfernt bereits alle ".."-Segmente, dieser Guard ist
+  // die zweite Verteidigungslinie. Auf eine echte Verzeichnisgrenze prüfen statt auf
+  // reinen String-Präfix: sonst würde ein Nachbarordner wie "GymCritters-evil" den
+  // Test bestehen, sollte die Pfadnormalisierung oben je wegfallen.
+  const rootWithSep = root.endsWith(path.sep) ? root : root + path.sep;
+  if (filePath !== root && !filePath.startsWith(rootWithSep)) {
     response.writeHead(403).end("Forbidden");
     return;
   }

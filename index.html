@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#11141b" />
   <meta name="description" content="Gym Critters – charmantes 3D-Aufräumspiel für den Browser." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Gym Critters V4 – Critter Crew" />
+  <meta property="og:description" content="Rocco der Waschbär und Fibi das Eichhörnchen räumen ein chaotisches Fitnessstudio auf. 3D-Browsergame, direkt spielbar." />
+  <meta property="og:url" content="https://moarci.github.io/GymCritters/" />
+  <meta property="og:image" content="https://moarci.github.io/GymCritters/preview.png" />
+  <meta name="twitter:card" content="summary_large_image" />
   <title>Gym Critters V4 – Critter Crew</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -169,8 +175,10 @@
 
   <script>
     (() => {
+      // Die Engine kommt bewusst vom CDN statt aus dem Repo: der Build ist ~8 MB
+      // und würde das Projekt um das Vierzigfache aufblähen. Das Spiel braucht
+      // deshalb eine Internetverbindung.
       const sources = [
-        "vendor/babylon.js",
         "https://cdn.babylonjs.com/babylon.js",
         "https://cdn.jsdelivr.net/npm/babylonjs/babylon.js"
       ];
@@ -179,7 +187,7 @@
 
       function loadEngine() {
         if (index >= sources.length) {
-          loading.textContent = "Die 3D-Engine konnte nicht geladen werden. Bitte starte das Spiel über start-game.bat oder prüfe die Internetverbindung.";
+          loading.textContent = "Die 3D-Engine konnte nicht geladen werden. Bitte prüfe deine Internetverbindung — das Spiel lädt die 3D-Engine beim Start nach.";
           return;
         }
         const script = document.createElement("script");

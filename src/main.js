@@ -12,6 +12,8 @@ import { AudioSystem } from "./audio.js";
 import { B } from "./babylon.js";
 import { createMaterial } from "./materials.js";
 import { buildEnvironment, setActiveLevelDecor } from "./environment/index.js";
+import { comboMultiplier, formatTime, horizontalDistance, lerpAngle, normalizeAngle, rankValue, shuffle } from "./utils.js";
+import { scoreTarget } from "./targeting.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -399,15 +401,6 @@ function createMedballItem(root, index) {
   return [ball];
 }
 
-function shuffle(values) {
-  const result = values.map((value) => Array.isArray(value) ? [...value] : value);
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
-}
-
 function update() {
   const dt = Math.min(engine.getDeltaTime() / 1000, 0.05);
   if (!state.paused) state.elapsed += dt;
@@ -621,12 +614,16 @@ function updateInteraction() {
   const actionKey = isTouchDevice ? "Aktion" : "E";
   state.nearestItem = null;
   state.nearestZone = null;
-  let closestItemDistance = Infinity;
+  let bestItemScore = Infinity;
   for (const item of items) {
     if (item.delivered || state.heldItems.includes(item)) continue;
-    const distance = horizontalDistance(player.position, item.root.getAbsolutePosition());
-    if (distance < closestItemDistance && distance <= CONFIG.interactDistance) {
-      closestItemDistance = distance;
+    const itemPosition = item.root.getAbsolutePosition();
+    const distance = horizontalDistance(player.position, itemPosition);
+    const angleToItem = Math.atan2(itemPosition.x - player.position.x, -(itemPosition.z - player.position.z));
+    const angleDelta = normalizeAngle(angleToItem - player.rotation.y);
+    const score = scoreTarget(distance, angleDelta, CONFIG.interactDistance);
+    if (score < bestItemScore) {
+      bestItemScore = score;
       state.nearestItem = item;
     }
   }
@@ -841,7 +838,7 @@ function deliverAtZone(zone) {
     state.combo += 1;
     state.maxCombo = Math.max(state.maxCombo, state.combo);
     const strengthBonus = item.weight === "heavy" ? currentCharacter().heavyScoreBonus : 1;
-    const gained = Math.round(item.points * comboMultiplier() * mode.scoreMultiplier * strengthBonus);
+    const gained = Math.round(item.points * comboMultiplier(state.combo) * mode.scoreMultiplier * strengthBonus);
     const milestone = { 3: 75, 5: 150, 8: 300, 10: 400 }[state.combo] || 0;
     batchScore += gained + milestone;
     state.score += gained + milestone;
@@ -929,10 +926,6 @@ function showDeliveryBurst(position, color) {
       particle.position.copyFrom(origin.add(velocity.scale(t)).add(new B.Vector3(0, -1.9 * t * t, 0))); particle.scaling.setAll(Math.max(0.01, 1 - t));
     });
   }
-}
-
-function comboMultiplier() {
-  return Math.min(2.2, 1 + Math.max(0, state.combo - 1) * 0.15);
 }
 
 function startRound() {
@@ -1065,8 +1058,6 @@ function calculateRank(completed) {
   return { grade: "C", detail: "Gym gerettet" };
 }
 
-function rankValue(rank) { return ({ D: 1, C: 2, B: 3, A: 4, S: 5 })[rank] || 0; }
-
 function returnToMenu() {
   state.playing = false; state.paused = false; state.ended = true; state.finishing = false; state.tutorial = false;
   state.keys.clear(); state.velocity.set(0, 0, 0); audio.stopMusic(); resetTouchInput(); clearItemHighlight(); hidePrompt();
@@ -1087,7 +1078,7 @@ function updateHUD() {
   ui.score.textContent = String(state.score);
   ui.progress.textContent = `${state.delivered}/${items.length}`;
   ui.progressBar.style.width = `${items.length ? (state.delivered / items.length) * 100 : 0}%`;
-  ui.combo.textContent = `×${comboMultiplier().toFixed(1).replace(".", ",")}`;
+  ui.combo.textContent = `×${comboMultiplier(state.combo).toFixed(1).replace(".", ",")}`;
   ui.combo.classList.toggle("hot", state.combo >= 3);
   ui.timer.textContent = state.tutorial ? "∞" : formatTime(state.timeLeft);
   ui.timer.style.color = !state.tutorial && state.timeLeft <= 20 ? "#ff7c74" : "";
@@ -1229,10 +1220,6 @@ function showScorePop(text, bonus) {
 }
 function setPrompt(html, correct = false) { ui.prompt.innerHTML = html; ui.prompt.classList.toggle("correct", correct); ui.prompt.classList.remove("hidden"); }
 function hidePrompt() { ui.prompt.classList.remove("correct"); ui.prompt.classList.add("hidden"); }
-function formatTime(seconds) { const total = Math.max(0, Math.ceil(seconds)); return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`; }
-function horizontalDistance(a, b) { return Math.hypot(a.x - b.x, a.z - b.z); }
-function normalizeAngle(angle) { return Math.atan2(Math.sin(angle), Math.cos(angle)); }
-function lerpAngle(current, target, amount) { let difference = (target - current + Math.PI) % (Math.PI * 2) - Math.PI; if (difference < -Math.PI) difference += Math.PI * 2; return current + difference * amount; }
 
 function resetTouchInput() {
   state.touch.x = 0; state.touch.z = 0; state.touch.sprint = false; state.touch.pointerId = null;
