@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { installLocalStorage } from "./helpers/local-storage.js";
-import { createDefaultSave, owns, buyOrEquip } from "../src/save.js";
-import { SAVE_VERSION } from "../src/config.js";
+import { createDefaultSave, owns, buyOrEquip, loadSave } from "../src/save.js";
+import { SAVE_KEY, SAVE_VERSION } from "../src/config.js";
 
 test("createDefaultSave startet auf der aktuellen Version mit Startausrüstung", () => {
   const save = createDefaultSave();
@@ -53,4 +53,44 @@ test("erneutes Ausrüsten eines Nicht-Kopf-Cosmetics schaltet es ab, ohne doppel
   buyOrEquip(save, item);
   assert.equal(save.equipped.face, null);
   assert.equal(save.coins, 80);
+});
+
+test("loadSave fällt auf Defaults zurück, wenn nichts gespeichert ist", () => {
+  installLocalStorage();
+  const save = loadSave();
+  assert.equal(save.version, SAVE_VERSION);
+  assert.equal(save.coins, 0);
+});
+
+test("loadSave übersteht einen beschädigten Spielstand", () => {
+  installLocalStorage({ [SAVE_KEY]: "{kein gültiges json" });
+  const save = loadSave();
+  assert.equal(save.version, SAVE_VERSION);
+  assert.equal(save.coins, 0);
+});
+
+test("loadSave migriert den globalen V3-Highscore in den zuletzt gespielten Modus", () => {
+  installLocalStorage({
+    [SAVE_KEY]: JSON.stringify({ version: 3, highScore: 4200, lastMode: "blitz" }),
+  });
+  const save = loadSave();
+  assert.equal(save.version, SAVE_VERSION);
+  assert.equal(save.modeStats.blitz.highScore, 4200);
+  assert.equal(save.modeStats.standard.highScore, 0);
+});
+
+test("loadSave migriert V3-Bestzeiten pro Modus", () => {
+  installLocalStorage({
+    [SAVE_KEY]: JSON.stringify({ version: 3, bestTimes: { standard: 88 } }),
+  });
+  const save = loadSave();
+  assert.equal(save.modeStats.standard.bestTime, 88);
+});
+
+test("loadSave setzt einen nicht besessenen Charakter zurück", () => {
+  installLocalStorage({
+    [SAVE_KEY]: JSON.stringify({ version: 4, selectedCharacter: "squirrel", owned: ["raccoon"] }),
+  });
+  const save = loadSave();
+  assert.equal(save.selectedCharacter, "raccoon");
 });
