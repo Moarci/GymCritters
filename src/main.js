@@ -17,6 +17,7 @@ import { scoreTarget } from "./targeting.js";
 import { SQUASH_DURATION, comboImpactScale, deliveryPitch, impactSound, impactStrength, squashAt } from "./impact.js";
 import { createTouchInput } from "./input/index.js";
 import { clampPitch } from "./input/touch-look.js";
+import { createQualityState, stepQuality } from "./perf/adaptive-quality.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -52,6 +53,10 @@ const isTouchDevice = window.matchMedia("(hover: none), (pointer: coarse)").matc
 const save = loadSave();
 const audio = new AudioSystem(save);
 const engine = new B.Engine(ui.canvas, true, { preserveDrawingBuffer: false, stencil: true, antialias: true });
+// Muss vor dem ersten applyRenderQuality()-Aufruf existieren (der folgt sofort unten,
+// noch vor der `let scene`-Gruppe) -- sonst schlägt der "auto"-Zweig mit einem
+// Temporal-Dead-Zone-Fehler auf `qualityState` fehl.
+let qualityState = createQualityState();
 applyRenderQuality();
 
 const state = {
@@ -104,9 +109,20 @@ function vibrate(pattern) {
   if (save.settings.vibration && navigator.vibrate) navigator.vibrate(pattern);
 }
 
+// Die geltende Stufe ist bei "auto" die geregelte, sonst die gespeicherte Wahl.
+function qualityTier() {
+  return save.settings.quality === "auto" ? qualityState.tier : save.settings.quality;
+}
+
 function applyRenderQuality() {
-  const quality = save.settings.quality;
-  if (quality === "low") {
+  if (save.settings.quality === "auto") {
+    // Die Regelung besitzt das Scaling. Der Geräte-DPR fließt als Startwert ein, damit
+    // ein hochauflösendes Display nicht erst eine Sekunde lang ruckeln muss.
+    const dprFloor = isTouchDevice && window.devicePixelRatio > 1.5 ? window.devicePixelRatio / 1.45 : 1;
+    engine.setHardwareScalingLevel(Math.max(dprFloor, qualityState.scaling));
+    return;
+  }
+  if (save.settings.quality === "low") {
     engine.setHardwareScalingLevel(Math.max(1.35, window.devicePixelRatio || 1));
   } else if (isTouchDevice && window.devicePixelRatio > 1.5) {
     engine.setHardwareScalingLevel(window.devicePixelRatio / 1.45);
@@ -129,16 +145,16 @@ function createScene() {
   key.position = new B.Vector3(8, 13, -8);
   key.intensity = 1.8;
 
-  shadowGenerator = new B.ShadowGenerator(save.settings.quality === "low" ? 512 : 1024, key);
+  shadowGenerator = new B.ShadowGenerator(qualityTier() === "low" ? 512 : 1024, key);
   shadowGenerator.useBlurExponentialShadowMap = true;
-  shadowGenerator.blurKernel = save.settings.quality === "low" ? 10 : 24;
+  shadowGenerator.blurKernel = qualityTier() === "low" ? 10 : 24;
   shadowGenerator.bias = 0.001;
 
   highlightLayer = new B.HighlightLayer("interactionHighlights", scene, { blurHorizontalSize: 1.2, blurVerticalSize: 1.2 });
   highlightLayer.innerGlow = false;
   highlightLayer.outerGlow = true;
 
-  const environment = buildEnvironment(scene, shadowGenerator, { quality: save.settings.quality });
+  const environment = buildEnvironment(scene, shadowGenerator, { quality: qualityTier() });
   zones = environment.zones;
   obstacles = environment.obstacles;
   createPlayerCollider();
@@ -428,6 +444,15 @@ function createMedballItem(root, index) {
 
 function update() {
   const dt = Math.min(engine.getDeltaTime() / 1000, 0.05);
+  // Gemessen wird die ungeklemmte Frame-Zeit in Millisekunden: dt oben ist auf 50 ms
+  // gedeckelt, ein echter Einbruch wäre darin nicht mehr sichtbar.
+  if (save.settings.quality === "auto" && state.playing && !state.paused) {
+    const previous = qualityState;
+    qualityState = stepQuality(previous, engine.getDeltaTime());
+    // Nur anfassen, wenn sich wirklich etwas geändert hat -- setHardwareScalingLevel
+    // verwirft interne Render-Targets.
+    if (qualityState.scaling !== previous.scaling) applyRenderQuality();
+  }
   if (!state.paused) state.elapsed += dt;
   updateCamera(dt);
   animateWorld(dt);
@@ -609,7 +634,7 @@ function updateReaction(dt) {
 }
 
 function updateTrail(dt, active) {
-  if (save.equipped.trail !== "golden-trail" || !active || save.settings.quality === "low") return;
+  if (save.equipped.trail !== "golden-trail" || !active || qualityTier() === "low") return;
   trailAccumulator += dt;
   if (trailAccumulator < 0.08) return;
   trailAccumulator = 0;
@@ -967,7 +992,7 @@ function getDisplayPlacement(zone, item, index) {
 }
 
 function showDeliveryBurst(position, color) {
-  const count = save.settings.quality === "low" ? 6 : 12;
+  const count = qualityTier() === "low" ? 6 : 12;
   for (let i = 0; i < count; i++) {
     const particle = B.MeshBuilder.CreateSphere("rewardParticle", { diameter: 0.1, segments: 6 }, scene);
     const origin = position.add(new B.Vector3(0, 0.7, 0)); particle.position.copyFrom(origin);
@@ -990,7 +1015,7 @@ function playImpact(zone, item, combo) {
   audio.playImpact(impactSound(item.type, deliveryPitch(combo)), strength);
   vibrate(Math.round(12 + strength * 22));
   squashZone(zone, strength);
-  if (save.settings.quality !== "low") {
+  if (qualityTier() !== "low") {
     kickCamera(strength);
     showImpactDust(zone.position, strength);
   }
@@ -1094,6 +1119,8 @@ function resetRoundState() {
   state.maxCombo = 0; state.deliveredDumbbells = 0; state.heldItems = []; state.nearestItem = null; state.nearestZone = null;
   state.hudAccumulator = 0; state.interactPressed = false; state.keys.clear(); state.velocity.set(0, 0, 0);
   touchInput.reset(); resetZoneGuidance(); clearItemHighlight();
+  // Jede Runde beginnt mit frischer Warmlaufphase: Szenenaufbau verzerrt die Messung.
+  qualityState = createQualityState();
   zones.forEach((zone) => { zone.deliveredCount = 0; });
 }
 
