@@ -31,7 +31,7 @@ const ui = {
   cameraButton: $("cameraButton"), cameraRecenterButton: $("cameraRecenterButton"), fullscreenHudButton: $("fullscreenHudButton"), soundButton: $("soundButton"),
   pauseButton: $("pauseButton"), mobileControls: $("mobileControls"), joystick: $("joystick"),
   joystickKnob: $("joystickKnob"), sprintButton: $("sprintButton"), interactButton: $("interactButton"),
-  orientationHint: $("orientationHint"), startScreen: $("startScreen"), menuCoins: $("menuCoins"),
+  startScreen: $("startScreen"), menuCoins: $("menuCoins"),
   characterSelector: $("characterSelector"), levelSelector: $("levelSelector"), modeSelector: $("modeSelector"),
   startButton: $("startButton"), shopButton: $("shopButton"), achievementsButton: $("achievementsButton"),
   statsButton: $("statsButton"), settingsButton: $("settingsButton"), fullscreenButton: $("fullscreenButton"),
@@ -1107,7 +1107,7 @@ function prepareSceneForRound() {
   ui.startScreen.classList.add("hidden"); ui.pauseScreen.classList.add("hidden"); ui.resultScreen.classList.add("hidden");
   ui.hud.classList.remove("hidden"); ui.objective.classList.remove("hidden"); ui.progressTrack.classList.remove("hidden");
   ui.mobileControls.classList.toggle("hidden", !isTouchDevice); ui.coins.textContent = String(save.coins);
-  document.body.classList.add("playing"); updateOrientationHint(); updateHUD(); ui.canvas.focus();
+  document.body.classList.add("playing"); updateHUD(); ui.canvas.focus();
 }
 
 function startTutorial() {
@@ -1380,10 +1380,6 @@ function applyJoystickScale() {
   ui.joystick.style.setProperty("--control-scale", String(scale));
   ui.mobileControls.style.setProperty("--control-scale", String(scale));
 }
-function updateOrientationHint() {
-  const portrait = window.matchMedia("(orientation: portrait)").matches;
-  ui.orientationHint.classList.toggle("hidden", !(isTouchDevice && state.playing && portrait));
-}
 function requestFullscreen() {
   const element = document.documentElement;
   if (!document.fullscreenElement && element.requestFullscreen) element.requestFullscreen().catch(() => {});
@@ -1413,7 +1409,7 @@ window.addEventListener("keydown", (event) => {
 });
 window.addEventListener("keyup", (event) => state.keys.delete(event.code));
 window.addEventListener("blur", releaseAllInput);
-window.addEventListener("resize", () => { engine.resize(); updateOrientationHint(); });
+window.addEventListener("resize", () => { engine.resize(); });
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) return;
   releaseAllInput();
@@ -1438,7 +1434,7 @@ ui.resetTutorialButton.addEventListener("click", () => { save.tutorialCompleted 
 try {
   createScene();
   engine.runRenderLoop(() => scene.render());
-  renderMenu(); updateSoundButton(); applyJoystickScale(); updateOrientationHint();
+  renderMenu(); updateSoundButton(); applyJoystickScale();
   ui.loading.classList.add("hidden");
 } catch (error) {
   console.error(error); ui.loading.textContent = `Fehler beim Start: ${error.message}`;

@@ -432,7 +432,6 @@ button { font: inherit; cursor: pointer; }
 .new-achievements span { display: inline-block; margin: 3px 5px; font-size: 11px; }
 .result-actions { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 8px; }
 .result-actions .secondary-button { margin-top: 0; }
-.orientation-hint { position: fixed; z-index: 40; left: 50%; bottom: max(8px, env(safe-area-inset-bottom)); transform: translateX(-50%); padding: 8px 12px; border-radius: 999px; background: rgba(17,20,27,.9); color: var(--muted); font-size: 10px; pointer-events: none; }
 
 @media (max-width: 900px) {
   .main-actions { grid-template-columns: repeat(3, 1fr); }
@@ -456,10 +455,6 @@ button { font: inherit; cursor: pointer; }
   .result-actions .secondary-button { margin-top: 0; }
   .hud-actions .carry { display: none; }
   .speech-bubble { top: 178px; }
-}
-
-@media (orientation: portrait) and (hover: none) and (pointer: coarse) {
-  body.playing #orientationHint { display: block !important; }
 }
 
 .joystick { transform: scale(var(--control-scale, 1)); transform-origin: left bottom; }
