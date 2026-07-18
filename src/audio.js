@@ -20,13 +20,15 @@ export class AudioSystem {
   tone(frequency, delay = 0, duration = 0.13, volume = 0.05, type = "sine") {
     const context = this.ensure();
     if (!context) return;
+    const masterVolume = Math.max(0, Math.min(1, Number(this.save.settings?.masterVolume) || 0));
+    if (masterVolume <= 0) return;
     const now = context.currentTime + delay;
     const oscillator = context.createOscillator();
     const gain = context.createGain();
     oscillator.type = type;
     oscillator.frequency.setValueAtTime(frequency, now);
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(volume, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(volume * masterVolume, now + 0.012);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
     oscillator.connect(gain);
     gain.connect(context.destination);
@@ -57,6 +59,7 @@ export class AudioSystem {
       release: [[660, 0]],
       // Die Tonleiter, die man hochgeklettert ist, rutscht hörbar wieder runter.
       comboBreak: [[560, 0], [420, 0.07], [314, 0.14], [235, 0.21]],
+      trip: [[205, 0], [150, 0.055], [118, 0.13]],
       wrong: [[180, 0], [135, 0.11]],
       purchase: [[480, 0], [720, 0.08], [960, 0.16]],
       achievement: [[660, 0], [880, 0.1], [1100, 0.2], [1320, 0.3]],
@@ -65,7 +68,7 @@ export class AudioSystem {
       timeout: [[260, 0], [210, 0.14], [160, 0.28]],
       tutorial: [[540, 0], [760, 0.1], [980, 0.2]],
     };
-    const harsh = type === "wrong" || type === "timeout";
+    const harsh = type === "wrong" || type === "timeout" || type === "trip";
     const sequence = sequences[type] || sequences.drop;
     // "release" quittiert nur den Tastendruck und bleibt deshalb bewusst
     // kürzer und leiser als der Aufschlag, der 500 ms später folgt.

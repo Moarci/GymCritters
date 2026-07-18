@@ -1,9 +1,12 @@
 {
-  "name": "gym-critters-v4",
-  "version": "4.0.0",
+  "name": "gym-critters-v5",
+  "version": "5.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test \"test/**/*.test.js\""
+    "check": "node scripts/check-syntax.js",
+    "smoke": "node scripts/http-smoke.js",
+    "test": "node --test \"test/**/*.test.js\"",
+    "test:ci": "npm run check && npm test && npm run smoke"
   }
 }

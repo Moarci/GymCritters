@@ -1,42 +1,19 @@
 <div align="center">
 
-# 🦝🐿️ Gym Critters V4 — Critter Crew
+# 🦝🐿️ Gym Critters V5.1 — Crew Terminal
 
-**3D-Browsergame ohne Build-Schritt, ohne Server, ohne Account — Rocco der Waschbär und Fibi das Eichhörnchen räumen das Gym auf.**
+**Ein lokal-first 3D-Browsergame ohne Build-Schritt, Backend oder Account.**
 
-**v4.0.0** — Zwei Charaktere, Münzshop, Achievements, drei Level, drei Tempi, Tutorial, Mobile-Steuerung
+**v5.1.0** — Physische Stolperfallen, zeitloser Zen-Modus, levelweises Feintuning, Leistungsentwicklung und ein komplett neues Crew-Terminal.
 
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES2020%2B-F7DF1E?style=flat-square&logo=javascript&logoColor=black)](https://developer.mozilla.org/docs/Web/JavaScript)
 [![Babylon.js](https://img.shields.io/badge/Babylon.js-via_CDN-BB464B?style=flat-square&logo=babylondotjs&logoColor=white)](https://www.babylonjs.com)
-[![Build](https://img.shields.io/badge/Build-none_required-success?style=flat-square)]()
-[![Dependencies](https://img.shields.io/badge/npm_Dependencies-0-success?style=flat-square)]()
-[![Play](https://img.shields.io/badge/▶_Play-Live_Demo-2ea44f?style=flat-square)](https://moarci.github.io/GymCritters/)
-[![GitHub Pages](https://img.shields.io/badge/Deployed_on-GitHub_Pages-222222?style=flat-square&logo=github&logoColor=white)](https://moarci.github.io/GymCritters/)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![Version](https://img.shields.io/badge/version-5.1.0-a7f46a?style=flat-square)](CHANGELOG.md)
+[![Dependencies](https://img.shields.io/badge/npm_dependencies-0-success?style=flat-square)](package.json)
+[![Play](https://img.shields.io/badge/▶_Live_Demo-2ea44f?style=flat-square)](https://moarci.github.io/GymCritters/)
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 
-Kamera-relative 3D-Steuerung — Synthetisches Audio via Web Audio API — localStorage-Spielstand — Zero Server-Side State
-
-**[🎮 Jetzt spielen](https://moarci.github.io/GymCritters/)** &nbsp;&nbsp;|&nbsp;&nbsp; **[🕹 Steuerung](#-steuerung)** &nbsp;&nbsp;|&nbsp;&nbsp; **[🚀 Schnellstart](#-schnellstart)** &nbsp;&nbsp;|&nbsp;&nbsp; **[📝 Changelog](#changelog)**
-
-<details>
-<summary><b>Inhaltsverzeichnis</b></summary>
-
-- [Überblick](#überblick)
-- [Features](#features)
-- [Alle Inhalte im Detail](#alle-inhalte-im-detail)
-- [Steuerung](#-steuerung)
-- [Architektur](#-architektur)
-- [Schnellstart](#-schnellstart)
-- [Deployment](#-deployment)
-- [Spielstand & Datenmodell](#spielstand--datenmodell)
-- [Sicherheit](#-sicherheit)
-- [Design-Prinzipien](#-design-prinzipien-golden-rules)
-- [Roadmap](#roadmap)
-- [Changelog](#changelog)
-- [Contributing](#-contributing)
-- [Lizenz](#-lizenz)
-
-</details>
+**[🎮 Jetzt spielen](https://moarci.github.io/GymCritters/)** · **[🚀 Lokal starten](#-schnellstart)** · **[🧪 Qualität prüfen](#-tests-und-ci)** · **[📝 Changelog](CHANGELOG.md)**
 
 </div>
 
@@ -44,74 +21,74 @@ Kamera-relative 3D-Steuerung — Synthetisches Audio via Web Audio API — local
 
 ## Überblick
 
-Gym Critters ist ein charmantes 3D-Aufräumspiel für den Browser: Rocco der Waschbär (und die freischaltbare Fibi, das Eichhörnchen) räumen ein chaotisches Fitnessstudio auf, bevor die Zeit abläuft — Hanteln zurück ins Rack, Handtücher in die Wäsche, Flaschen zum Pfand, Matten gestapelt.
+Rocco der Waschbär und Fibi das Eichhörnchen räumen ein chaotisches Fitnessstudio auf. Hanteln gehören ins Rack, Handtücher in die Wäsche, Matten auf den Stapel und jedes weitere Trainingsgerät an seinen sichtbaren Ablageort.
 
-Kein Account, keine Cloud, kein Tracking: Das gesamte Spiel läuft als statische Datei im Browser, der Spielstand liegt ausschließlich lokal in `localStorage`.
-
-**Kernprinzipien:**
-
-- **Zero Backend** — Keine API, keine Datenbank, kein Server-Prozess im Betrieb. Ein statischer Webserver liefert nur Dateien aus (siehe [Schnellstart](#-schnellstart)).
-- **Zero Dependencies** — `package.json` enthält keine einzige npm-Abhängigkeit. Die einzige externe Laufzeit-Abhängigkeit ist Babylon.js, per CDN geladen (mit optionalem lokalem Fallback).
-- **Config-driven Balancing** — Modi, Level, Charaktere, Items, Shop und Achievements sind vollständig in [`src/config.js`](src/config.js) deklariert — keine Werte verstreut im Code.
-- **Additive Spielstand-Migration** — Neue Save-Versionen mergen mit den Defaults, alte V3-Spielstände werden automatisch migriert (siehe [Spielstand & Datenmodell](#spielstand--datenmodell)).
-
----
+V5 macht aus der einfachen Aufräumrunde eine kleine Gym-Schicht: Gegenstände erscheinen in Wellen, die Priorität verändert sich während der Runde und jedes Level besitzt eigene Wege, Hindernisse, Farben und Bonusereignisse. In V5.1 werden herumliegende Gegenstände zusätzlich zu echten Stolperfallen, während das Crew-Terminal jede Schicht detailliert konfigurierbar und die eigene Verbesserung über viele Runden sichtbar macht. Fortschritt bleibt vollständig lokal und funktioniert ohne Account, Cloud oder Tracking.
 
 ## Features
 
-| Feature | Beschreibung |
+| Bereich | Inhalt |
 |---|---|
-| **Zwei spielbare Charaktere** | Rocco (stark, Punktebonus auf Hanteln) und die freischaltbare Fibi (schnell, trägt zwei leichte Gegenstände gleichzeitig) — unterschiedliche Lauf-, Sprint- und Tragwerte. |
-| **Drei Level-Varianten** | Feierabend, Nach dem Kurs, Leg Day Chaos — je eigene Item-Gewichtung und Spawn-Layout. |
-| **Drei Spieltempi** | Entspannt, Standard, Blitz — unterschiedliche Rundenzeit, Item-Anzahl und Punkte-Multiplikator. |
-| **Münzshop** | Sichtbare Cosmetics (Stirnbänder, Schweißbänder, Sonnenbrille, Laufspur) und Fibi-Freischaltung, käuflich mit erspielten Münzen. |
-| **Achievements & Karrierestatistik** | 7 Achievements, modusgetrennte Bestwerte, Bestzeiten und Ränge (D bis S). |
-| **Interaktives Tutorial** | Geführte erste Schicht für neue Spieler:innen, jederzeit über die Einstellungen erneut abrufbar. |
-| **Mobile-Steuerung** | Virtueller Joystick, Touch-Aktionsbuttons, Vibrationsfeedback, Grafikmodus „Leicht" für schwächere Geräte. |
-| **Synthetisches Audio** | Soundeffekte und Hintergrundmusik werden zur Laufzeit per Web Audio API erzeugt — keine Audio-Dateien im Repo. |
-| **Kamera-relative 3D-Steuerung** | Freie Maus-Look-Kamera, Bewegung folgt der Kamera-Ausrichtung, Figur richtet sich sauber zur Laufrichtung aus — siehe [Design-Entscheidungen](#design-entscheidungen). |
+| **Living Shifts** | Drei Schichtphasen, gestaffelte Gegenstandswellen und wechselnde Bonusereignisse statt einer statischen Item-Verteilung. |
+| **Drei Level-Identitäten** | Feierabend, Nach dem Kurs und Leg Day Chaos besitzen eigene Bodenflächen, Beschilderung, Deko, Kollisionshindernisse, Item-Schwerpunkte und Ereignisse. |
+| **Zwei Critter** | Rocco ist stark mit schweren Lasten; Fibi ist schneller und trägt zwei leichte Gegenstände gleichzeitig. |
+| **Präzises Greifen** | Zwei-Knochen-IK richtet Schulter, Ellbogen und Pfoten an den Gegenständen aus; Tragehaltung und Gang reagieren auf die Gewichtsklasse. |
+| **Verlässliche Interaktion** | Reichweite, Blickrichtung und freie Sicht bestimmen das Ziel. Sichtbare Hindernisse blockieren Bewegung und Aufnahme konsistent. |
+| **Physische Stolperfallen** | Beim Überlaufen eines Bodengegenstands stolpert die Figur, verliert ihre Combo und lässt getragene Dinge fallen; drei Risikostufen steuern Reichweite und Empfindlichkeit. |
+| **Vier Spielmodi** | Entspannt, Standard, Blitz und der neue Zen-Modus ohne Zeitlimit. |
+| **Level-Feintuning** | Gegenstandsmenge, Schichtdynamik, Stolperrisiko und Zielhilfe werden für jedes Level separat gespeichert. |
+| **Entwicklung über Zeit** | Bis zu 120 Runden bilden eine lokale Historie mit vergleichbarem Leistungsindex, Trend, Filterung und Verlaufskurve. |
+| **Crew-Terminal** | Komplett neu gestaltetes Startmenü mit Live-Schichtvorschau, klarer Auswahlhierarchie und responsivem Utility-Dock. |
+| **Fortschritt** | Münzshop, 15 Achievements, faire Bestwerte je Level × Modus, fünf Meisterschaftsstufen pro Level und drei lokale Tagesverträge. |
+| **Lokal-first Saves** | Automatische Migration, feste lokale Origin sowie validierter JSON-Export und -Import des Spielstands. |
+| **Desktop und Mobile** | Maus-/Tastatursteuerung, Touch-Look, virtueller Joystick, Vibrationsfeedback, Hochformat-HUD und adaptive Grafikqualität. |
+| **Accessibility** | Semantische Dialoge, Fokusführung, Screenreader-Status, sichtbare Fokusrahmen, Forced Colors und reduzierte Bewegungen. |
+| **Offline nach Erststart** | Service Worker speichert die lokale App-Shell und die erfolgreich geladene Babylon.js-Version für spätere Offline-Starts. |
 
----
+## Living Shifts
 
-## Alle Inhalte im Detail
+Jede Runde entwickelt sich über drei Abschnitte:
 
-<details>
-<summary><strong>Spieltempi (Modi)</strong></summary>
+1. **Opening:** Ein erster Teil der Gegenstände ist sofort verfügbar und führt in den Level-Schwerpunkt ein.
+2. **Rush:** Die nächste Welle öffnet sich; ein neues Schichtereignis verändert wertvolle Itemgruppen.
+3. **Finale:** Die letzten Gegenstände erscheinen und gewichtete Bonusziele belohnen eine passende Route.
 
-| Modus | Zeit | Items | Punkte-Multiplikator | Zielhilfe (Navigator) |
-|---|---|---|---|---|
-| Entspannt | 180 s | 8 | ×0,9 | immer aktiv |
-| Standard | 120 s | 10 | ×1,0 | immer aktiv |
+Die Boni gelten nur für passende Gegenstände. Der Spieler entscheidet dadurch zwischen kurzem Weg, wertvoller Lieferung, Combo-Sicherung und Tagesvertrag.
+
+### Level-Identitäten
+
+| Level | Spielgefühl | Eigene Welt und Ereignisse |
+|---|---|---|
+| **Feierabend** | Gemischte Abschlussrunde im ganzen Gym. | Reinigungswagen, Wet-Floor-Station und Abschlussbeleuchtung; zuerst Flaschen/Handtücher, danach schwere Restgeräte im Bonus. |
+| **Nach dem Kurs** | Viele Matten, Handtücher, Flaschen und Seile in gestaffelten Reihen. | Violette Kursfläche und kollidierende Step-Plattformen; Kursmaterial und später Fundsachen erhalten Bonus. |
+| **Leg Day Chaos** | Schwere Hanteln, Kettlebells und Medizinbälle auf engeren Wegen. | Gummiboden, Plate Trees und Push Sled als echte Hindernisse; schwere und sperrige Lasten bestimmen den Endspurt. |
+
+Die geschlossene Gebäudehülle, bündigen Industriefenster, Eingangslobby und prozedurale Stadtansicht verhindern schwarze Außenleere und vermitteln eine zusammenhängende Gym-Umgebung.
+
+## Inhalte und Balancing
+
+### Spielmodi
+
+| Modus | Zeit | Gegenstände | Punktefaktor | Navigator |
+|---|---:|---:|---:|---|
+| Entspannt | 180 s | 8 | ×0,9 | immer |
+| Standard | 120 s | 10 | ×1,0 | immer |
 | Blitz | 90 s | 12 | ×1,3 | nur beim Tragen |
+| Zen | kein Limit | 10 | ×0,85 | immer |
 
-</details>
+Die Gegenstandsmenge in dieser Tabelle ist die jeweilige Modusbasis. Im Crew-Terminal lässt sie sich pro Level auf **Kompakt**, **Standard** oder **Volles Haus** stellen. Zusätzlich stehen ruhige, lebendige und intensive Wellen sowie drei Stolperrisiken und vier Zielhilfe-Stufen zur Wahl.
 
-<details>
-<summary><strong>Level</strong></summary>
+### Charaktere
 
-| Level | Beschreibung |
-|---|---|
-| Feierabend | Gemischtes Chaos im ganzen Gym — Hanteln, Handtücher, Flaschen, Matten gleich gewichtet |
-| Nach dem Kurs | Schwerpunkt Matten, Handtücher, Flaschen |
-| Leg Day Chaos | Schwerpunkt Hanteln, engere Wege |
+| Charakter | Tempo | Besonderheit |
+|---|---|---|
+| **Rocco** | 4,2 / 6,3 | Startcharakter, +20 % auf schwere Gegenstände und geringerer Tempoverlust mit schweren Lasten. |
+| **Fibi** | 5,0 / 7,25 | Für 250 Münzen freischaltbar, schneller und mit zwei Trageplätzen für leichte Gegenstände. |
 
-</details>
+### Gegenstände
 
-<details>
-<summary><strong>Charaktere</strong></summary>
-
-| Charakter | Spezies | Lauf-/Sprinttempo | Besonderheit |
-|---|---|---|---|
-| Rocco | Waschbär | 4,2 / 6,3 | Startcharakter. +20 % Punkte auf Hanteln, weniger Tempoverlust mit schwerem Gepäck |
-| Fibi *(freischaltbar, 250 Münzen)* | Eichhörnchen | 5,0 / 7,25 | Trägt zwei leichte Gegenstände gleichzeitig, insgesamt schneller |
-
-</details>
-
-<details>
-<summary><strong>Gegenstände</strong></summary>
-
-| Item | Punkte | Zielzone | Gewichtsklasse |
-|---|---|---|---|
+| Gegenstand | Punkte | Ablageort | Gewicht |
+|---|---:|---|---|
 | Hantel | 125 | Rack | schwer |
 | Kettlebell | 130 | Kettlebell-Ecke | schwer |
 | Trainingsmatte | 100 | Mattenzone | sperrig |
@@ -120,253 +97,170 @@ Kein Account, keine Cloud, kein Tracking: Das gesamte Spiel läuft als statische
 | Springseil | 65 | Seilhaken | leicht |
 | Handtuch | 50 | Wäsche | leicht |
 
-</details>
+## Karriere und Belohnungen
 
-<details>
-<summary><strong>Shop-Artikel</strong></summary>
+### Tagesverträge
 
-| Artikel | Slot | Kosten |
-|---|---|---|
-| Limetten-Stirnband | Kopf | 0 (Start-Cosmetic) |
-| Rotes Stirnband | Kopf | 40 |
-| Blaues Stirnband | Kopf | 60 |
-| Schweißbänder | Handgelenk | 75 |
-| Sonnenbrille | Gesicht | 120 |
-| Fibi freischalten | Charakter | 250 |
-| Goldene Laufspur | Trail | 400 |
+Pro lokalem Kalendertag werden deterministisch drei Aufgaben gewählt:
 
-</details>
+- ein Lieferauftrag, etwa Handtücher oder schwere Geräte;
+- ein Schichtauftrag, etwa zwei abgeschlossene Runden oder ein bestimmtes Level;
+- ein Könnensauftrag, etwa Punktzahl, sichere Pfoten oder eine hohe Combo.
 
-<details>
-<summary><strong>Achievements</strong></summary>
+Fortschritt und Belohnungen werden sofort gespeichert. Bereits verdiente Belohnungen können auch nach einer zurückgestellten Geräteuhr nicht erneut kassiert werden. Es gibt keinen Server und keine vorausgesetzte Online-Zeit.
 
-| Achievement | Bedingung |
-|---|---|
-| Erste Schicht | Eine Runde beenden |
-| Klebrige Pfoten | Eine Runde ohne Fallenlassen schaffen |
-| Perfekte Ordnung | Komplette Runde ohne Combo-Unterbrechung |
-| Schwerarbeiter | Insgesamt 10 Hanteln aufgeräumt |
-| Gym-Held | Insgesamt 50 Gegenstände aufgeräumt |
-| Blitzsauber | Standard-Modus in ≤ 75 Sekunden |
-| Sammler | 4 Shop-Artikel im Besitz |
+### Meisterschaft und Bestwerte
 
-</details>
+- Jedes Level besitzt fünf Meisterschaftsstufen.
+- XP entstehen durch Abschluss, Punktzahl, eine Runde ohne Fallenlassen und perfekte Ordnung.
+- Meisterschaft verleiht keine permanenten Werteboni und hält Highscores dadurch fair.
+- Highscore, Bestzeit, Rang und Rundenzahl werden separat für jede Kombination aus Level und Modus geführt.
+- Zen-Runden besitzen bewusst keine Bestzeit und keinen Timerdruck; ihr tatsächliches Tempo fließt nur in die private Entwicklungsauswertung ein.
 
----
+### Leistungsentwicklung
+
+Jeder Rundenabschluss speichert einen kompakten lokalen Historieneintrag. Ein normalisierter Leistungsindex von 0 bis 100 kombiniert Abschluss, Fehlerfreiheit, Combo und Tempo pro Gegenstand. Die Statistik vergleicht die neuere Hälfte der letzten zehn passenden Runden mit der vorherigen Hälfte und zeigt **Verbesserung**, **stabile Leistung** oder einen vorübergehenden Rückgang. Level- und Modusfilter verhindern irreführende Vergleiche.
+
+### Shop und Achievements
+
+Der Shop enthält 15 Freischaltungen: Fibi, Stirn- und Schweißbänder, Sportbrillen sowie mehrere Laufspuren bis zur Critter-Crew-Spur. Insgesamt existieren 15 Achievements:
+
+`Erste Schicht`, `Klebrige Pfoten`, `Perfekte Ordnung`, `Schwerarbeiter`, `Kettlebell-König`, `Seilspringer`, `Ballkünstler`, `Vollsortiment`, `Gym-Held`, `Blitzsauber`, `Sammler`, `Stammcrew`, `Zuverlässige Pfoten`, `Gym-Meister` und `Crew-Verdiener`.
 
 ## 🕹 Steuerung
 
 | Eingabe | Aktion |
 |---|---|
-| `WASD` / Pfeiltasten | Laufen (kamerarelativ) |
-| Maus | Kamera frei drehen |
-| `E` | Aufnehmen, zusätzlich einsammeln, ablegen |
-| `Shift` | Sprinten — nicht mit Hanteln oder Matten |
+| `WASD` / Pfeiltasten | Kamerarelativ laufen |
+| Maus ziehen | Kamera drehen |
+| `E` | Aufnehmen, zusätzlich einsammeln oder ablegen |
+| `Shift` | Sprinten, soweit die Last es erlaubt |
 | `C` | Kamera hinter der Figur ausrichten |
 | `Esc` / `P` | Pause |
-| Touch (Mobilgeräte) | Virtueller Joystick + Aktionsbuttons |
+| Touch | Virtueller Joystick, Look-Zone und Aktionsbuttons |
 
----
+## Komfort und Accessibility
+
+In den Einstellungen stehen Lautstärke, Kameraempfindlichkeit, Joystickgröße, Grafikqualität, Vibration und reduzierte Bewegungen zur Verfügung. Die Systemeinstellung `prefers-reduced-motion` wird ebenfalls berücksichtigt.
+
+Alle Menüs verwenden sichtbare Tastatur-Fokusrahmen. Modale Screens besitzen zugängliche Namen, halten den Fokus im aktiven Dialog und geben ihn beim Schließen an den Auslöser zurück. Wichtige Spielmeldungen werden über dedizierte Statusbereiche angekündigt, ohne den laufenden Timer vorzulesen.
+
+Das Hochformat-HUD ordnet Status und Aktionen in getrennten Zeilen an. Auf schmalen Touch-Geräten bleiben die wichtigsten Tasten in Daumenreichweite, während doppelte Kamera-/Vollbildaktionen ausgeblendet werden.
+
+## Spielstand und Offline-Betrieb
+
+Der Spielstand liegt unter dem `localStorage`-Key `gymCrittersSave`. Die Produktversion ist **5.1.0**; die davon unabhängige interne Datenversion ist aktuell **`SAVE_VERSION = 7`**.
+
+Gespeichert werden unter anderem:
+
+- Münzen, Besitz und ausgerüstete Cosmetics;
+- Charakter, letzter Modus und letztes Level;
+- globale, modusweite und Level-×-Modus-Statistiken;
+- levelweise Schichtkonfiguration und die letzten 120 Runden für die Entwicklungskurve;
+- Achievements, Meisterschaft und Tagesverträge;
+- Tutorial- und Komforteinstellungen.
+
+`loadSave()` migriert ältere Spielstände additiv auf das aktuelle Schema. Über **Spielstand exportieren** entsteht eine lesbare JSON-Sicherung. Der Import akzeptiert validierte Gym-Critters-Exports sowie ältere rohe Save-JSONs, migriert sie und weist leere, fremde oder zukünftige Formate verständlich zurück.
+
+Für den ersten vollständigen Start wird eine Internetverbindung benötigt, um Babylon.js von `cdn.babylonjs.com` oder dem jsDelivr-Fallback zu laden. Danach hält der Service Worker sowohl die lokalen Module als auch die erfolgreich verwendete Engine-Version im Cache. Online werden lokale Dateien weiterhin frisch geladen; offline fällt die App auf den Cache zurück.
 
 ## 🏗 Architektur
 
-### Projektstruktur
+Gym Critters verwendet native ES-Module und Babylon.js ohne Bundler oder npm-Laufzeitabhängigkeiten.
 
-```
+```text
 GymCritters/
-├── index.html            # DOM-Grundgerüst aller Screens (HUD, Menü, Shop, Achievements, Settings...)
-├── style.css              # Gesamtes Styling, CSS Custom Properties, dunkles Theme
-├── start_server.js         # Node-Static-Server (feste Origin, öffnet Browser automatisch)
-├── start_game.py           # Äquivalenter Python-Server/Launcher
-├── start-game.bat / .sh    # Doppelklick-Starter für Windows / Unix
-├── test/                    # Unit-Tests (node --test, ohne Framework)
+├── index.html                 # App-Shell, Screens, HUD und Engine-Bootstrap
+├── style.css                  # Responsive UI und Accessibility-Styles
+├── ui-accessibility.js        # Dialogfokus, Fokusfalle und Status-Ankündigungen
+├── manifest.webmanifest       # Installierbare App-Metadaten
+├── service-worker.js          # Lokaler und Babylon-Runtime-Cache
+├── start_server.js            # Statischer Node-Server auf fester Origin
+├── start_game.py              # Entsprechender Python-Launcher
+├── scripts/
+│   ├── check-syntax.js        # Dependency-freier JS-/JSON-Syntaxcheck
+│   └── http-smoke.js          # HTTP-Smoke-Test der App-Shell
+├── test/                      # Node-Test-Suite
 └── src/
-    ├── config.js           # Modi, Level, Items, Charaktere, Shop, Achievements — Single Source of Truth
-    ├── save.js              # localStorage-Persistenz, Save-Migration, Achievement-Auswertung
-    ├── audio.js              # Synthetische Sounds/Musik via Web Audio API
-    └── main.js               # Szene, Bewegung, Interaktion, UI-Rendering, Game-Loop
+    ├── main.js               # Szenen- und UI-Orchestrierung
+    ├── config.js             # Balancing, Inhalte, Verträge und Meisterschaft
+    ├── save.js               # Persistenz, Migration, Export/Import, Achievements
+    ├── progression.js        # Bestwerte, Karriere und Meisterschaft
+    ├── challenges.js         # Deterministische Tagesverträge
+    ├── shift-director.js     # Wellen, Phasen und Levelereignisse
+    ├── shift-settings.js     # Level-Feintuning und Modusdarstellung
+    ├── trip-physics.js       # Babylon-freie Stolperreichweite und Gefahrenerkennung
+    ├── character-motion.js   # Gang, Gewichtshaltung und Zwei-Knochen-IK
+    ├── targeting.js          # Zielwertung und Sichtlinienprüfung
+    ├── environment/          # Gebäude, Texturen und Level-Identitäten
+    ├── input/                # Joystick und Touch-Look
+    └── perf/                 # Adaptive Qualität und Render-Skalierung
 ```
 
-Keine Build-Pipeline: `index.html` lädt `src/main.js` direkt als ES-Modul. `package.json` deklariert keine Scripts und keine Dependencies — der Browser erledigt die gesamte Arbeit.
+Wichtige Architekturregeln:
 
-### Design-Entscheidungen
-
-| Entscheidung | Begründung |
-|---|---|
-| **Kamera- und Spieler-Rotation strikt einseitig gekoppelt** | `camera.alpha` (Maus / `C`-Taste) → kamerarelative Bewegungsrichtung → `player.rotation.y`. Nichts fließt zurück zur Kamera. Zwei frühere Varianten (Kamera folgt automatisch der Figur / Figur folgt direkt dem Kamerawinkel) erzeugten einen sichtbaren Feedback-Loop zwischen beiden. |
-| **Kollisionsauflösung über Kreis-vs-Rechteck-Pushout** | `resolvePlayerPosition()` löst Kollisionen mit Hindernissen über den nächstgelegenen Punkt auf der Box auf statt über eine Achsen-Wahl — verhindert Zittern an Ecken (Bänke, Squat-Rack, Pflanzen). |
-| **Synthetisches Audio statt Audio-Dateien** | Alle Sounds/Musik entstehen zur Laufzeit über Web-Audio-Oszillatoren (`src/audio.js`). Kein Asset-Download, keine Lizenzfragen, kleines Repo. |
-| **Additive Save-Migration** | `SAVE_VERSION` wird nur erhöht, alte Felder werden mit den Defaults gemerged statt überschrieben (`save.js: loadSave`). V3-Spielstände (globaler Highscore, separate Bestzeiten) werden automatisch übernommen. |
-| **Kein Build-Tool** | Reine ES-Module, direkt im Browser ausführbar. Erfordert lediglich einen HTTP-Server statt `file://`, da ES-Module CORS-Restriktionen für lokale Dateien haben. |
-
----
+- **Lokal-first:** Kein Gameplay-Feature benötigt Backend, Account oder Tracking.
+- **Additive Saves:** `SAVE_VERSION` wird nur mit Migration erhöht; alte Daten werden nicht destruktiv entfernt.
+- **Sichtbare Welt = Physik:** Spielrelevante Deko stammt aus denselben Leveldaten wie ihre Kollisionsbox.
+- **Babylon-freie Logik:** Fortschritt, Schichtdirektor, Zielwertung und Bewegungsmathematik bleiben separat testbar.
+- **Stabile Origin:** Alle lokalen Launcher verwenden `http://127.0.0.1:8347/`, damit derselbe Browser-Spielstand erhalten bleibt.
 
 ## 🚀 Schnellstart
 
-### Voraussetzungen
-
-| Anforderung | Details |
-|---|---|
-| Browser | Aktueller Chrome / Edge / Firefox / Safari mit WebGL2 |
-| Internetverbindung | **Erforderlich** — Babylon.js wird beim Start vom CDN geladen (`cdn.babylonjs.com`, Fallback `cdn.jsdelivr.net`) |
-| Node.js **oder** Python 3 | Nur für den lokalen Dev-Server — keine Laufzeit-Abhängigkeit des Spiels selbst |
-
-### Lokal starten
+Voraussetzung ist ein aktueller Browser mit WebGL2 sowie Node.js oder Python 3 für den lokalen Static Server.
 
 ```bash
-# Repository klonen
 git clone https://github.com/Moarci/GymCritters.git
 cd GymCritters
 
-# Variante 1 — Windows Doppelklick
+# Windows
 start-game.bat
 
-# Variante 2 — Node (plattformunabhängig)
+# Alternativ mit Node.js
 node start_server.js
 
-# Variante 3 — Python
+# Alternativ mit Python
 python start_game.py
 ```
 
-Jede Variante verwendet dieselbe feste Adresse `http://127.0.0.1:8347/` und öffnet automatisch den Standardbrowser. Dadurch bleibt die Browser-Origin stabil und der lokale Spielstand wird bei jedem Start wiedergefunden. Läuft das Spiel bereits, wird diese Instanz erneut geöffnet; ein fremdes Programm auf Port `8347` muss zuerst beendet werden. `npm install` ist **nicht nötig** — es gibt keine Dependencies.
+Alle Varianten öffnen `http://127.0.0.1:8347/`. Ein zufälliger Ausweichport wird bewusst nicht verwendet, weil `localStorage` an Host und Port gebunden ist. `npm install` ist nicht nötig.
 
----
+Die unveränderten statischen Dateien können auch über GitHub Pages oder einen beliebigen Static Host ausgeliefert werden. Die Live-Version liegt unter [moarci.github.io/GymCritters](https://moarci.github.io/GymCritters/).
 
-## 🌐 Deployment
-
-Das Spiel ist eine reine statische Seite und läuft unverändert auf jedem Static-Hosting.
-
-**Aktuell live:** **[moarci.github.io/GymCritters](https://moarci.github.io/GymCritters/)** — gehostet über GitHub Pages vom `main`-Branch, Root-Verzeichnis.
-
-| Schritt | Befehl |
-|---|---|
-| Remote setzen | `git remote add origin https://github.com/Moarci/GymCritters.git` |
-| Pushen | `git push -u origin main` |
-| Pages aktivieren | `gh api -X POST repos/Moarci/GymCritters/pages -f "source[branch]=main" -f "source[path]=/"` |
-
-Jeder Push auf `main` deployt die Seite automatisch neu — kein zusätzlicher CI-Schritt nötig, da kein Build existiert.
-
----
-
-## Spielstand & Datenmodell
-
-Der komplette Spielstand ist ein einziges JSON-Objekt unter dem `localStorage`-Key `gymCrittersSave` (aktuell `SAVE_VERSION = 4`).
-
-| Feld | Beschreibung |
-|---|---|
-| `coins` | Erspielte Münzen für den Shop |
-| `soundEnabled` | Sound/Musik an oder aus |
-| `tutorialCompleted` | Ob das Tutorial bereits gezeigt wurde |
-| `lastMode` / `lastLevel` | Zuletzt gespielter Modus/Level als Menü-Default |
-| `selectedCharacter` / `owned[]` | Aktiver Charakter, Liste freigeschalteter Charaktere/Items |
-| `equipped` | Aktive Cosmetics pro Slot (`head`, `wrist`, `face`, `trail`) |
-| `modeStats` | Highscore, Bestzeit, Bestrang, Rundenzahl — je Modus getrennt |
-| `stats` | Karrierestatistik (Runden, gelieferte Items, Hanteln, max. Combo, perfekte Runden, Münzen gesamt) |
-| `achievements` | Freigeschaltete Achievement-IDs mit Zeitstempel |
-| `settings` | Kamera-Empfindlichkeit, Joystick-Größe, Grafikqualität, Vibration |
-
-**Migration:** `loadSave()` merged jeden geladenen Spielstand mit den aktuellen Defaults und hebt `version` auf `SAVE_VERSION` an. Legacy-Felder aus V3 (`highScore`, `bestTimes`) werden einmalig in die neue `modeStats`-Struktur übernommen.
-
----
-
-## 🔒 Sicherheit
-
-- **Kein Server-seitiger Zustand** — `start_server.js` / `start_game.py` liefern ausschließlich Dateien aus dem Projektordner aus, keine Schreiboperationen, kein Datenbankzugriff.
-- **Pfad-Traversal-Schutz** — `start_server.js` prüft `filePath.startsWith(root)` vor jeder Dateiauslieferung und lehnt Anfragen außerhalb des Projektordners mit `403` ab.
-- **Keine Accounts, kein Tracking** — Der komplette Spielstand liegt ausschließlich lokal im Browser. Keine Online-Rangliste, keine Analytics, keine Echtgeldkäufe.
-- **Einzige externe Netzwerk-Abhängigkeit** — Babylon.js per CDN (`cdn.babylonjs.com`, Fallback `cdn.jsdelivr.net`). Die Engine liegt bewusst nicht im Repo: der Build ist ~8 MB und würde das Projekt um das Vierzigfache aufblähen.
-
----
-
-## 🎯 Design-Prinzipien (Golden Rules)
-
-| # | Regel | Begründung |
-|---|---|---|
-| 1 | **Config First** | Modi, Level, Items, Charaktere, Shop und Achievements ausschließlich in `config.js` pflegen — kein Balancing-Wert direkt im Game-Loop. |
-| 2 | **Einseitige Kamera-Bewegungs-Kopplung** | Kamera → Bewegungsrichtung → Spieler-Rotation, niemals umgekehrt — sonst Feedback-Loop (siehe [Design-Entscheidungen](#design-entscheidungen)). |
-| 3 | **Additive Save-Migration** | `SAVE_VERSION` nur erhöhen, nie Felder destruktiv entfernen — alte Spielstände müssen immer ladbar bleiben. |
-| 4 | **Zero Dependencies** | Keine npm-Pakete ohne triftigen Grund — das Spiel bleibt ohne `npm install` lauffähig. |
-| 5 | **Lokal-first** | Kein Feature darf einen Server, ein Backend oder einen Account voraussetzen. |
-
----
-
-## Roadmap
-
-| Phase | Status | Umfang |
-|---|---|---|
-| **V1 – V3** | Abgeschlossen (historisch) | Basis-Aufräumspiel, Vorgänger von V4 |
-| **V4 — Critter Crew** | Abgeschlossen | Progressionssystem, Fibi, Münzshop, Achievements, drei Level-Varianten, Tutorial, mobile Komfort-Settings |
-| **Kamera-/Bewegungs-Feinschliff** | Abgeschlossen | Kamera- und Spieler-Rotation entkoppelt, Kollisions-Jitter an Hindernissen behoben |
-| **GitHub Pages Deployment** | Abgeschlossen | Spiel live und direkt teilbar unter eigenem Link |
-| **Erweiterte Ablageorte** | Abgeschlossen | Kettlebell, Springseil und Medizinball samt neuer Ablageorte — siehe [`docs/superpowers/specs/2026-07-18-item-storage-expansion-design.md`](docs/superpowers/specs/2026-07-18-item-storage-expansion-design.md) |
-| **Industrial Loft Gym** *(Entwurf, offener Worktree)* | In Planung | Geschlossene Decke, Sichtbeton, Industriefenster, Pegboard-Deko — siehe [`docs/superpowers/specs/2026-07-18-industrial-loft-gym-design.md`](docs/superpowers/specs/2026-07-18-industrial-loft-gym-design.md) |
-
----
-
-## Changelog
-
-### Unreleased (2026-07-18)
-
-- Drei neue Gegenstände (Kettlebell, Springseil, Medizinball) mit eigenen Ablageorten ergänzt, in alle drei Level integriert — siehe [`docs/superpowers/specs/2026-07-18-item-storage-expansion-design.md`](docs/superpowers/specs/2026-07-18-item-storage-expansion-design.md)
-- Kamera- und Spieler-Rotation vollständig entkoppelt — behebt "Kämpfen" zwischen automatischer Kameraausrichtung und Maus-Look
-- Blickrichtung der Figur folgt jetzt stabil der tatsächlichen Bewegungsrichtung statt einer fehleranfälligen `camera.target`/`camera.position`-Differenz
-- Kollisionsauflösung an Gym-Hindernissen auf Kreis-vs-Rechteck-Pushout umgestellt — kein Zittern mehr an Ecken
-- ArcRotateCamera-Trägheit reduziert für direktere Maussteuerung
-- Totes Kamera-Steuerungs-Handling (`cameraManualUntil`) entfernt
-- Repository auf GitHub veröffentlicht, GitHub Pages aktiviert: [moarci.github.io/GymCritters](https://moarci.github.io/GymCritters/)
-
-### V4 – Critter Crew
-
-- Vollständiges Progressionssystem mit Shop und Ausrüstung
-- Eichhörnchen Fibi als freischaltbare zweite Figur
-- Figurspezifische Bewegung, Tragfähigkeit und Punktboni
-- Zwei leichte Gegenstände gleichzeitig tragbar
-- Tutorial für die erste Schicht
-- Drei Levelvarianten: Feierabend, Nach dem Kurs, Leg Day Chaos
-- Ablageorte füllen sich sichtbar
-- Achievements, Statistiken und modusgetrennte Bestwerte
-- Bessere Objektmechaniken, sichere Drop-Positionen und Sprintregeln
-- Charakterreaktionen, Quips, Hintergrundmusik und verbesserte Sounds
-- Zusätzliche mobile Komforteinstellungen
-- Modularisierte Dateien für Konfiguration, Spielstand und Audio
-
----
-
-## 🤝 Contributing
-
-Branch-Namenskonvention: `feature/`, `fix/`, `refactor/`, `docs/`
-Commit-Format: Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:` etc.)
-
-Es gibt keine CI-Pipeline. Vor jedem Commit manuell prüfen:
+## 🧪 Tests und CI
 
 ```bash
-npm test                                            # Unit-Tests (node --test, keine Dependencies)
-for f in src/*.js src/environment/*.js; do node --check "$f"; done   # Syntax-Check
-node start_server.js                                # Lokal im Browser testen
+npm test          # gesamte Node-Test-Suite
+npm run check     # Syntax aller JS-Dateien und JSON-Manifeste
+npm run smoke     # App-Shell über einen temporären HTTP-Server prüfen
+npm run test:ci   # alle drei Prüfungen in derselben Reihenfolge
 ```
 
-### Tests
+Die V5.1-Suite umfasst **204 Tests**. Sie deckt unter anderem Save-Migrationen, Rundentrends, Zen-Wertung, Stolperphysik, Level-Feintuning, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
 
-Getestet wird, was ohne Browser und ohne Babylon.js läuft — reine Logik:
+[`.github/workflows/quality.yml`](.github/workflows/quality.yml) führt `npm run test:ci` bei Pull Requests, Pushes auf `main` und manuellen Workflow-Starts mit Node.js 22 aus.
 
-| Datei | Abdeckung |
+Rendering und visuelle 3D-Qualität benötigen weiterhin eine manuelle Browserkontrolle; der HTTP-Smoke-Test prüft Erreichbarkeit und Content-Types der statischen Kernassets, nicht das Babylon-Rendering.
+
+## Versionshistorie
+
+| Version | Schwerpunkt |
 |---|---|
-| `test/save.test.js` | Spielstand-Defaults, Kauf-/Ausrüstlogik, V3-Migration, Achievement-Regeln |
-| `test/utils.test.js` | Zeit-/Winkel-/Distanz-Helfer, Combo-Multiplikator, `shuffle` |
-| `test/targeting.test.js` | Bewertung der Aufnahme-Kandidaten (Distanz + Blickrichtung) |
+| **V5.1 — Crew Terminal** | Physische Stolperfallen, Zen ohne Zeitlimit, levelweises Feintuning, langfristige Leistungsentwicklung und eine komplett neue Menüoberfläche. |
+| **V5 — Living Shifts** | Dynamische Schichten, Level-Identitäten, IK, verlässliche Interaktion, faire Karriere, Tagesverträge, Offline-App-Shell und Accessibility. |
+| **V4 — Critter Crew** | Fibi, Münzshop, Cosmetics, Achievements, Tutorial, mehrere Level und Mobile-Steuerung. |
+| **V1–V3** | Grundlegendes 3D-Aufräumspiel und erste lokale Fortschrittssysteme. |
 
-Szene-Aufbau, Rendering und Eingabe sind bewusst nicht abgedeckt — sie brauchen einen echten Browser und werden über den Smoke-Test in `node start_server.js` geprüft.
+Alle Änderungen stehen im [Changelog](CHANGELOG.md).
 
----
+## Lizenz
 
-## 📄 Lizenz
-
-[MIT](LICENSE) — frei nutzbar, verändern und weitergeben erlaubt, ohne Gewährleistung.
+[MIT](LICENSE) — frei nutzbar, veränderbar und weitergebbar, ohne Gewährleistung.
 
 ---
 
 <div align="center">
 
-**Gym Critters** — Räum auf. Halte die Combo. Feierabend.
+**Gym Critters** — Räum auf. Halte die Combo. Meistere die Schicht.
 
 </div>

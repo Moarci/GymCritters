@@ -5,20 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#11141b" />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="application-name" content="Gym Critters" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="description" content="Gym Critters – charmantes 3D-Aufräumspiel für den Browser." />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Gym Critters V4 – Critter Crew" />
-  <meta property="og:description" content="Rocco der Waschbär und Fibi das Eichhörnchen räumen ein chaotisches Fitnessstudio auf. 3D-Browsergame, direkt spielbar." />
+  <meta property="og:title" content="Gym Critters V5.1 – Crew Terminal" />
+  <meta property="og:description" content="Rocco und Fibi meistern lebendige Aufräumschichten in einem chaotischen Fitnessstudio. 3D-Browsergame, direkt spielbar." />
   <meta property="og:url" content="https://moarci.github.io/GymCritters/" />
   <meta property="og:image" content="https://moarci.github.io/GymCritters/preview.png" />
   <meta name="twitter:card" content="summary_large_image" />
-  <title>Gym Critters V4 – Critter Crew</title>
+  <title>Gym Critters V5.1 – Crew Terminal</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <canvas id="gameCanvas" tabindex="0" aria-label="3D-Spielbereich"></canvas>
+  <canvas id="gameCanvas" tabindex="0" aria-label="3D-Spielbereich" aria-describedby="gameHelp"></canvas>
+  <p id="gameHelp" class="sr-only">Steuere deinen Critter mit WASD oder dem Touch-Stick. Öffne das Pausemenü mit Escape oder P.</p>
+  <div id="gameAnnouncements" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
-  <div id="hud" class="hud hidden">
+  <div id="hud" class="hud hidden" aria-label="Spielstatus">
     <div class="hud-card stats">
       <div><span class="label">Punkte</span><strong id="score">0</strong></div>
       <div><span class="label">Aufgeräumt</span><strong id="progress">0/8</strong></div>
@@ -38,23 +44,29 @@
     </div>
   </div>
 
-  <div id="objective" class="objective hidden">Räume alle Gegenstände an den richtigen Platz.</div>
+  <div id="objective" class="objective hidden" aria-label="Aktuelles Ziel">Räume alle Gegenstände an den richtigen Platz.</div>
+  <aside id="contractHud" class="contract-hud hidden" aria-labelledby="contractTitle">
+    <span class="label">Schichtauftrag</span>
+    <strong id="contractTitle">Bonusziel</strong>
+    <span id="contractProgress">0 / 0</span>
+    <div class="contract-progress" aria-hidden="true"><div id="contractProgressBar"></div></div>
+  </aside>
   <div id="progressTrack" class="progress-track hidden" aria-hidden="true"><div id="progressBar"></div></div>
   <div id="navigator" class="navigator hidden">
     <span id="navArrow" class="nav-arrow" aria-hidden="true">▲</span>
     <span class="nav-copy"><strong id="navTarget">Nächster Gegenstand</strong><small id="navDistance">0 m</small></span>
   </div>
-  <div id="speechBubble" class="speech-bubble hidden"></div>
-  <div id="tutorialCoach" class="tutorial-coach hidden">
-    <span class="coach-icon">🐾</span>
+  <div id="speechBubble" class="speech-bubble hidden" role="status" aria-live="polite"></div>
+  <div id="tutorialCoach" class="tutorial-coach hidden" role="status" aria-live="polite" aria-atomic="true">
+    <span class="coach-icon" aria-hidden="true">🐾</span>
     <div><strong id="tutorialTitle">Deine erste Schicht</strong><p id="tutorialText">Laufe zum leuchtenden Handtuch.</p></div>
   </div>
-  <div id="prompt" class="prompt hidden"></div>
-  <div id="toast" class="toast hidden"></div>
-  <div id="achievementToast" class="achievement-toast hidden"><span id="achievementIcon">🏆</span><div><small>Achievement</small><strong id="achievementName">Freigeschaltet</strong></div></div>
+  <div id="prompt" class="prompt hidden" aria-label="Verfügbare Aktion"></div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="achievementToast" class="achievement-toast hidden" role="status" aria-live="polite" aria-atomic="true"><span id="achievementIcon" aria-hidden="true">🏆</span><div><small>Achievement</small><strong id="achievementName">Freigeschaltet</strong></div></div>
   <div id="scorePopLayer" class="score-pop-layer" aria-hidden="true"></div>
 
-  <div id="mobileControls" class="mobile-controls hidden" aria-label="Touch-Steuerung">
+  <div id="mobileControls" class="mobile-controls hidden" role="group" aria-label="Touch-Steuerung">
     <div id="joystick" class="joystick" aria-hidden="true"><div id="joystickKnob" class="joystick-knob"></div></div>
     <div class="mobile-buttons">
       <button id="cameraRecenterButton" class="mobile-button tertiary" type="button" aria-label="Kamera ausrichten">⌖</button>
@@ -63,50 +75,98 @@
     </div>
   </div>
 
-  <div id="startScreen" class="screen">
-    <div class="panel start-panel">
-      <div class="menu-header">
-        <div>
-          <div class="eyebrow">3D Browsergame · Critter Crew Update</div>
-          <h1>GYM<br />CRITTERS</h1>
+  <main id="startScreen" class="screen menu-screen" aria-labelledby="gameTitle">
+    <div class="menu-shell">
+      <div class="menu-glow menu-glow-one" aria-hidden="true"></div>
+      <div class="menu-glow menu-glow-two" aria-hidden="true"></div>
+
+      <header class="menu-topbar">
+        <div class="brand-lockup" aria-label="Gym Critters">
+          <span class="brand-mark" aria-hidden="true">GC</span>
+          <span><strong>GYM CRITTERS</strong><small>Living Shifts · Crew Terminal</small></span>
         </div>
-        <div class="profile-chip"><span>🪙</span><strong id="menuCoins">0</strong><small>Dein Guthaben</small></div>
+        <div class="menu-status">
+          <span class="online-pill"><i aria-hidden="true"></i> Gym geöffnet</span>
+          <div class="profile-chip"><span aria-hidden="true">🪙</span><strong id="menuCoins">0</strong><small>Crew-Konto</small></div>
+        </div>
+      </header>
+
+      <div class="menu-hero-grid">
+        <section class="menu-hero-copy">
+          <div class="eyebrow">Deine Schicht. Dein Rhythmus.</div>
+          <h1 id="gameTitle">MAKE THE<br /><span>GYM SHINE.</span></h1>
+          <p>Führe Rocco und Fibi durch ein lebendiges Fitnessstudio. Räume clever, achte auf herumliegende Stolperfallen und werde mit jeder Schicht besser.</p>
+          <div class="feature-pills" aria-label="Spielmerkmale">
+            <span>3 lebendige Level</span><span>4 Spielmodi</span><span>Lokaler Fortschritt</span>
+          </div>
+        </section>
+
+        <aside id="shiftPreviewCard" class="shift-preview" aria-labelledby="shiftPreviewTitle">
+          <div class="shift-preview-top"><span>Bereit für die nächste Schicht</span><i aria-hidden="true"></i></div>
+          <div class="shift-preview-copy">
+            <strong id="shiftPreviewTitle">Feierabend</strong>
+            <span id="shiftPreviewSubtitle">Standard · Gemischtes Chaos</span>
+          </div>
+          <div class="shift-preview-metrics">
+            <div><small>Gegenstände</small><strong id="shiftPreviewItems">10</strong></div>
+            <div><small>Zeit</small><strong id="shiftPreviewTime">2:00</strong></div>
+            <div><small>Stolperrisiko</small><strong id="shiftPreviewRisk">Realistisch</strong></div>
+            <div><small>Dynamik</small><strong id="shiftPreviewDynamics">Lebendig</strong></div>
+          </div>
+          <button id="startButton" class="primary shift-start" type="button"><span>Schicht starten</span><b aria-hidden="true">→</b></button>
+          <p class="desktop-help"><kbd>WASD</kbd> Laufen <kbd>E</kbd> Aktion <kbd>Shift</kbd> Sprint</p>
+          <p class="mobile-help">Stick zum Laufen · Aktion zum Aufnehmen und Ablegen</p>
+        </aside>
       </div>
-      <p class="lead">Rocco und Fibi retten das Gym vor dem Feierabendchaos. Räume clever, halte die Combo und schalte neue Looks frei.</p>
 
-      <section class="menu-section">
-        <div class="section-heading"><span>1</span><div><strong>Critter wählen</strong><small>Jede Figur spielt sich etwas anders.</small></div></div>
-        <div id="characterSelector" class="character-selector"></div>
-      </section>
+      <div class="menu-config-grid">
+        <div class="menu-config-main">
+          <section class="config-block">
+            <div class="config-heading"><span>01</span><div><strong>Crew auswählen</strong><small>Jeder Critter hat eine eigene Stärke.</small></div></div>
+            <div id="characterSelector" class="character-selector"></div>
+          </section>
 
-      <section class="menu-section split-selectors">
-        <div>
-          <div class="section-heading"><span>2</span><div><strong>Schicht wählen</strong><small>Drei unterschiedliche Levelmischungen.</small></div></div>
-          <div id="levelSelector" class="tile-selector"></div>
+          <div class="config-row">
+            <section class="config-block">
+              <div class="config-heading"><span>02</span><div><strong>Gym-Bereich</strong><small>Jedes Level besitzt eigene Wege und Ereignisse.</small></div></div>
+              <div id="levelSelector" class="tile-selector level-tiles"></div>
+            </section>
+            <section class="config-block">
+              <div class="config-heading"><span>03</span><div><strong>Spielmodus</strong><small>Von entspannt bis zeitlos.</small></div></div>
+              <div id="modeSelector" class="tile-selector mode-tiles"></div>
+            </section>
+          </div>
         </div>
-        <div>
-          <div class="section-heading"><span>3</span><div><strong>Tempo wählen</strong><small>Mehr Risiko bringt mehr Punkte.</small></div></div>
-          <div id="modeSelector" class="tile-selector"></div>
-        </div>
-      </section>
 
-      <div class="main-actions">
-        <button id="startButton" class="primary hero-button">Schicht starten</button>
-        <button id="shopButton" class="secondary-button">Shop</button>
-        <button id="achievementsButton" class="secondary-button">Achievements</button>
-        <button id="statsButton" class="secondary-button">Statistik</button>
-        <button id="settingsButton" class="secondary-button">Einstellungen</button>
-        <button id="fullscreenButton" class="secondary-button">Vollbild</button>
+        <aside class="shift-tuning" aria-labelledby="shiftTuningTitle">
+          <div class="tuning-header">
+            <span aria-hidden="true">⌁</span>
+            <div><strong id="shiftTuningTitle">Level-Feintuning</strong><small>Wird für jedes Level einzeln gespeichert.</small></div>
+          </div>
+          <div class="tuning-grid">
+            <label><span>Gegenstandsmenge</span><select id="itemAmountSetting" aria-label="Gegenstandsmenge"></select></label>
+            <label><span>Schichtdynamik</span><select id="shiftDynamicsSetting" aria-label="Schichtdynamik"></select></label>
+            <label><span>Stolperrisiko</span><select id="tripRiskSetting" aria-label="Stolperrisiko"></select></label>
+            <label><span>Zielhilfe</span><select id="navigatorSetting" aria-label="Zielhilfe"></select></label>
+          </div>
+          <p>Individuelle Einstellungen verändern den Ablauf, nicht deinen dauerhaften Meisterschaftsfortschritt.</p>
+        </aside>
       </div>
-      <p class="hint desktop-help"><kbd>WASD</kbd> Laufen · <kbd>Maus</kbd> Kamera · <kbd>E</kbd> Aktion · <kbd>Shift</kbd> Sprint · <kbd>C</kbd> Kamera</p>
-      <p class="hint mobile-help">Linker Stick: laufen · im Bild ziehen: Kamera · Aktion: aufnehmen/ablegen</p>
+
+      <nav class="menu-dock" aria-label="Weitere Bereiche">
+        <button id="shopButton" class="dock-button" type="button"><span aria-hidden="true">✦</span><b>Shop</b></button>
+        <button id="achievementsButton" class="dock-button" type="button"><span aria-hidden="true">🏆</span><b>Achievements</b></button>
+        <button id="statsButton" class="dock-button" type="button"><span aria-hidden="true">↗</span><b>Entwicklung</b></button>
+        <button id="settingsButton" class="dock-button" type="button"><span aria-hidden="true">⚙</span><b>Einstellungen</b></button>
+        <button id="fullscreenButton" class="dock-button" type="button"><span aria-hidden="true">⛶</span><b>Vollbild</b></button>
+      </nav>
     </div>
-  </div>
+  </main>
 
-  <div id="pauseScreen" class="screen hidden">
-    <div class="panel compact-panel">
+  <div id="pauseScreen" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+    <div class="panel compact-panel" tabindex="-1">
       <div class="eyebrow">Spiel pausiert</div>
-      <h2>Kurze Verschnaufpause</h2>
+      <h2 id="pauseTitle">Kurze Verschnaufpause</h2>
       <p class="lead">Der Timer steht still. Rocco und Fibi warten auf dich.</p>
       <button id="resumeButton" class="primary">Weiterspielen</button>
       <button id="pauseRestartButton" class="secondary-button">Runde neu starten</button>
@@ -114,8 +174,8 @@
     </div>
   </div>
 
-  <div id="resultScreen" class="screen hidden">
-    <div class="panel result-panel">
+  <div id="resultScreen" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+    <div class="panel result-panel" tabindex="-1">
       <div id="resultBadge" class="result-badge">GESCHAFFT</div>
       <div class="result-rank"><span>Aufräumrang</span><strong id="resultRank">A</strong><small id="resultRankDetail">Saubere Runde</small></div>
       <h2 id="resultTitle">Gym aufgeräumt!</h2>
@@ -123,11 +183,17 @@
       <div class="result-stats">
         <div><span>Punkte</span><strong id="finalScore">0</strong></div>
         <div><span>Münzen</span><strong id="earnedCoins">+0</strong></div>
-        <div><span>Modus-Bestwert</span><strong id="highScore">0</strong></div>
+        <div><span>Level-Bestwert</span><strong id="highScore">0</strong></div>
         <div><span>Bestzeit</span><strong id="bestTime">–</strong></div>
       </div>
       <div id="newAchievements" class="new-achievements hidden"></div>
       <div id="nextGoal" class="next-goal hidden"></div>
+      <section id="resultContracts" class="result-contracts hidden" aria-label="Erfüllte Schichtaufträge"></section>
+      <section id="masteryResult" class="mastery-result hidden" aria-labelledby="masteryLevel">
+        <div><span>Level-Meisterschaft</span><strong id="masteryLevel">Stufe 1</strong></div>
+        <span id="masteryProgressText">0 / 100 EP</span>
+        <div class="mastery-progress" aria-hidden="true"><div id="masteryProgressBar"></div></div>
+      </section>
       <div class="result-actions">
         <button id="restartButton" class="primary">Noch eine Runde</button>
         <button id="resultShopButton" class="secondary-button">Belohnungen ansehen</button>
@@ -136,49 +202,71 @@
     </div>
   </div>
 
-  <div id="shopScreen" class="screen modal-screen hidden">
-    <div class="panel library-panel">
-      <div class="modal-header"><div><div class="eyebrow">Critter Corner</div><h2>Shop</h2></div><button class="close-button" data-close="shopScreen" aria-label="Shop schließen">×</button></div>
+  <div id="shopScreen" class="screen modal-screen hidden" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
+    <div class="panel library-panel" tabindex="-1">
+      <div class="modal-header"><div><div class="eyebrow">Critter Corner</div><h2 id="shopTitle">Shop</h2></div><button class="close-button" type="button" data-close="shopScreen" aria-label="Shop schließen">×</button></div>
       <p class="lead">Gib deine erspielten Münzen für Figuren und sichtbare Cosmetics aus.</p>
       <div class="wallet">🪙 <strong id="shopCoins">0</strong> Münzen</div>
       <div id="shopGrid" class="card-grid"></div>
     </div>
   </div>
 
-  <div id="achievementsScreen" class="screen modal-screen hidden">
-    <div class="panel library-panel">
-      <div class="modal-header"><div><div class="eyebrow">Trophäenschrank</div><h2>Achievements</h2></div><button class="close-button" data-close="achievementsScreen" aria-label="Achievements schließen">×</button></div>
+  <div id="achievementsScreen" class="screen modal-screen hidden" role="dialog" aria-modal="true" aria-labelledby="achievementsTitle">
+    <div class="panel library-panel" tabindex="-1">
+      <div class="modal-header"><div><div class="eyebrow">Trophäenschrank</div><h2 id="achievementsTitle">Achievements</h2></div><button class="close-button" type="button" data-close="achievementsScreen" aria-label="Achievements schließen">×</button></div>
       <div id="achievementGrid" class="card-grid achievement-grid"></div>
     </div>
   </div>
 
-  <div id="statsScreen" class="screen modal-screen hidden">
-    <div class="panel library-panel">
-      <div class="modal-header"><div><div class="eyebrow">Deine Karriere</div><h2>Statistik</h2></div><button class="close-button" data-close="statsScreen" aria-label="Statistik schließen">×</button></div>
+  <div id="statsScreen" class="screen modal-screen hidden" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
+    <div class="panel library-panel" tabindex="-1">
+      <div class="modal-header"><div><div class="eyebrow">Deine Karriere</div><h2 id="statsTitle">Entwicklung</h2></div><button class="close-button" type="button" data-close="statsScreen" aria-label="Statistik schließen">×</button></div>
+      <section class="trend-panel" aria-labelledby="trendSummary">
+        <div class="trend-header">
+          <div><small>Leistung über Zeit</small><strong id="trendSummary">Noch nicht genug Vergleichsrunden</strong><span id="trendMeta">0 von mindestens 4 vergleichbaren Runden</span></div>
+          <strong id="trendDelta" class="trend-new">–</strong>
+          <div class="trend-filters">
+            <label><span class="sr-only">Level filtern</span><select id="statsLevelFilter" aria-label="Statistik nach Level filtern"></select></label>
+            <label><span class="sr-only">Modus filtern</span><select id="statsModeFilter" aria-label="Statistik nach Modus filtern"></select></label>
+          </div>
+        </div>
+        <div id="trendChart" class="trend-chart"></div>
+      </section>
+      <h3>Letzte Schichten</h3>
+      <div id="recentRounds" class="recent-rounds"></div>
+      <h3>Karriere auf einen Blick</h3>
       <div id="careerStats" class="career-stats"></div>
-      <h3>Bestwerte nach Tempo</h3>
+      <h3>Bestwerte nach Level und Tempo</h3>
       <div id="modeStats" class="mode-stats"></div>
     </div>
   </div>
 
-  <div id="settingsScreen" class="screen modal-screen hidden">
-    <div class="panel compact-panel settings-panel">
-      <div class="modal-header"><div><div class="eyebrow">Komfort</div><h2>Einstellungen</h2></div><button class="close-button" data-close="settingsScreen" aria-label="Einstellungen schließen">×</button></div>
+  <div id="settingsScreen" class="screen modal-screen hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="panel compact-panel settings-panel" tabindex="-1">
+      <div class="modal-header"><div><div class="eyebrow">Komfort</div><h2 id="settingsTitle">Einstellungen</h2></div><button class="close-button" type="button" data-close="settingsScreen" aria-label="Einstellungen schließen">×</button></div>
+      <label class="setting-row"><span><strong>Lautstärke</strong><small id="masterVolumeHelp">Lautstärke für Musik und Effekte.</small></span><input id="masterVolume" type="range" min="0" max="1" step="0.05" value="0.8" aria-describedby="masterVolumeHelp" /></label>
       <label class="setting-row"><span><strong>Kameraempfindlichkeit</strong><small>Wie schnell sich die Kamera dreht.</small></span><input id="cameraSensitivity" type="range" min="0.6" max="1.8" step="0.1" /></label>
       <label class="setting-row"><span><strong>Joystickgröße</strong><small>Größe der mobilen Steuerung.</small></span><input id="joystickScale" type="range" min="0.8" max="1.3" step="0.1" /></label>
       <label class="setting-row"><span><strong>Grafikqualität</strong><small>„Automatisch“ passt sich der Bildrate an.</small></span><select id="qualitySetting"><option value="auto">Automatisch</option><option value="high">Hoch</option><option value="low">Leicht</option></select></label>
       <label class="setting-row toggle-row"><span><strong>Vibrationsfeedback</strong><small>Kurze Rückmeldung auf Mobilgeräten.</small></span><input id="vibrationSetting" type="checkbox" /></label>
-      <button id="resetTutorialButton" class="secondary-button">Tutorial erneut zeigen</button>
+      <label class="setting-row toggle-row"><span><strong>Bewegungen reduzieren</strong><small>Verringert Übergänge und HUD-Animationen zusätzlich zur Systemeinstellung.</small></span><input id="reducedMotionSetting" type="checkbox" /></label>
+      <div class="settings-actions">
+        <button id="resetTutorialButton" class="secondary-button" type="button">Tutorial erneut zeigen</button>
+        <button id="exportSaveButton" class="secondary-button" type="button">Spielstand exportieren</button>
+        <button id="importSaveButton" class="secondary-button" type="button">Spielstand importieren</button>
+        <input id="importSaveInput" class="visually-hidden-input" type="file" accept="application/json,.json" tabindex="-1" aria-label="Spielstand-Datei auswählen" />
+      </div>
     </div>
   </div>
 
-  <div id="loading" class="loading">Lade Critter Crew …</div>
+  <div id="loading" class="loading" role="status" aria-live="polite" aria-atomic="true">Lade Critter Crew …</div>
+
+  <script type="module" src="./ui-accessibility.js"></script>
 
   <script>
     (() => {
-      // Die Engine kommt bewusst vom CDN statt aus dem Repo: der Build ist ~8 MB
-      // und würde das Projekt um das Vierzigfache aufblähen. Das Spiel braucht
-      // deshalb eine Internetverbindung.
+      // Nach dem ersten erfolgreichen Online-Start hält der Service Worker sowohl
+      // die lokalen Assets als auch die geladene Babylon-Version offline bereit.
       const sources = [
         "https://cdn.babylonjs.com/babylon.js",
         "https://cdn.jsdelivr.net/npm/babylonjs/babylon.js"
@@ -188,7 +276,7 @@
 
       function loadEngine() {
         if (index >= sources.length) {
-          loading.textContent = "Die 3D-Engine konnte nicht geladen werden. Bitte prüfe deine Internetverbindung — das Spiel lädt die 3D-Engine beim Start nach.";
+          loading.textContent = "Die 3D-Engine konnte weder aus dem Offline-Speicher noch aus dem Internet geladen werden. Bitte starte das Spiel einmal mit Internetverbindung.";
           return;
         }
         const script = document.createElement("script");
@@ -200,7 +288,30 @@
         script.onerror = loadEngine;
         document.body.appendChild(script);
       }
-      loadEngine();
+      async function prepareOfflineSupport() {
+        if (!("serviceWorker" in navigator) || !/^https?:$/.test(location.protocol)) return;
+        try {
+          await navigator.serviceWorker.register("./service-worker.js", { scope: "./" });
+          const ready = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise((resolve) => setTimeout(() => resolve(null), 3000))
+          ]);
+          if (!ready) return;
+          if (!navigator.serviceWorker.controller) {
+            await new Promise((resolve) => {
+              const timeout = setTimeout(resolve, 1500);
+              navigator.serviceWorker.addEventListener("controllerchange", () => {
+                clearTimeout(timeout);
+                resolve();
+              }, { once: true });
+            });
+          }
+        } catch (error) {
+          console.warn("Offline-Unterstützung ist für diesen Start nicht verfügbar.", error);
+        }
+      }
+
+      prepareOfflineSupport().finally(loadEngine);
     })();
   </script>
 </body>

@@ -1,10 +1,79 @@
 export const SAVE_KEY = "gymCrittersSave";
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 7;
+
+// Karrierefortschritt ist absichtlich nicht an kaufbare Vorteile gekoppelt:
+// Meisterschaft zeigt Erfahrung, ohne alte Highscores durch permanente
+// Werte-Upgrades unfair zu machen. Die Schwellen sind Gesamt-XP je Level.
+export const LEVEL_MASTERY = {
+  maxLevel: 5,
+  thresholds: [0, 250, 700, 1400, 2400],
+  xp: {
+    completedRound: 80,
+    scoreDivisor: 50,
+    maxScoreBonus: 80,
+    noDropBonus: 20,
+    perfectBonus: 30,
+  },
+};
+
+// Je Kalendertag wird aus jeder Gruppe genau ein Vertrag deterministisch
+// ausgewählt. Dadurch bleibt die Mischung aus Aufräumen, Schicht und Können
+// ausgewogen, ohne Server, Account oder Online-Zeit.
+export const CONTRACT_DEFINITIONS = [
+  {
+    id: "delivery-dozen", group: "delivery", name: "Ein Dutzend Dinge",
+    description: "Räume heute 12 Gegenstände auf.", icon: "📦", target: 12, reward: 35,
+    progress: { kind: "delivered" },
+  },
+  {
+    id: "towel-service", group: "delivery", name: "Handtuch-Service",
+    description: "Bringe heute 8 Handtücher zur Wäsche.", icon: "🧺", target: 8, reward: 40,
+    progress: { kind: "itemType", type: "towel" },
+  },
+  {
+    id: "heavy-duty", group: "delivery", name: "Schwerdienst",
+    description: "Räume heute 6 Hanteln oder Kettlebells auf.", icon: "🏋️", target: 6, reward: 45,
+    progress: { kind: "itemTypes", types: ["dumbbell", "kettlebell"] },
+  },
+  {
+    id: "two-shifts", group: "shift", name: "Doppelschicht",
+    description: "Schließe heute 2 Schichten ab.", icon: "🕒", target: 2, reward: 45,
+    progress: { kind: "completedRounds" },
+  },
+  {
+    id: "blitz-shift", group: "shift", name: "Blitzdienst",
+    description: "Schließe heute eine Blitz-Schicht ab.", icon: "⚡", target: 1, reward: 45,
+    progress: { kind: "modeCompleted", mode: "blitz" },
+  },
+  {
+    id: "class-shift", group: "shift", name: "Kursretter",
+    description: "Schließe heute „Nach dem Kurs“ ab.", icon: "🧘", target: 1, reward: 40,
+    progress: { kind: "levelCompleted", level: "class" },
+  },
+  {
+    id: "score-run", group: "skill", name: "Punktejagd",
+    description: "Sammle heute insgesamt 3.000 Punkte.", icon: "🎯", target: 3000, reward: 50,
+    progress: { kind: "score" },
+  },
+  {
+    id: "careful-paws", group: "skill", name: "Sichere Pfoten",
+    description: "Beende eine Schicht, ohne etwas fallen zu lassen.", icon: "🐾", target: 1, reward: 50,
+    progress: { kind: "cleanRounds" },
+  },
+  {
+    id: "combo-eight", group: "skill", name: "Achter-Serie",
+    description: "Erreiche heute eine 8er-Serie.", icon: "🔥", target: 8, reward: 45,
+    progress: { kind: "maxCombo" },
+  },
+];
 
 export const MODES = {
   relaxed: {
     label: "Entspannt",
+    icon: "🌿",
+    timed: true,
     seconds: 180,
+    expectedSecondsPerItem: 22.5,
     scoreMultiplier: 0.9,
     itemCount: 8,
     navigator: "always",
@@ -12,7 +81,10 @@ export const MODES = {
   },
   standard: {
     label: "Standard",
+    icon: "⚖️",
+    timed: true,
     seconds: 120,
+    expectedSecondsPerItem: 12,
     scoreMultiplier: 1,
     itemCount: 10,
     navigator: "always",
@@ -20,11 +92,25 @@ export const MODES = {
   },
   blitz: {
     label: "Blitz",
+    icon: "⚡",
+    timed: true,
     seconds: 90,
+    expectedSecondsPerItem: 7.5,
     scoreMultiplier: 1.3,
     itemCount: 12,
     navigator: "carrying",
     description: "Mehr Gegenstände, weniger Hilfe, höhere Belohnung.",
+  },
+  zen: {
+    label: "Zen",
+    icon: "∞",
+    timed: false,
+    seconds: null,
+    expectedSecondsPerItem: 16,
+    scoreMultiplier: 0.85,
+    itemCount: 10,
+    navigator: "always",
+    description: "Ohne Zeitlimit – aufräumen im eigenen Rhythmus.",
   },
 };
 
@@ -161,6 +247,7 @@ export const SHOP_ITEMS = [
     cost: 0,
     slot: "head",
     preview: "🟢",
+    visual: { color: "#a7f46a" },
   },
   {
     id: "headband-red",
@@ -169,6 +256,7 @@ export const SHOP_ITEMS = [
     cost: 40,
     slot: "head",
     preview: "🔴",
+    visual: { color: "#ef6161" },
   },
   {
     id: "headband-blue",
@@ -177,6 +265,7 @@ export const SHOP_ITEMS = [
     cost: 60,
     slot: "head",
     preview: "🔵",
+    visual: { color: "#63b4ef" },
   },
   {
     id: "wristbands",
@@ -185,6 +274,7 @@ export const SHOP_ITEMS = [
     cost: 75,
     slot: "wrist",
     preview: "💪",
+    visual: { color: "#f7f6f1" },
   },
   {
     id: "sunglasses",
@@ -193,6 +283,7 @@ export const SHOP_ITEMS = [
     cost: 120,
     slot: "face",
     preview: "😎",
+    visual: { color: "#151b24" },
   },
   {
     id: "squirrel",
@@ -209,6 +300,79 @@ export const SHOP_ITEMS = [
     cost: 400,
     slot: "trail",
     preview: "✨",
+    visual: { primary: "#ffd66e", secondary: "#fff2b0" },
+  },
+  {
+    id: "headband-sunset",
+    name: "Sunset-Stirnband",
+    description: "Warme Koralle für lange Abendschichten.",
+    cost: 220,
+    slot: "head",
+    preview: "🟠",
+    visual: { color: "#ff805c" },
+  },
+  {
+    id: "headband-violet",
+    name: "Violettes Stirnband",
+    description: "Kräftiges Violett für die Kursfläche.",
+    cost: 350,
+    slot: "head",
+    preview: "🟣",
+    visual: { color: "#aa74d4" },
+  },
+  {
+    id: "headband-chrome",
+    name: "Chrom-Stirnband",
+    description: "Ein glänzender Meisterschafts-Look.",
+    cost: 700,
+    slot: "head",
+    preview: "⚪",
+    visual: { color: "#dfe7ef", metallic: 0.75 },
+  },
+  {
+    id: "wristbands-lime",
+    name: "Limetten-Schweißbänder",
+    description: "Crew-Farben bis in die Pfotenspitzen.",
+    cost: 280,
+    slot: "wrist",
+    preview: "💚",
+    visual: { color: "#a7f46a" },
+  },
+  {
+    id: "wristbands-gold",
+    name: "Goldene Schweißbänder",
+    description: "Für Critter mit vielen Schichten Erfahrung.",
+    cost: 900,
+    slot: "wrist",
+    preview: "🏅",
+    visual: { color: "#e6b84a", metallic: 0.55 },
+  },
+  {
+    id: "sunglasses-rose",
+    name: "Rosé-Sportbrille",
+    description: "Leuchtende Gläser für einen auffälligen Auftritt.",
+    cost: 500,
+    slot: "face",
+    preview: "🕶️",
+    visual: { color: "#bd5277" },
+  },
+  {
+    id: "neon-trail",
+    name: "Neon-Laufspur",
+    description: "Violette und limettengrüne Funken beim Sprinten.",
+    cost: 1200,
+    slot: "trail",
+    preview: "💫",
+    visual: { primary: "#aa74d4", secondary: "#a7f46a" },
+  },
+  {
+    id: "crew-trail",
+    name: "Critter-Crew-Spur",
+    description: "Die seltene zweifarbige Spur für Gym-Legenden.",
+    cost: 2400,
+    slot: "trail",
+    preview: "🌟",
+    visual: { primary: "#ffad5c", secondary: "#63b4ef" },
   },
 ];
 
@@ -248,6 +412,22 @@ export const ACHIEVEMENTS = [
   {
     id: "collector", name: "Sammler", description: "Vier Shop-Artikel besitzen.", icon: "🛍️",
     progress: { kind: "ownedExtras", target: 4 },
+  },
+  {
+    id: "shift-veteran", name: "Stammcrew", description: "Insgesamt 25 Schichten beenden.", icon: "📅",
+    progress: { kind: "totalRounds", target: 25 },
+  },
+  {
+    id: "contract-pro", name: "Zuverlässige Pfoten", description: "Insgesamt 10 Tagesverträge erfüllen.", icon: "📋",
+    progress: { kind: "completedContracts", target: 10 },
+  },
+  {
+    id: "master-of-the-gym", name: "Gym-Meister", description: "Über alle Level zusammen 10 Meisterschaftsstufen erreichen.", icon: "🌟",
+    progress: { kind: "masteryLevels", target: 10 },
+  },
+  {
+    id: "coin-earner", name: "Crew-Verdiener", description: "Insgesamt 1.500 Münzen verdienen.", icon: "🪙",
+    progress: { kind: "coinsEarned", target: 1500 },
   },
 ];
 

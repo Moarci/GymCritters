@@ -24,7 +24,7 @@ export function buildStructure(scene, shadowGenerator, { quality = "high" } = {}
   const glassMat = createTexturedMaterial(scene, "gymWindowGlass", exteriorTex, { roughness: 0.16, metallic: 0.06 });
   glassMat.emissiveTexture = exteriorTex;
   glassMat.emissiveColor = new B.Color3(0.34, 0.37, 0.39);
-  const muralTex = createMuralTexture(scene, "backWallMural", { phrase: "CLOSING CREW", accent: "#a7f46a" });
+  const muralTex = createMuralTexture(scene, "backWallMural", { phrase: "CRITTER CREW", accent: "#a7f46a" });
   const muralMat = createTexturedMaterial(scene, "mural", muralTex, { roughness: 0.75 });
   muralMat.emissiveTexture = muralTex;
   muralMat.emissiveColor = new B.Color3(0.18, 0.18, 0.18);

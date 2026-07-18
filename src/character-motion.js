@@ -32,6 +32,48 @@ export function carryPose(weight) {
   return POSES[weight] ?? POSES.light;
 }
 
+// Löst eine zweigliedrige Armkette im lokalen Charakterraum. Ein Pole-Punkt
+// bestimmt, auf welcher Seite der Ellbogen ausweicht und verhindert, dass die
+// Pfoten bei wechselnden Gegenständen nach hinten umklappen.
+export function solveTwoBoneIK({
+  shoulder,
+  target,
+  pole,
+  upperLength,
+  lowerLength,
+}) {
+  const subtract = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  const scale = (v, amount) => [v[0] * amount, v[1] * amount, v[2] * amount];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const length = (v) => Math.hypot(v[0], v[1], v[2]);
+  const normalize = (v, fallback = [0, -1, 0]) => {
+    const size = length(v);
+    return size > 1e-7 ? scale(v, 1 / size) : [...fallback];
+  };
+
+  const raw = subtract(target, shoulder);
+  const rawDistance = length(raw);
+  const minimum = Math.abs(upperLength - lowerLength) + 1e-4;
+  const maximum = upperLength + lowerLength - 1e-4;
+  const distance = Math.min(maximum, Math.max(minimum, rawDistance));
+  const direction = normalize(raw);
+  const reachableTarget = add(shoulder, scale(direction, distance));
+
+  const along = (upperLength ** 2 - lowerLength ** 2 + distance ** 2) / (2 * distance);
+  const height = Math.sqrt(Math.max(0, upperLength ** 2 - along ** 2));
+  const poleDirection = subtract(pole, shoulder);
+  const projectedPole = subtract(poleDirection, scale(direction, dot(poleDirection, direction)));
+  const bend = normalize(projectedPole, [shoulder[0] < 0 ? -1 : 1, 0, -0.2]);
+  const elbow = add(add(shoulder, scale(direction, along)), scale(bend, height));
+
+  return {
+    elbow,
+    target: reachableTarget,
+    clamped: Math.abs(rawDistance - distance) > 1e-6,
+  };
+}
+
 // Frequenz-/Wucht-Faktoren je Last. Ohne Last bleiben exakt die bisherigen
 // Werte erhalten — die Optik einer unbeladenen Figur ändert sich nicht.
 const GAIT = {
