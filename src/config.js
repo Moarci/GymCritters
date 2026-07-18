@@ -34,7 +34,7 @@ export const LEVELS = {
     subtitle: "Gemischtes Chaos im ganzen Gym",
     accent: "#a7f46a",
     start: [0, -6.7],
-    itemWeights: { dumbbell: 3, towel: 3, bottle: 3, mat: 1 },
+    itemWeights: { dumbbell: 3, towel: 3, bottle: 3, mat: 1, kettlebell: 2, rope: 2, medball: 2 },
     spawnPool: [
       [-6.2, 4.2], [-3.4, 2.2], [0.2, 4.2], [4.2, 3.2], [7.0, 4.0],
       [-1.4, -2.0], [4.2, -2.2], [7.0, -3.7], [-5.0, -4.5], [1.2, -5.6],
@@ -46,7 +46,7 @@ export const LEVELS = {
     subtitle: "Matten, Handtücher und Flaschen",
     accent: "#aa74d4",
     start: [-8.8, -6.4],
-    itemWeights: { dumbbell: 1, towel: 5, bottle: 4, mat: 3 },
+    itemWeights: { dumbbell: 1, towel: 5, bottle: 4, mat: 3, kettlebell: 1, rope: 4, medball: 2 },
     spawnPool: [
       [-8.8, 5.6], [-6.1, 5.3], [-3.6, 5.2], [-1.0, 5.4], [2.0, 5.3], [5.0, 5.4], [8.0, 5.2],
       [-7.6, 1.8], [-4.8, 1.4], [-1.8, 1.8], [1.3, 1.2], [4.2, 1.8], [7.3, 1.4],
@@ -58,7 +58,7 @@ export const LEVELS = {
     subtitle: "Schwere Hanteln und enge Wege",
     accent: "#ffad5c",
     start: [8.7, -6.4],
-    itemWeights: { dumbbell: 7, towel: 2, bottle: 2, mat: 1 },
+    itemWeights: { dumbbell: 7, towel: 2, bottle: 2, mat: 1, kettlebell: 5, rope: 1, medball: 3 },
     spawnPool: [
       [-9.0, 5.0], [-6.5, 4.5], [-3.8, 4.1], [-1.0, 5.1], [2.1, 4.5], [5.2, 4.7], [8.4, 5.0],
       [-8.2, 0.0], [-5.5, -0.5], [-2.4, 0.2], [1.4, -0.4], [4.8, 0.2], [8.1, -0.2],
@@ -99,6 +99,30 @@ export const ITEM_TYPES = {
     targetZone: "mats",
     weight: "bulky",
     icon: "▰",
+  },
+  kettlebell: {
+    label: "Kettlebell",
+    plural: "Kettlebells",
+    points: 130,
+    targetZone: "kettlebells",
+    weight: "heavy",
+    icon: "🔔",
+  },
+  rope: {
+    label: "Springseil",
+    plural: "Springseile",
+    points: 65,
+    targetZone: "ropes",
+    weight: "light",
+    icon: "🪢",
+  },
+  medball: {
+    label: "Medizinball",
+    plural: "Medizinbälle",
+    points: 105,
+    targetZone: "medballs",
+    weight: "bulky",
+    icon: "🥎",
   },
 };
 

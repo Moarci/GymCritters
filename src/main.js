@@ -204,6 +204,9 @@ function createZones() {
   createLaundryZone(new B.Vector3(9.8, 0, 6.6));
   createBottleZone(new B.Vector3(10.1, 0, -5.8));
   createMatZone(new B.Vector3(-10.1, 0, -5.8));
+  createKettlebellRack(new B.Vector3(-11.0, 0, 0.6));
+  createRopeHooks(new B.Vector3(11.0, 0, 0.6));
+  createMedballNet(new B.Vector3(-6.5, 0, 6.7));
 }
 
 function addZone(id, label, type, position, radius, color) {
@@ -271,6 +274,51 @@ function createMatZone(pos) {
   }
   addZone("mats", "Mattenregal", "mat", pos, 2.0, "#ed8c78");
   obstacles.push({ x: pos.x, z: pos.z, halfX: 1.25, halfZ: 0.7 });
+}
+
+function createKettlebellRack(pos) {
+  const metal = material("kettleMetal", "#3d434d", 0.4, 0.5);
+  const iron = material("kettleIron", "#23262c", 0.55, 0.4);
+  const base = B.MeshBuilder.CreateBox("kettleBase", { width: 1.5, height: 0.14, depth: 0.8 }, scene);
+  base.position.set(pos.x, 0.07, pos.z); base.material = metal; shadowGenerator.addShadowCaster(base);
+  for (const x of [-0.42, 0, 0.42]) {
+    const bell = B.MeshBuilder.CreateSphere("kettleBell", { diameter: 0.42, segments: 16 }, scene);
+    bell.position.set(pos.x + x, 0.35, pos.z); bell.scaling.y = 1.08; bell.material = iron; shadowGenerator.addShadowCaster(bell);
+    const handle = B.MeshBuilder.CreateTorus("kettleHandle", { diameter: 0.24, thickness: 0.05, tessellation: 16 }, scene);
+    handle.position.set(pos.x + x, 0.58, pos.z); handle.rotation.x = Math.PI / 2; handle.material = metal; shadowGenerator.addShadowCaster(handle);
+  }
+  addZone("kettlebells", "Kettlebell-Ecke", "kettlebell", pos, 1.8, "#c9c2b6");
+  obstacles.push({ x: pos.x, z: pos.z, halfX: 0.8, halfZ: 0.5 });
+}
+
+function createRopeHooks(pos) {
+  const board = material("ropeBoard", "#5c4a3a", 0.9);
+  const metal = material("ropeHookMetal", "#3d434d", 0.4, 0.5);
+  const panel = B.MeshBuilder.CreateBox("ropePanel", { width: 0.14, height: 1.5, depth: 1.4 }, scene);
+  panel.position.set(pos.x, 0.85, pos.z); panel.material = board; shadowGenerator.addShadowCaster(panel);
+  const ropeColors = ["#e9a767", "#70c7c2", "#d36b61"];
+  for (const [i, z] of [-0.42, 0, 0.42].entries()) {
+    const hook = B.MeshBuilder.CreateCylinder("ropeHookPeg", { diameter: 0.08, height: 0.18, tessellation: 10 }, scene);
+    hook.position.set(pos.x + 0.08, 1.35, pos.z + z); hook.rotation.z = Math.PI / 2; hook.material = metal;
+    const coil = B.MeshBuilder.CreateTorus("ropeCoil", { diameter: 0.34, thickness: 0.05, tessellation: 20 }, scene);
+    coil.position.set(pos.x + 0.16, 0.95, pos.z + z); coil.rotation.y = Math.PI / 2; coil.material = material(`ropeCoilMat${i}`, ropeColors[i % ropeColors.length], 0.85);
+    shadowGenerator.addShadowCaster(hook); shadowGenerator.addShadowCaster(coil);
+  }
+  addZone("ropes", "Seilhaken", "rope", pos, 1.8, "#e9a767");
+  obstacles.push({ x: pos.x, z: pos.z, halfX: 0.4, halfZ: 0.75 });
+}
+
+function createMedballNet(pos) {
+  const metal = material("medNetMetal", "#3d434d", 0.4, 0.5);
+  const net = material("medNetMesh", "#8f9199", 0.7); net.alpha = 0.55;
+  const base = B.MeshBuilder.CreateCylinder("medNetBase", { diameter: 1.6, height: 0.12, tessellation: 20 }, scene);
+  base.position.set(pos.x, 0.06, pos.z); base.material = metal; shadowGenerator.addShadowCaster(base);
+  for (const angle of [0, Math.PI / 2]) {
+    const hoop = B.MeshBuilder.CreateTorus("medNetHoop", { diameter: 1.4, thickness: 0.05, tessellation: 24 }, scene);
+    hoop.position.set(pos.x, 0.75, pos.z); hoop.rotation.x = Math.PI / 2; hoop.rotation.y = angle; hoop.material = net;
+  }
+  addZone("medballs", "Ballnetz", "medball", pos, 1.9, "#8f9199");
+  obstacles.push({ x: pos.x, z: pos.z, halfX: 0.9, halfZ: 0.6 });
 }
 
 function createPlayerCollider() {
@@ -538,6 +586,9 @@ function createItemMesh(type, root, index) {
   if (type === "dumbbell") return createDumbbell(root, index);
   if (type === "towel") return createTowel(root, index);
   if (type === "bottle") return createBottle(root, index);
+  if (type === "kettlebell") return createKettlebellItem(root, index);
+  if (type === "rope") return createRopeItem(root, index);
+  if (type === "medball") return createMedballItem(root, index);
   return createMat(root, index);
 }
 
@@ -578,6 +629,32 @@ function createMat(root, index) {
   const matMesh = B.MeshBuilder.CreateCylinder("mat", { diameter: 0.55, height: 1.65, tessellation: 24 }, scene);
   matMesh.parent = root; matMesh.rotation.z = Math.PI / 2; matMesh.position.y = 0.28; matMesh.material = material(`floorMat${index}`, colors[index % colors.length], 0.92);
   return [matMesh];
+}
+
+function createKettlebellItem(root, index) {
+  const iron = material(`kettleItemIron${index}`, "#23262c", 0.55, 0.4);
+  const metal = material(`kettleItemMetal${index}`, "#3d434d", 0.4, 0.5);
+  const bell = B.MeshBuilder.CreateSphere("kettlebell", { diameter: 0.44, segments: 16 }, scene);
+  bell.parent = root; bell.position.y = 0.24; bell.scaling.y = 1.08; bell.material = iron;
+  const handle = B.MeshBuilder.CreateTorus("kettlebellHandle", { diameter: 0.24, thickness: 0.05, tessellation: 16 }, scene);
+  handle.parent = root; handle.position.y = 0.48; handle.rotation.x = Math.PI / 2; handle.material = metal;
+  return [bell, handle];
+}
+
+function createRopeItem(root, index) {
+  const colors = ["#e9a767", "#70c7c2", "#d36b61"];
+  const ropeMat = material(`ropeItemMat${index}`, colors[index % colors.length], 0.85);
+  const coil = B.MeshBuilder.CreateTorus("ropeCoilItem", { diameter: 0.4, thickness: 0.07, tessellation: 20 }, scene);
+  coil.parent = root; coil.position.y = 0.1; coil.rotation.x = Math.PI / 2; coil.rotation.y = 0.3 * index; coil.material = ropeMat;
+  return [coil];
+}
+
+function createMedballItem(root, index) {
+  const colors = ["#d36b61", "#6aabd8", "#a7f46a"];
+  const ballMat = material(`medballMat${index}`, colors[index % colors.length], 0.7);
+  const ball = B.MeshBuilder.CreateSphere("medball", { diameter: 0.5, segments: 16 }, scene);
+  ball.parent = root; ball.position.y = 0.25; ball.material = ballMat;
+  return [ball];
 }
 
 function shuffle(values) {
@@ -1083,6 +1160,15 @@ function getDisplayPlacement(zone, item, index) {
     p.set(zone.position.x + ((index % 3) - 1) * 0.38, 1.22, zone.position.z + (Math.floor(index / 3) - 0.5) * 0.32); scale = 0.62;
   } else if (zone.id === "mats") {
     p.set(zone.position.x + ((index % 4) - 1.5) * 0.42, 0.82, zone.position.z - 0.05); rotation.z = Math.PI / 2; scale = 0.72;
+  } else if (zone.id === "kettlebells") {
+    const slot = [-0.42, 0, 0.42][index % 3];
+    p.set(zone.position.x + slot, 0.24 + Math.floor(index / 3) * 0.5, zone.position.z); scale = 0.62;
+  } else if (zone.id === "ropes") {
+    const slot = [-0.42, 0, 0.42][index % 3];
+    p.set(zone.position.x + 0.16, 0.95, zone.position.z + slot); rotation.y = index * 0.4; scale = 0.58;
+  } else if (zone.id === "medballs") {
+    const angle = index * 1.3; const radius = 0.35 + (index % 2) * 0.15;
+    p.set(zone.position.x + Math.cos(angle) * radius, 0.75, zone.position.z + Math.sin(angle) * radius); scale = 0.6;
   }
   return { position: p, rotation, scale };
 }
