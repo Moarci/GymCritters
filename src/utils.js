@@ -26,6 +26,31 @@ export function lerpAngle(current, target, amount) {
   return current + difference * amount;
 }
 
+// Babylon rechnet linkshändig: rotation.y = yaw dreht die Modellfront (lokal -Z) auf
+// (-sin yaw, 0, -cos yaw). Die rechtshändige Variante (sin yaw, ...) spiegelt die Figur
+// an der Z-Achse, was beim Vorwärts- und Rückwärtslaufen unsichtbar bleibt und erst
+// seitwärts auffällt. Diese drei Helfer sind die einzige Stelle, die das Vorzeichen kennt.
+export function forwardFromYaw(yaw) {
+  return { x: -Math.sin(yaw), z: -Math.cos(yaw) };
+}
+
+export function yawTowards(x, z) {
+  return Math.atan2(-x, -z);
+}
+
+// Blickrichtung einer ArcRotateCamera ist (-cos alpha, 0, -sin alpha). Damit sie der
+// Figur über die Schulter schaut, muss alpha gegenläufig zum yaw laufen.
+export function cameraAlphaBehind(yaw) {
+  return Math.PI / 2 - yaw;
+}
+
+// Umkehrung von cameraAlphaBehind: der yaw, in den die Kamera gerade blickt. Die Formel
+// ist dieselbe, weil die Abbildung ihre eigene Umkehrung ist -- getrennt benannt, damit
+// an der Aufrufstelle lesbar bleibt, in welche Richtung gerechnet wird.
+export function cameraYaw(alpha) {
+  return Math.PI / 2 - alpha;
+}
+
 export function rankValue(rank) {
   return ({ D: 1, C: 2, B: 3, A: 4, S: 5 })[rank] || 0;
 }

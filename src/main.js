@@ -12,7 +12,7 @@ import { AudioSystem } from "./audio.js";
 import { B } from "./babylon.js";
 import { createMaterial } from "./materials.js";
 import { buildEnvironment, setActiveLevelDecor } from "./environment/index.js";
-import { comboMultiplier, formatTime, horizontalDistance, lerpAngle, normalizeAngle, rankValue, shuffle } from "./utils.js";
+import { cameraAlphaBehind, cameraYaw, comboMultiplier, formatTime, forwardFromYaw, horizontalDistance, lerpAngle, normalizeAngle, rankValue, shuffle, yawTowards } from "./utils.js";
 import { scoreTarget } from "./targeting.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
@@ -272,6 +272,9 @@ function createCamera() {
   camera.lowerRadiusLimit = 4.7; camera.upperRadiusLimit = 6.1; camera.lowerBetaLimit = 1.1; camera.upperBetaLimit = 1.32;
   camera.wheelDeltaPercentage = 0.01; camera.panningSensibility = 0; camera.pinchPrecision = 65;
   camera.inertia = 0.78;
+  // Babylon binds the arrow keys to camera rotation by default; those keys are ours
+  // for movement, so holding one would spin alpha and drag the player facing with it.
+  camera.inputs.removeByType("ArcRotateCameraKeyboardMoveInput");
   updateCameraSensitivity();
   camera.attachControl(ui.canvas, true);
 }
@@ -427,7 +430,7 @@ function updateCamera(dt) {
 
 function resetCamera(showFeedback = true) {
   if (!camera || !player) return;
-  camera.alpha = player.rotation.y + Math.PI / 2;
+  camera.alpha = cameraAlphaBehind(player.rotation.y);
   camera.beta = 1.03;
   camera.radius = 7.2;
   camera.target = player.position.add(new B.Vector3(0, 0.78, 0));
@@ -494,7 +497,7 @@ function updatePlayer(dt) {
     resolvePlayerPosition(next);
   }
   if (moveDirection) {
-    player.rotation.y = lerpAngle(player.rotation.y, Math.atan2(moveDirection.x, -moveDirection.z), Math.min(1, dt * 11));
+    player.rotation.y = lerpAngle(player.rotation.y, yawTowards(moveDirection.x, moveDirection.z), Math.min(1, dt * 11));
   }
 
   animateCharacter(dt, isMoving || state.velocity.lengthSquared() > 0.08, sprinting);
@@ -619,7 +622,7 @@ function updateInteraction() {
     if (item.delivered || state.heldItems.includes(item)) continue;
     const itemPosition = item.root.getAbsolutePosition();
     const distance = horizontalDistance(player.position, itemPosition);
-    const angleToItem = Math.atan2(itemPosition.x - player.position.x, -(itemPosition.z - player.position.z));
+    const angleToItem = yawTowards(itemPosition.x - player.position.x, itemPosition.z - player.position.z);
     const angleDelta = normalizeAngle(angleToItem - player.rotation.y);
     const score = scoreTarget(distance, angleDelta, CONFIG.interactDistance);
     if (score < bestItemScore) {
@@ -702,7 +705,7 @@ function updateNavigator() {
   if (!targetPosition) { ui.navigator.classList.add("hidden"); return; }
   const toTarget = targetPosition.subtract(player.position); toTarget.y = 0;
   const distance = toTarget.length(); if (distance > 0.001) toTarget.normalize();
-  const relativeAngle = normalizeAngle(Math.atan2(toTarget.x, -toTarget.z) - (camera.alpha - Math.PI / 2));
+  const relativeAngle = normalizeAngle(yawTowards(toTarget.x, toTarget.z) - cameraYaw(camera.alpha));
   ui.navArrow.style.transform = `rotate(${relativeAngle}rad)`;
   ui.navTarget.textContent = targetLabel;
   ui.navDistance.textContent = `${Math.max(0, Math.round(distance))} m entfernt`;
@@ -807,8 +810,8 @@ function findSafeDropPosition() {
   for (let ring = 0; ring < 3; ring++) {
     const distance = 1.25 + ring * 0.45;
     for (const offset of [0, 0.65, -0.65, 1.3, -1.3, Math.PI]) {
-      const angle = baseAngle + offset;
-      const candidate = new B.Vector3(player.position.x + Math.sin(angle) * distance, 0.12, player.position.z - Math.cos(angle) * distance);
+      const direction = forwardFromYaw(baseAngle + offset);
+      const candidate = new B.Vector3(player.position.x + direction.x * distance, 0.12, player.position.z + direction.z * distance);
       if (isDropPositionFree(candidate)) return candidate;
     }
   }
