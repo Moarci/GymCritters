@@ -53,6 +53,11 @@ test("Accessibility- und Einstellungs-Hooks bleiben stabil", () => {
     "tripRiskSetting",
     "navigatorSetting",
     "shiftPreviewCard",
+    "wizardProgress",
+    "wizardStageTitle",
+    "wizardSelectionSummary",
+    "wizardBackButton",
+    "wizardNextButton",
     "trendSummary",
     "trendChart",
     "recentRounds",
@@ -63,6 +68,20 @@ test("Accessibility- und Einstellungs-Hooks bleiben stabil", () => {
   }
   assert.match(styles, /:focus-visible/);
   assert.match(styles, /prefers-reduced-motion:\s*reduce/);
+});
+
+test("die Schichtplanung ist ein zugänglicher fünfstufiger Wizard", () => {
+  const progressSteps = [...index.matchAll(/data-wizard-step="(\d)"/g)].map((match) => match[1]);
+  const pages = [...index.matchAll(/data-wizard-page="(\d)"/g)].map((match) => match[1]);
+
+  assert.deepEqual(progressSteps, ["0", "1", "2", "3", "4"]);
+  assert.deepEqual(pages, ["0", "1", "2", "3", "4"]);
+  assert.match(index, /id="wizardProgress"[^>]*aria-label="Schritte der Schichtplanung"/);
+  assert.match(index, /data-wizard-step="0"[^>]*aria-current="step"/);
+  assert.match(index, /class="wizard-stage-header"[^>]*aria-live="polite"[^>]*aria-atomic="true"/);
+  assert.match(index, /id="startButton"[^>]*class="primary wizard-next hidden"/);
+  assert.doesNotMatch(index, /class="menu-hero-grid"/);
+  assert.match(styles, /\.wizard-page\.is-active/);
 });
 
 test("Manifest und Service Worker bilden eine offlinefähige App-Shell", () => {

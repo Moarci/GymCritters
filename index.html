@@ -91,66 +91,114 @@
         </div>
       </header>
 
-      <div class="menu-hero-grid">
-        <section class="menu-hero-copy">
-          <div class="eyebrow">Deine Schicht. Dein Rhythmus.</div>
-          <h1 id="gameTitle">MAKE THE<br /><span>GYM SHINE.</span></h1>
-          <p>Führe Rocco und Fibi durch ein lebendiges Fitnessstudio. Räume clever, achte auf herumliegende Stolperfallen und werde mit jeder Schicht besser.</p>
-          <div class="feature-pills" aria-label="Spielmerkmale">
-            <span>3 lebendige Level</span><span>4 Spielmodi</span><span>Lokaler Fortschritt</span>
+      <div class="wizard-layout">
+        <aside class="wizard-rail">
+          <div>
+            <div class="eyebrow">Schicht-Konfigurator</div>
+            <h1 id="gameTitle">DEINE SCHICHT.<br /><span>DEIN RHYTHMUS.</span></h1>
+            <p>Fünf kurze Schritte. Danach heißt es: Pfoten auf den Boden und das Gym zum Glänzen bringen.</p>
           </div>
+
+          <nav id="wizardProgress" class="wizard-progress" aria-label="Schritte der Schichtplanung">
+            <button type="button" data-wizard-step="0" aria-current="step"><span>01</span><b>Crew</b><small>Wähle deinen Critter</small></button>
+            <button type="button" data-wizard-step="1"><span>02</span><b>Bereich</b><small>Wähle dein Level</small></button>
+            <button type="button" data-wizard-step="2"><span>03</span><b>Modus</b><small>Bestimme das Tempo</small></button>
+            <button type="button" data-wizard-step="3"><span>04</span><b>Feintuning</b><small>Passe die Schicht an</small></button>
+            <button type="button" data-wizard-step="4"><span>05</span><b>Startklar</b><small>Prüfe deine Auswahl</small></button>
+          </nav>
+
+          <div class="wizard-rail-summary" aria-live="polite">
+            <small>Aktuelle Auswahl</small>
+            <strong id="wizardSelectionSummary">Rocco · Feierabend · Standard</strong>
+          </div>
+        </aside>
+
+        <section class="wizard-stage" aria-labelledby="wizardStageTitle">
+          <header class="wizard-stage-header" aria-live="polite" aria-atomic="true">
+            <div>
+              <span id="wizardStageLabel">Schritt 1 von 5</span>
+              <h2 id="wizardStageTitle">Wer übernimmt die Schicht?</h2>
+              <p id="wizardStageHint">Jeder Critter spielt sich anders und bringt eine eigene Stärke mit.</p>
+            </div>
+            <span class="wizard-stage-number" aria-hidden="true">01</span>
+          </header>
+
+          <div class="wizard-pages">
+            <section class="wizard-page is-active" data-wizard-page="0" aria-label="Crew auswählen">
+              <div class="wizard-page-intro">
+                <span aria-hidden="true">🐾</span>
+                <div><strong>Deine Crew, deine Spielweise</strong><small>Rocco trägt schwere Lasten souverän. Fibi setzt auf Tempo und zwei leichte Gegenstände.</small></div>
+              </div>
+              <div id="characterSelector" class="character-selector wizard-character-selector"></div>
+            </section>
+
+            <section class="wizard-page" data-wizard-page="1" aria-label="Gym-Bereich auswählen" hidden>
+              <div class="wizard-page-intro">
+                <span aria-hidden="true">⌂</span>
+                <div><strong>Jeder Bereich erzählt eine andere Schicht</strong><small>Wege, Gegenstandsmix, Hindernisse und Ereignisse verändern sich mit dem Level.</small></div>
+              </div>
+              <div id="levelSelector" class="tile-selector level-tiles wizard-level-selector"></div>
+            </section>
+
+            <section class="wizard-page" data-wizard-page="2" aria-label="Spielmodus auswählen" hidden>
+              <div class="wizard-page-intro">
+                <span aria-hidden="true">◷</span>
+                <div><strong>Wie soll sich die Runde anfühlen?</strong><small>Spiele entspannt, jage eine Bestzeit oder räume im Zen-Modus ganz ohne Zeitlimit auf.</small></div>
+              </div>
+              <div id="modeSelector" class="tile-selector mode-tiles wizard-mode-selector"></div>
+            </section>
+
+            <section class="wizard-page" data-wizard-page="3" aria-label="Level-Feintuning" hidden>
+              <div class="wizard-page-intro">
+                <span aria-hidden="true">⌁</span>
+                <div><strong id="shiftTuningTitle">Feintuning für dieses Level</strong><small>Diese Auswahl wird pro Gym-Bereich gespeichert und verändert keine dauerhaften Meisterschaftswerte.</small></div>
+              </div>
+              <div class="shift-tuning" aria-labelledby="shiftTuningTitle">
+                <div class="tuning-grid">
+                  <label><span>Gegenstandsmenge</span><select id="itemAmountSetting" aria-label="Gegenstandsmenge"></select><small>Steuert den Umfang der Schicht.</small></label>
+                  <label><span>Schichtdynamik</span><select id="shiftDynamicsSetting" aria-label="Schichtdynamik"></select><small>Verändert Wellen und Bonusereignisse.</small></label>
+                  <label><span>Stolperrisiko</span><select id="tripRiskSetting" aria-label="Stolperrisiko"></select><small>Bestimmt, wie leicht Gegenstände zur Falle werden.</small></label>
+                  <label><span>Zielhilfe</span><select id="navigatorSetting" aria-label="Zielhilfe"></select><small>Regelt, wann dir der Navigator hilft.</small></label>
+                </div>
+              </div>
+            </section>
+
+            <section class="wizard-page" data-wizard-page="4" aria-label="Schicht überprüfen" hidden>
+              <div class="review-layout">
+                <aside id="shiftPreviewCard" class="shift-preview" aria-labelledby="shiftPreviewTitle">
+                  <div class="shift-preview-top"><span>Bereit für die nächste Schicht</span><i aria-hidden="true"></i></div>
+                  <div class="shift-preview-copy">
+                    <strong id="shiftPreviewTitle">Feierabend</strong>
+                    <span id="shiftPreviewSubtitle">Standard · Gemischtes Chaos</span>
+                  </div>
+                  <div class="shift-preview-metrics">
+                    <div><small>Gegenstände</small><strong id="shiftPreviewItems">10</strong></div>
+                    <div><small>Zeit</small><strong id="shiftPreviewTime">2:00</strong></div>
+                    <div><small>Stolperrisiko</small><strong id="shiftPreviewRisk">Realistisch</strong></div>
+                    <div><small>Dynamik</small><strong id="shiftPreviewDynamics">Lebendig</strong></div>
+                  </div>
+                  <div class="shift-preview-loadout">
+                    <div><small>Crew</small><strong id="shiftPreviewCharacter">Rocco · Waschbär</strong></div>
+                    <div><small>Zielhilfe</small><strong id="shiftPreviewGuidance">Nach Modus</strong></div>
+                  </div>
+                </aside>
+                <div class="review-ready">
+                  <span class="review-ready-icon" aria-hidden="true">✓</span>
+                  <div><strong>Alles eingestellt</strong><p>Deine Auswahl ist gespeichert. Du kannst jederzeit zurückgehen und einzelne Schritte anpassen.</p></div>
+                  <p class="desktop-help"><kbd>WASD</kbd> Laufen <kbd>E</kbd> Aktion <kbd>Shift</kbd> Sprint</p>
+                  <p class="mobile-help">Stick zum Laufen · Aktion zum Aufnehmen und Ablegen</p>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <footer class="wizard-actions">
+            <button id="wizardBackButton" class="wizard-back" type="button">← Zurück</button>
+            <span id="wizardStepCounter">1 / 5</span>
+            <button id="wizardNextButton" class="primary wizard-next" type="button"><span>Weiter zum Bereich</span><b aria-hidden="true">→</b></button>
+            <button id="startButton" class="primary wizard-next hidden" type="button"><span>Schicht starten</span><b aria-hidden="true">→</b></button>
+          </footer>
         </section>
-
-        <aside id="shiftPreviewCard" class="shift-preview" aria-labelledby="shiftPreviewTitle">
-          <div class="shift-preview-top"><span>Bereit für die nächste Schicht</span><i aria-hidden="true"></i></div>
-          <div class="shift-preview-copy">
-            <strong id="shiftPreviewTitle">Feierabend</strong>
-            <span id="shiftPreviewSubtitle">Standard · Gemischtes Chaos</span>
-          </div>
-          <div class="shift-preview-metrics">
-            <div><small>Gegenstände</small><strong id="shiftPreviewItems">10</strong></div>
-            <div><small>Zeit</small><strong id="shiftPreviewTime">2:00</strong></div>
-            <div><small>Stolperrisiko</small><strong id="shiftPreviewRisk">Realistisch</strong></div>
-            <div><small>Dynamik</small><strong id="shiftPreviewDynamics">Lebendig</strong></div>
-          </div>
-          <button id="startButton" class="primary shift-start" type="button"><span>Schicht starten</span><b aria-hidden="true">→</b></button>
-          <p class="desktop-help"><kbd>WASD</kbd> Laufen <kbd>E</kbd> Aktion <kbd>Shift</kbd> Sprint</p>
-          <p class="mobile-help">Stick zum Laufen · Aktion zum Aufnehmen und Ablegen</p>
-        </aside>
-      </div>
-
-      <div class="menu-config-grid">
-        <div class="menu-config-main">
-          <section class="config-block">
-            <div class="config-heading"><span>01</span><div><strong>Crew auswählen</strong><small>Jeder Critter hat eine eigene Stärke.</small></div></div>
-            <div id="characterSelector" class="character-selector"></div>
-          </section>
-
-          <div class="config-row">
-            <section class="config-block">
-              <div class="config-heading"><span>02</span><div><strong>Gym-Bereich</strong><small>Jedes Level besitzt eigene Wege und Ereignisse.</small></div></div>
-              <div id="levelSelector" class="tile-selector level-tiles"></div>
-            </section>
-            <section class="config-block">
-              <div class="config-heading"><span>03</span><div><strong>Spielmodus</strong><small>Von entspannt bis zeitlos.</small></div></div>
-              <div id="modeSelector" class="tile-selector mode-tiles"></div>
-            </section>
-          </div>
-        </div>
-
-        <aside class="shift-tuning" aria-labelledby="shiftTuningTitle">
-          <div class="tuning-header">
-            <span aria-hidden="true">⌁</span>
-            <div><strong id="shiftTuningTitle">Level-Feintuning</strong><small>Wird für jedes Level einzeln gespeichert.</small></div>
-          </div>
-          <div class="tuning-grid">
-            <label><span>Gegenstandsmenge</span><select id="itemAmountSetting" aria-label="Gegenstandsmenge"></select></label>
-            <label><span>Schichtdynamik</span><select id="shiftDynamicsSetting" aria-label="Schichtdynamik"></select></label>
-            <label><span>Stolperrisiko</span><select id="tripRiskSetting" aria-label="Stolperrisiko"></select></label>
-            <label><span>Zielhilfe</span><select id="navigatorSetting" aria-label="Zielhilfe"></select></label>
-          </div>
-          <p>Individuelle Einstellungen verändern den Ablauf, nicht deinen dauerhaften Meisterschaftsfortschritt.</p>
-        </aside>
       </div>
 
       <nav class="menu-dock" aria-label="Weitere Bereiche">

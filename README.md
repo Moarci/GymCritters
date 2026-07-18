@@ -38,7 +38,7 @@ V5 macht aus der einfachen Aufräumrunde eine kleine Gym-Schicht: Gegenstände e
 | **Vier Spielmodi** | Entspannt, Standard, Blitz und der neue Zen-Modus ohne Zeitlimit. |
 | **Level-Feintuning** | Gegenstandsmenge, Schichtdynamik, Stolperrisiko und Zielhilfe werden für jedes Level separat gespeichert. |
 | **Entwicklung über Zeit** | Bis zu 120 Runden bilden eine lokale Historie mit vergleichbarem Leistungsindex, Trend, Filterung und Verlaufskurve. |
-| **Crew-Terminal** | Komplett neu gestaltetes Startmenü mit Live-Schichtvorschau, klarer Auswahlhierarchie und responsivem Utility-Dock. |
+| **Crew-Terminal** | Fünfstufiger Schicht-Wizard für Crew, Level, Modus, Feintuning und Startprüfung – mit klarer Auswahlhierarchie und responsivem Utility-Dock. |
 | **Fortschritt** | Münzshop, 15 Achievements, faire Bestwerte je Level × Modus, fünf Meisterschaftsstufen pro Level und drei lokale Tagesverträge. |
 | **Lokal-first Saves** | Automatische Migration, feste lokale Origin sowie validierter JSON-Export und -Import des Spielstands. |
 | **Desktop und Mobile** | Maus-/Tastatursteuerung, Touch-Look, virtueller Joystick, Vibrationsfeedback, Hochformat-HUD und adaptive Grafikqualität. |
@@ -236,7 +236,7 @@ npm run smoke     # App-Shell über einen temporären HTTP-Server prüfen
 npm run test:ci   # alle drei Prüfungen in derselben Reihenfolge
 ```
 
-Die V5.1-Suite umfasst **204 Tests**. Sie deckt unter anderem Save-Migrationen, Rundentrends, Zen-Wertung, Stolperphysik, Level-Feintuning, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
+Die V5.1-Suite umfasst **205 Tests**. Sie deckt unter anderem Save-Migrationen, Rundentrends, Zen-Wertung, Stolperphysik, den fünfstufigen Schicht-Wizard, Level-Feintuning, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
 
 [`.github/workflows/quality.yml`](.github/workflows/quality.yml) führt `npm run test:ci` bei Pull Requests, Pushes auf `main` und manuellen Workflow-Starts mit Node.js 22 aus.
 

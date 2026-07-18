@@ -59,12 +59,17 @@ const ui = {
   joystickKnob: $("joystickKnob"), sprintButton: $("sprintButton"), interactButton: $("interactButton"),
   startScreen: $("startScreen"), menuCoins: $("menuCoins"),
   characterSelector: $("characterSelector"), levelSelector: $("levelSelector"), modeSelector: $("modeSelector"),
+  wizardProgress: $("wizardProgress"), wizardStageLabel: $("wizardStageLabel"),
+  wizardStageTitle: $("wizardStageTitle"), wizardStageHint: $("wizardStageHint"),
+  wizardSelectionSummary: $("wizardSelectionSummary"), wizardStepCounter: $("wizardStepCounter"),
+  wizardBackButton: $("wizardBackButton"), wizardNextButton: $("wizardNextButton"),
   itemAmountSetting: $("itemAmountSetting"), shiftDynamicsSetting: $("shiftDynamicsSetting"),
   tripRiskSetting: $("tripRiskSetting"), navigatorSetting: $("navigatorSetting"),
   shiftPreviewCard: $("shiftPreviewCard"), shiftPreviewTitle: $("shiftPreviewTitle"),
   shiftPreviewSubtitle: $("shiftPreviewSubtitle"), shiftPreviewItems: $("shiftPreviewItems"),
   shiftPreviewTime: $("shiftPreviewTime"), shiftPreviewRisk: $("shiftPreviewRisk"),
-  shiftPreviewDynamics: $("shiftPreviewDynamics"),
+  shiftPreviewDynamics: $("shiftPreviewDynamics"), shiftPreviewCharacter: $("shiftPreviewCharacter"),
+  shiftPreviewGuidance: $("shiftPreviewGuidance"),
   startButton: $("startButton"), shopButton: $("shopButton"), achievementsButton: $("achievementsButton"),
   statsButton: $("statsButton"), settingsButton: $("settingsButton"), fullscreenButton: $("fullscreenButton"),
   pauseScreen: $("pauseScreen"), resumeButton: $("resumeButton"), pauseRestartButton: $("pauseRestartButton"),
@@ -88,6 +93,38 @@ const ui = {
 };
 
 const isTouchDevice = window.matchMedia("(hover: none), (pointer: coarse)").matches;
+const WIZARD_STEPS = Object.freeze([
+  {
+    title: "Wer übernimmt die Schicht?",
+    hint: "Jeder Critter spielt sich anders und bringt eine eigene Stärke mit.",
+    next: "Weiter zum Bereich",
+  },
+  {
+    title: "Welcher Bereich braucht Hilfe?",
+    hint: "Jedes Level besitzt eigene Laufwege, Gegenstände, Hindernisse und Ereignisse.",
+    next: "Weiter zum Modus",
+  },
+  {
+    title: "Welches Tempo passt heute?",
+    hint: "Vom entspannten Rundgang bis zum zeitlosen Zen-Modus bestimmst du den Druck.",
+    next: "Weiter zum Feintuning",
+  },
+  {
+    title: "Wie soll sich die Schicht spielen?",
+    hint: "Passe Umfang, Dynamik, Stolperrisiko und Zielhilfe für dieses Level an.",
+    next: "Auswahl überprüfen",
+  },
+  {
+    title: "Bereit, das Gym zum Glänzen zu bringen?",
+    hint: "Prüfe deine Auswahl – danach beginnt die Schicht.",
+    next: "",
+  },
+]);
+const wizardPages = [...document.querySelectorAll("[data-wizard-page]")];
+const wizardStepButtons = [...document.querySelectorAll("[data-wizard-step]")];
+const wizardStageNumber = document.querySelector(".wizard-stage-number");
+const menuShell = document.querySelector(".menu-shell");
+let menuWizardStep = 0;
 const save = loadSave();
 const dailyContracts = ensureDailyContracts(save);
 if (dailyContracts.changed) persistSave(save);
@@ -1817,6 +1854,45 @@ function updateHUD() {
   ui.coins.textContent = String(save.coins);
 }
 
+function showWizardStep(step, { focus = false } = {}) {
+  menuWizardStep = Math.max(0, Math.min(WIZARD_STEPS.length - 1, Number(step) || 0));
+  const copy = WIZARD_STEPS[menuWizardStep];
+
+  for (const page of wizardPages) {
+    const active = Number(page.dataset.wizardPage) === menuWizardStep;
+    page.hidden = !active;
+    page.classList.toggle("is-active", active);
+  }
+  for (const button of wizardStepButtons) {
+    const position = Number(button.dataset.wizardStep);
+    button.classList.toggle("is-active", position === menuWizardStep);
+    button.classList.toggle("is-complete", position < menuWizardStep);
+    if (position === menuWizardStep) button.setAttribute("aria-current", "step");
+    else button.removeAttribute("aria-current");
+  }
+
+  ui.wizardStageLabel.textContent = `Schritt ${menuWizardStep + 1} von ${WIZARD_STEPS.length}`;
+  ui.wizardStageTitle.textContent = copy.title;
+  ui.wizardStageHint.textContent = copy.hint;
+  ui.wizardStepCounter.textContent = `${menuWizardStep + 1} / ${WIZARD_STEPS.length}`;
+  wizardStageNumber.textContent = String(menuWizardStep + 1).padStart(2, "0");
+  ui.wizardBackButton.classList.toggle("hidden", menuWizardStep === 0);
+  ui.wizardNextButton.classList.toggle("hidden", menuWizardStep === WIZARD_STEPS.length - 1);
+  ui.startButton.classList.toggle("hidden", menuWizardStep !== WIZARD_STEPS.length - 1);
+  if (copy.next) ui.wizardNextButton.querySelector("span").textContent = copy.next;
+  if (focus) {
+    menuShell.scrollTop = 0;
+    ui.startScreen.scrollTop = 0;
+  }
+}
+
+function renderWizardSummary() {
+  const character = CHARACTERS[state.character];
+  const level = LEVELS[state.level];
+  const mode = MODES[state.mode];
+  ui.wizardSelectionSummary.textContent = `${character.name} · ${level.label} · ${mode.label}`;
+}
+
 function renderMenu() {
   updateCoinDisplays();
   renderCharacterSelector();
@@ -1828,6 +1904,8 @@ function renderMenu() {
   renderAchievements();
   renderStats();
   renderSettings();
+  renderWizardSummary();
+  showWizardStep(menuWizardStep);
 }
 
 function renderCharacterSelector() {
@@ -1910,6 +1988,9 @@ function renderShiftPreview() {
   ui.shiftPreviewTime.textContent = mode.timed === false ? "∞" : modeDurationLabel(mode);
   ui.shiftPreviewRisk.textContent = optionFor("tripRisk", settings.tripRisk).label;
   ui.shiftPreviewDynamics.textContent = optionFor("dynamics", settings.dynamics).label;
+  ui.shiftPreviewCharacter.textContent = `${CHARACTERS[state.character].name} · ${CHARACTERS[state.character].species}`;
+  ui.shiftPreviewGuidance.textContent = optionFor("guidance", settings.guidance).label;
+  renderWizardSummary();
 }
 
 function renderShop() {
@@ -2200,6 +2281,11 @@ document.addEventListener("visibilitychange", () => {
 });
 
 ui.startButton.addEventListener("click", startRound); ui.restartButton.addEventListener("click", startRound); ui.pauseRestartButton.addEventListener("click", startRound);
+ui.wizardBackButton.addEventListener("click", () => showWizardStep(menuWizardStep - 1, { focus: true }));
+ui.wizardNextButton.addEventListener("click", () => showWizardStep(menuWizardStep + 1, { focus: true }));
+for (const button of wizardStepButtons) {
+  button.addEventListener("click", () => showWizardStep(Number(button.dataset.wizardStep), { focus: true }));
+}
 ui.resumeButton.addEventListener("click", () => setPaused(false)); ui.pauseButton.addEventListener("click", () => setPaused(true)); ui.pauseMenuButton.addEventListener("click", returnToMenu);
 ui.resultMenuButton.addEventListener("click", returnToMenu); ui.resultShopButton.addEventListener("click", () => showModal(ui.shopScreen));
 ui.cameraButton.addEventListener("click", () => resetCamera(true)); ui.cameraRecenterButton.addEventListener("click", () => resetCamera(true));
