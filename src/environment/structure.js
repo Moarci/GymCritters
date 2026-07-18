@@ -58,7 +58,6 @@ function buildBackWall(scene, wallMat, muralMat) {
 }
 
 function buildSideWall(scene, x, wallMat, frameMat, glassMat, shadowGenerator, detailed) {
-  const side = Math.sign(x);
   const zFrom = -ROOM.halfDepth + 0.15;
   const zTo = ROOM.halfDepth - 0.15;
   const windowWidth = 2.6;
@@ -137,8 +136,17 @@ function buildCeiling(scene, ceilingMat, trimMat, shadowGenerator, detailed) {
   const trussZs = [-6, -2, 2, 6];
   trussZs.forEach((z) => buildTruss(scene, z, trussY, trimMat, shadowGenerator, detailed));
 
+  // Materialien einmal anlegen und an alle 12 Leuchten weiterreichen — Babylon
+  // dedupliziert nicht über den Namen, pro Leuchte erzeugte Materialien wären 36 statt 3.
+  const pendantMats = {
+    cable: createMaterial(scene, "pendantCableMat", "#15171a", 0.5, 0.4),
+    cage: createMaterial(scene, "pendantCageMat", "#20242b", 0.4, 0.55),
+    bulb: createMaterial(scene, "pendantBulbMat", "#f4f2df", 0.3),
+  };
+  pendantMats.bulb.emissiveColor = new B.Color3(0.7, 0.66, 0.5);
+
   const lightXs = [-7, 0, 7];
-  trussZs.forEach((z) => lightXs.forEach((x) => buildPendantLight(scene, x, z, trussY - 0.25, shadowGenerator, detailed)));
+  trussZs.forEach((z) => lightXs.forEach((x) => buildPendantLight(scene, x, z, trussY - 0.25, pendantMats, shadowGenerator, detailed)));
 
   if (detailed) buildRoofDuct(scene, trussY - 0.05, trimMat, shadowGenerator);
 }
@@ -162,20 +170,18 @@ function buildTruss(scene, z, y, trimMat, shadowGenerator, detailed) {
   }
 }
 
-function buildPendantLight(scene, x, z, y, shadowGenerator, detailed) {
+function buildPendantLight(scene, x, z, y, mats, shadowGenerator, detailed) {
   const cable = B.MeshBuilder.CreateCylinder("pendantCable", { diameter: 0.03, height: 0.7 }, scene);
   cable.position.set(x, y - 0.35, z);
-  cable.material = createMaterial(scene, "pendantCableMat", "#15171a", 0.5, 0.4);
+  cable.material = mats.cable;
 
   const cage = B.MeshBuilder.CreateCylinder("pendantCage", { diameterTop: 0.32, diameterBottom: 0.42, height: 0.3, tessellation: detailed ? 14 : 8 }, scene);
   cage.position.set(x, y - 0.72, z);
-  cage.material = createMaterial(scene, "pendantCageMat", "#20242b", 0.4, 0.55);
+  cage.material = mats.cage;
 
   const bulb = B.MeshBuilder.CreateSphere("pendantBulb", { diameter: 0.22, segments: 10 }, scene);
   bulb.position.set(x, y - 0.72, z);
-  const bulbMat = createMaterial(scene, "pendantBulbMat", "#f4f2df", 0.3);
-  bulbMat.emissiveColor = new B.Color3(0.7, 0.66, 0.5);
-  bulb.material = bulbMat;
+  bulb.material = mats.bulb;
 
   if (detailed) shadowGenerator.addShadowCaster(cage);
 }

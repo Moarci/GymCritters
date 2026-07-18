@@ -138,7 +138,6 @@ export const CHARACTERS = {
     bulkyPenalty: 0.72,
     lightCapacity: 1,
     heavyScoreBonus: 1.2,
-    color: "#a7f46a",
   },
   squirrel: {
     id: "squirrel",
@@ -151,7 +150,6 @@ export const CHARACTERS = {
     bulkyPenalty: 0.65,
     lightCapacity: 2,
     heavyScoreBonus: 1,
-    color: "#ffad5c",
   },
 };
 

@@ -61,7 +61,7 @@ const state = {
   keys: new Set(), interactPressed: false, elapsed: 0, hudAccumulator: 0,
   velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 },
   touch: { x: 0, z: 0, sprint: false, pointerId: null },
-  toastTimer: null, speechTimer: null, achievementTimer: null, tutorialResumeMode: null,
+  toastTimer: null, speechTimer: null, achievementTimer: null,
 };
 
 let scene;
@@ -197,7 +197,7 @@ function buildSquirrel() {
   const head = sphere("head", 0.78, [0, 1.55, -0.07], fur); head.scaling.set(0.95, 0.98, 0.92);
   const muzzle = sphere("muzzle", 0.42, [0, 1.45, -0.41], light); muzzle.scaling.set(0.85, 0.62, 0.55);
   const eyes = createEyes(1.64, -0.55, 0.17);
-  const nose = sphere("nose", 0.13, [0, 1.46, -0.62], material("squirrelNose", "#201712", 0.6));
+  sphere("nose", 0.13, [0, 1.46, -0.62], material("squirrelNose", "#201712", 0.6));
   for (const x of [-0.25, 0.25]) {
     const ear = B.MeshBuilder.CreateCylinder("squirrelEar", { diameterTop: 0.03, diameterBottom: 0.24, height: 0.48, tessellation: 16 }, scene);
     ear.parent = playerVisual; ear.position.set(x, 1.98, -0.02); ear.rotation.z = x < 0 ? -0.16 : 0.16; ear.material = dark;
@@ -321,7 +321,7 @@ function spawnItems() {
     meshes.forEach((mesh) => { mesh.isPickable = false; shadowGenerator.addShadowCaster(mesh); });
     items.push({
       id: `item-${index}`, type, label: definition.label, points: definition.points, targetZone: definition.targetZone,
-      weight: definition.weight, root, meshes, delivered: false, displayed: false, tutorial: Boolean(spec.tutorial),
+      weight: definition.weight, root, meshes, delivered: false, tutorial: Boolean(spec.tutorial),
     });
   });
 }
@@ -879,7 +879,7 @@ function animateDeliveredItem(item, zone, onComplete) {
     item.root.scaling.copyFrom(B.Vector3.Lerp(startScale, new B.Vector3(placement.scale, placement.scale, placement.scale), eased));
     if (t >= 1) {
       scene.onBeforeRenderObservable.remove(observer); deliveryObservers = deliveryObservers.filter((entry) => entry !== observer);
-      item.root.position.copyFrom(placement.position); item.root.rotation.copyFrom(placement.rotation); item.root.scaling.setAll(placement.scale); item.displayed = true; onComplete?.();
+      item.root.position.copyFrom(placement.position); item.root.rotation.copyFrom(placement.rotation); item.root.scaling.setAll(placement.scale); onComplete?.();
     }
   });
   deliveryObservers.push(observer);
@@ -957,7 +957,7 @@ function prepareSceneForRound() {
 }
 
 function startTutorial() {
-  state.tutorial = true; state.tutorialStage = 0; state.tutorialResumeMode = state.mode;
+  state.tutorial = true; state.tutorialStage = 0;
   resetRoundState(); state.roundSeconds = Infinity; state.timeLeft = Infinity;
   prepareSceneForRound();
   ui.navigator.classList.remove("hidden"); ui.tutorialCoach.classList.remove("hidden");

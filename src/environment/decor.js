@@ -215,16 +215,17 @@ export function setActiveLevelDecor(levelId) {
 }
 
 function createPegboards(detailed) {
-  buildPegboard(-13.1, 8.0, detailed);
-  buildPegboard(13.1, 8.0, detailed);
+  const kettlebellMetal = material("kettlebellMetal", "#2b2e33", 0.35, 0.55);
+  buildPegboard(-13.1, 8.0, kettlebellMetal, detailed);
+  buildPegboard(13.1, 8.0, kettlebellMetal, detailed);
 }
 
-function buildPegboard(x, z, detailed) {
+function buildPegboard(x, z, kettlebellMetal, detailed) {
   const side = Math.sign(x);
   const panel = B.MeshBuilder.CreateBox("pegboardPanel", { width: 0.06, height: 2.0, depth: 2.2 }, scene);
   panel.position.set(x - side * 0.31, 1.9, z);
   panel.material = material("pegboardFrame", "#2c313a", 0.7, 0.3);
-  shadowGenerator.addShadowCaster(panel);
+  if (detailed) shadowGenerator.addShadowCaster(panel);
 
   const hookMat = material("pegHook", "#8a8f97", 0.4, 0.6);
   [[-0.7, 2.5], [0, 2.5], [0.7, 2.5], [-0.35, 1.3], [0.35, 1.3]].forEach(([dz, y]) => {
@@ -234,18 +235,17 @@ function buildPegboard(x, z, detailed) {
     hook.material = hookMat;
   });
 
-  buildKettlebell(x - side * 0.5, 2.5, z - 0.7, detailed);
-  buildKettlebell(x - side * 0.5, 2.5, z + 0.7, detailed);
+  buildKettlebell(x - side * 0.5, 2.5, z - 0.7, kettlebellMetal, detailed);
+  buildKettlebell(x - side * 0.5, 2.5, z + 0.7, kettlebellMetal, detailed);
   buildResistanceBand(x - side * 0.45, 2.5, z);
   buildJumpRope(x - side * 0.42, 1.3, z - 0.35);
   buildJumpRope(x - side * 0.42, 1.3, z + 0.35);
 }
 
-function buildKettlebell(x, y, z, detailed) {
-  const metal = material(`kettlebellMetal${x}${z}`, "#2b2e33", 0.35, 0.55);
-  const body = B.MeshBuilder.CreateSphere(`kettlebellBody${x}${z}`, { diameter: 0.34, segments: detailed ? 14 : 8 }, scene);
+function buildKettlebell(x, y, z, metal, detailed) {
+  const body = B.MeshBuilder.CreateSphere("kettlebellBody", { diameter: 0.34, segments: detailed ? 14 : 8 }, scene);
   body.position.set(x, y - 0.32, z); body.material = metal;
-  const handle = B.MeshBuilder.CreateTorus(`kettlebellHandle${x}${z}`, { diameter: 0.2, thickness: 0.035, tessellation: 12 }, scene);
+  const handle = B.MeshBuilder.CreateTorus("kettlebellHandle", { diameter: 0.2, thickness: 0.035, tessellation: 12 }, scene);
   handle.position.set(x, y - 0.1, z); handle.rotation.x = Math.PI / 2; handle.material = metal;
   if (detailed) shadowGenerator.addShadowCaster(body);
 }

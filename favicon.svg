@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#11141b"/>
+  <!-- Ohren -->
+  <path d="M14 22 L20 9 L29 18 Z" fill="#272b31"/>
+  <path d="M50 22 L44 9 L35 18 Z" fill="#272b31"/>
+  <!-- Kopf -->
+  <ellipse cx="32" cy="34" rx="19" ry="17" fill="#777d83"/>
+  <!-- Gesichtsmaske -->
+  <path d="M13 30 Q32 24 51 30 Q51 38 32 38 Q13 38 13 30 Z" fill="#272b31"/>
+  <!-- Augen -->
+  <circle cx="24" cy="32" r="3.4" fill="#a7f46a"/>
+  <circle cx="40" cy="32" r="3.4" fill="#a7f46a"/>
+  <!-- Schnauze -->
+  <ellipse cx="32" cy="44" rx="9" ry="6.5" fill="#d7d4c9"/>
+  <ellipse cx="32" cy="41" rx="2.6" ry="2" fill="#111318"/>
+</svg>
