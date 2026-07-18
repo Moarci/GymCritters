@@ -43,3 +43,21 @@ export function impactSound(itemType, pitchFactor = 1) {
     click: sound.click === null ? null : sound.click * pitchFactor,
   };
 }
+
+// Eskalation über die Serie: jeder Aufschlag in ununterbrochener Folge klingt
+// einen Halbton höher als der vorige. Gedeckelt bei einer Quinte, sonst wird
+// eine lange Serie schrill statt belohnend.
+const SEMITONE = Math.pow(2, 1 / 12);
+const PITCH_CAP = Math.pow(2, 7 / 12);
+
+export function deliveryPitch(combo) {
+  return Math.min(PITCH_CAP, Math.pow(SEMITONE, Math.max(0, combo - 1)));
+}
+
+// Die Wucht wächst mit der Serie mit — bewusst moderat, damit der Unterschied
+// zwischen Gewichtsklassen lesbar bleibt und nicht von der Combo überdeckt wird.
+const IMPACT_SCALE_CAP = 1.35;
+
+export function comboImpactScale(combo) {
+  return Math.min(IMPACT_SCALE_CAP, 1 + Math.max(0, combo - 1) * 0.05);
+}
