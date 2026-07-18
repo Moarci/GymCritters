@@ -8,6 +8,7 @@ import { lookDelta } from "./touch-look.js";
 // und Hoch- wie Querformat funktionieren ohne Sonderfall.
 export function createTouchInput({
   joystick, knob, canvas, sprintButton, interactButton, getSensitivity, isActive, onInteract,
+  canvasLookEnabled = true,
 }) {
   let move = { x: 0, z: 0 };
   let sprint = false;
@@ -46,8 +47,15 @@ export function createTouchInput({
 
   joystick.addEventListener("pointerdown", (event) => {
     if (!isActive()) return;
+    // setPointerCapture zuerst: wirft sie (Pointer wurde zwischen Dispatch und Handler
+    // schon losgelassen), darf movePointerId nicht gesetzt bleiben -- sonst blockiert
+    // der Joystick jeden weiteren Finger bis zum nächsten reset().
+    try {
+      joystick.setPointerCapture(event.pointerId);
+    } catch {
+      return;
+    }
     movePointerId = event.pointerId;
-    joystick.setPointerCapture(event.pointerId);
     updateFromPointer(event);
     event.preventDefault();
   });
@@ -68,28 +76,42 @@ export function createTouchInput({
   // Genau ein Look-Finger. Ein zweiter Finger auf dem Canvas wird ignoriert, statt
   // wie bei Babylons eigenem Handling als Pinch-Zoom gedeutet zu werden -- das war
   // der Grund, warum Laufen und Umsehen gleichzeitig die Kamera springen ließ.
-  canvas.addEventListener("pointerdown", (event) => {
-    if (!isActive() || lookPointerId !== null) return;
-    lookPointerId = event.pointerId;
-    lookLastX = event.clientX;
-    lookLastY = event.clientY;
-    canvas.setPointerCapture(event.pointerId);
-  });
-  canvas.addEventListener("pointermove", (event) => {
-    if (lookPointerId !== event.pointerId) return;
-    const delta = lookDelta(event.clientX - lookLastX, event.clientY - lookLastY, getSensitivity());
-    pendingYaw += delta.deltaYaw;
-    pendingPitch += delta.deltaPitch;
-    lookLastX = event.clientX;
-    lookLastY = event.clientY;
-    event.preventDefault();
-  });
-  const releaseLook = (event) => {
-    if (lookPointerId !== event.pointerId) return;
-    lookPointerId = null;
-  };
-  canvas.addEventListener("pointerup", releaseLook);
-  canvas.addEventListener("pointercancel", releaseLook);
+  //
+  // Diese Listener werden nur auf Touch-Geräten registriert: Auf Desktop übernimmt
+  // Babylons ArcRotateCamera (attachControl) das Look-Handling über dieselben
+  // Canvas-Pointer-Events. Zwei Schreiber auf denselben Events hätten Yaw/Pitch
+  // doppelt und teils gegenläufig verändert.
+  if (canvasLookEnabled) {
+    canvas.addEventListener("pointerdown", (event) => {
+      if (!isActive() || lookPointerId !== null) return;
+      // setPointerCapture zuerst: wirft sie, darf lookPointerId nicht gesetzt bleiben --
+      // sonst kommt für diese id nie ein pointerup und die Look-Zone ist bis zum
+      // nächsten reset() tot.
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch {
+        return;
+      }
+      lookPointerId = event.pointerId;
+      lookLastX = event.clientX;
+      lookLastY = event.clientY;
+    });
+    canvas.addEventListener("pointermove", (event) => {
+      if (lookPointerId !== event.pointerId) return;
+      const delta = lookDelta(event.clientX - lookLastX, event.clientY - lookLastY, getSensitivity());
+      pendingYaw += delta.deltaYaw;
+      pendingPitch += delta.deltaPitch;
+      lookLastX = event.clientX;
+      lookLastY = event.clientY;
+      event.preventDefault();
+    });
+    const releaseLook = (event) => {
+      if (lookPointerId !== event.pointerId) return;
+      lookPointerId = null;
+    };
+    canvas.addEventListener("pointerup", releaseLook);
+    canvas.addEventListener("pointercancel", releaseLook);
+  }
 
   const setSprint = (active) => {
     sprint = isActive() ? active : false;

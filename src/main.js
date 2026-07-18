@@ -75,6 +75,10 @@ const touchInput = createTouchInput({
   getSensitivity: () => save.settings.cameraSensitivity || 1,
   isActive: () => state.playing && !state.paused,
   onInteract: () => { state.interactPressed = true; },
+  // Nur auf Touch-Geräten die Canvas-Look-Zone registrieren: Auf Desktop schreibt
+  // Babylons attachControl (siehe createCamera) bereits auf dieselben Pointer-Events;
+  // zwei Schreiber ließen Yaw ca. 6-7x zu schnell laufen und Pitch gegeneinander kämpfen.
+  canvasLookEnabled: isTouchDevice,
 });
 
 let scene;
