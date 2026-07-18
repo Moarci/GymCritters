@@ -28,7 +28,10 @@
     <div class="hud-card stats">
       <div><span class="label">Punkte</span><strong id="score">0</strong></div>
       <div><span class="label">Aufgeräumt</span><strong id="progress">0/8</strong></div>
-      <div><span class="label">Combo</span><strong id="combo">×1,0</strong></div>
+      <div id="comboStat" class="combo-stat">
+        <span class="label">Combo</span><strong id="combo">×1,0</strong>
+        <span class="combo-time-track" aria-hidden="true"><i id="comboTimeBar"></i></span>
+      </div>
       <div><span class="label">Zeit</span><strong id="timer">02:00</strong></div>
     </div>
     <div class="hud-actions">
@@ -73,6 +76,7 @@
   <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true"></div>
   <div id="achievementToast" class="achievement-toast hidden" role="status" aria-live="polite" aria-atomic="true"><span id="achievementIcon" aria-hidden="true">🏆</span><div><small>Achievement</small><strong id="achievementName">Freigeschaltet</strong></div></div>
   <div id="scorePopLayer" class="score-pop-layer" aria-hidden="true"></div>
+  <div id="flowVignette" class="flow-vignette" aria-hidden="true"><span id="flowLabel"></span></div>
 
   <div id="mobileControls" class="mobile-controls hidden" role="group" aria-label="Touch-Steuerung">
     <div id="joystick" class="joystick" aria-hidden="true"><div id="joystickKnob" class="joystick-knob"></div></div>
