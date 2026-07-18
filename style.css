@@ -296,6 +296,7 @@ button { font: inherit; cursor: pointer; }
   touch-action: none;
 }
 .mobile-button.secondary { width: 68px; height: 68px; font-size: 11px; }
+.mobile-button.tertiary { width: 52px; height: 52px; font-size: 17px; }
 .mobile-button.primary-action { width: 88px; height: 88px; background: rgba(167,244,106,.88); color: #17200f; font-size: 14px; }
 .mobile-button.active { transform: scale(.94); filter: brightness(.9); }
 
@@ -331,6 +332,7 @@ button { font: inherit; cursor: pointer; }
   .joystick-knob { left: 28px; top: 28px; }
   .mobile-button.primary-action { width: 80px; height: 80px; }
   .mobile-button.secondary { width: 62px; height: 62px; }
+  .mobile-button.tertiary { width: 48px; height: 48px; }
 }
 
 @media (max-height: 680px) and (orientation: landscape) {

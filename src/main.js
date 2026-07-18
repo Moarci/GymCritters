@@ -28,7 +28,7 @@ const ui = {
   achievementToast: $("achievementToast"), achievementIcon: $("achievementIcon"), achievementName: $("achievementName"),
   scorePopLayer: $("scorePopLayer"), score: $("score"), progress: $("progress"), combo: $("combo"),
   timer: $("timer"), coins: $("coins"), carrying: $("carrying"), carryCard: $("carryCard"),
-  cameraButton: $("cameraButton"), fullscreenHudButton: $("fullscreenHudButton"), soundButton: $("soundButton"),
+  cameraButton: $("cameraButton"), cameraRecenterButton: $("cameraRecenterButton"), fullscreenHudButton: $("fullscreenHudButton"), soundButton: $("soundButton"),
   pauseButton: $("pauseButton"), mobileControls: $("mobileControls"), joystick: $("joystick"),
   joystickKnob: $("joystickKnob"), sprintButton: $("sprintButton"), interactButton: $("interactButton"),
   orientationHint: $("orientationHint"), startScreen: $("startScreen"), menuCoins: $("menuCoins"),
@@ -1420,7 +1420,8 @@ document.addEventListener("visibilitychange", () => {
 ui.startButton.addEventListener("click", startRound); ui.restartButton.addEventListener("click", startRound); ui.pauseRestartButton.addEventListener("click", startRound);
 ui.resumeButton.addEventListener("click", () => setPaused(false)); ui.pauseButton.addEventListener("click", () => setPaused(true)); ui.pauseMenuButton.addEventListener("click", returnToMenu);
 ui.resultMenuButton.addEventListener("click", returnToMenu); ui.resultShopButton.addEventListener("click", () => showModal(ui.shopScreen));
-ui.cameraButton.addEventListener("click", () => resetCamera(true)); ui.fullscreenButton.addEventListener("click", requestFullscreen); ui.fullscreenHudButton.addEventListener("click", requestFullscreen);
+ui.cameraButton.addEventListener("click", () => resetCamera(true)); ui.cameraRecenterButton.addEventListener("click", () => resetCamera(true));
+ui.fullscreenButton.addEventListener("click", requestFullscreen); ui.fullscreenHudButton.addEventListener("click", requestFullscreen);
 ui.shopButton.addEventListener("click", () => showModal(ui.shopScreen)); ui.achievementsButton.addEventListener("click", () => showModal(ui.achievementsScreen));
 ui.statsButton.addEventListener("click", () => showModal(ui.statsScreen)); ui.settingsButton.addEventListener("click", () => showModal(ui.settingsScreen));
 document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => $(button.getAttribute("data-close")).classList.add("hidden")));
