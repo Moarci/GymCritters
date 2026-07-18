@@ -176,7 +176,7 @@ Kein Account, keine Cloud, kein Tracking: Das gesamte Spiel läuft als statische
 GymCritters/
 ├── index.html            # DOM-Grundgerüst aller Screens (HUD, Menü, Shop, Achievements, Settings...)
 ├── style.css              # Gesamtes Styling, CSS Custom Properties, dunkles Theme
-├── start_server.js         # Node-Static-Server (freier Port, öffnet Browser automatisch)
+├── start_server.js         # Node-Static-Server (feste Origin, öffnet Browser automatisch)
 ├── start_game.py           # Äquivalenter Python-Server/Launcher
 ├── start-game.bat / .sh    # Doppelklick-Starter für Windows / Unix
 ├── test/                    # Unit-Tests (node --test, ohne Framework)
@@ -228,7 +228,7 @@ node start_server.js
 python start_game.py
 ```
 
-Jede Variante startet einen minimalen statischen Webserver auf einem freien lokalen Port und öffnet automatisch den Standardbrowser. `npm install` ist **nicht nötig** — es gibt keine Dependencies.
+Jede Variante verwendet dieselbe feste Adresse `http://127.0.0.1:8347/` und öffnet automatisch den Standardbrowser. Dadurch bleibt die Browser-Origin stabil und der lokale Spielstand wird bei jedem Start wiedergefunden. Läuft das Spiel bereits, wird diese Instanz erneut geöffnet; ein fremdes Programm auf Port `8347` muss zuerst beendet werden. `npm install` ist **nicht nötig** — es gibt keine Dependencies.
 
 ---
 

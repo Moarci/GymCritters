@@ -1,8 +1,15 @@
 import { B } from "../babylon.js";
 import { createMaterial, createTexturedMaterial } from "../materials.js";
-import { createConcreteTexture, createRustMetalTexture, createDuskGradientTexture, createMuralTexture } from "./textures.js";
+import { createConcreteTexture, createRustMetalTexture, createGymExteriorTexture, createMuralTexture } from "./textures.js";
 
-const ROOM = { halfWidth: 13.5, halfDepth: 9.5, wallHeight: 4.7, ceilingThickness: 0.15 };
+const ROOM = {
+  halfWidth: 13.5,
+  halfDepth: 9.5,
+  wallHeight: 4.7,
+  ceilingThickness: 0.15,
+  shellHalfWidth: 20,
+  shellFront: -18,
+};
 
 export function buildStructure(scene, shadowGenerator, { quality = "high" } = {}) {
   const detailed = quality !== "low";
@@ -13,34 +20,41 @@ export function buildStructure(scene, shadowGenerator, { quality = "high" } = {}
   const backWallMat = createTexturedMaterial(scene, "backWall", createConcreteTexture(scene, "darkConcrete", { base: "#4a4d4f", joints: "#25272a" }), { roughness: 0.92 });
   const trimMat = createTexturedMaterial(scene, "rustTrim", createRustMetalTexture(scene, "rustTrimTex"), { roughness: 0.6, metallic: 0.35 });
   const frameMat = createMaterial(scene, "windowFrame", "#20242b", 0.4, 0.6);
-  const duskTex = createDuskGradientTexture(scene, "duskGlass");
-  const glassMat = createTexturedMaterial(scene, "duskGlassMat", duskTex, { roughness: 0.2, metallic: 0.1 });
-  glassMat.emissiveTexture = duskTex;
-  glassMat.emissiveColor = new B.Color3(0.5, 0.46, 0.6);
+  const exteriorTex = createGymExteriorTexture(scene, "gymExterior");
+  const glassMat = createTexturedMaterial(scene, "gymWindowGlass", exteriorTex, { roughness: 0.16, metallic: 0.06 });
+  glassMat.emissiveTexture = exteriorTex;
+  glassMat.emissiveColor = new B.Color3(0.34, 0.37, 0.39);
   const muralTex = createMuralTexture(scene, "backWallMural", { phrase: "CLOSING CREW", accent: "#a7f46a" });
   const muralMat = createTexturedMaterial(scene, "mural", muralTex, { roughness: 0.75 });
   muralMat.emissiveTexture = muralTex;
   muralMat.emissiveColor = new B.Color3(0.18, 0.18, 0.18);
+  const lobbySignTex = createMuralTexture(scene, "lobbySign", { width: 1536, height: 384, phrase: "GYM CRITTERS", accent: "#63b4ef" });
+  const lobbySignMat = createTexturedMaterial(scene, "lobbySignMat", lobbySignTex, { roughness: 0.58 });
+  lobbySignMat.emissiveTexture = lobbySignTex;
+  lobbySignMat.emissiveColor = new B.Color3(0.38, 0.42, 0.34);
 
   buildFloor(scene, floorMat, seamMat);
   buildBackWall(scene, backWallMat, muralMat);
   buildSideWall(scene, -ROOM.halfWidth, wallMat, frameMat, glassMat, shadowGenerator, detailed);
   buildSideWall(scene, ROOM.halfWidth, wallMat, frameMat, glassMat, shadowGenerator, detailed);
   buildEntranceLips(scene, wallMat);
+  buildOuterShell(scene, wallMat, frameMat, glassMat, lobbySignMat);
   buildCeiling(scene, backWallMat, trimMat, shadowGenerator, detailed);
 }
 
 function buildFloor(scene, floorMat, seamMat) {
-  const floor = B.MeshBuilder.CreateGround("floor", { width: 27, height: 19 }, scene);
+  const floorDepth = ROOM.halfDepth - ROOM.shellFront;
+  const floor = B.MeshBuilder.CreateGround("floor", { width: ROOM.shellHalfWidth * 2, height: floorDepth }, scene);
+  floor.position.z = (ROOM.halfDepth + ROOM.shellFront) / 2;
   floor.material = floorMat;
   floor.receiveShadows = true;
-  for (let x = -12; x <= 12; x += 2) {
-    const seam = B.MeshBuilder.CreateBox(`seamX${x}`, { width: 0.025, height: 0.006, depth: 18.3 }, scene);
-    seam.position.set(x, 0.006, 0);
+  for (let x = -18; x <= 18; x += 2) {
+    const seam = B.MeshBuilder.CreateBox(`seamX${x}`, { width: 0.025, height: 0.006, depth: floorDepth - 0.7 }, scene);
+    seam.position.set(x, 0.006, (ROOM.halfDepth + ROOM.shellFront) / 2);
     seam.material = seamMat;
   }
-  for (let z = -8; z <= 8; z += 2) {
-    const seam = B.MeshBuilder.CreateBox(`seamZ${z}`, { width: 26.3, height: 0.006, depth: 0.025 }, scene);
+  for (let z = -16; z <= 8; z += 2) {
+    const seam = B.MeshBuilder.CreateBox(`seamZ${z}`, { width: ROOM.shellHalfWidth * 2 - 0.7, height: 0.006, depth: 0.025 }, scene);
     seam.position.set(0, 0.006, z);
     seam.material = seamMat;
   }
@@ -97,22 +111,34 @@ function buildSideWall(scene, x, wallMat, frameMat, glassMat, shadowGenerator, d
 function buildWindow(scene, x, z, bottom, top, width, frameMat, glassMat) {
   const side = Math.sign(x);
   const height = top - bottom;
-  const glass = B.MeshBuilder.CreatePlane("windowGlass", { width, height }, scene);
-  glass.position.set(x - side * 0.19, (bottom + top) / 2, z);
-  glass.rotation.y = Math.PI / 2;
+  const innerX = x - side * 0.19;
+  const glass = B.MeshBuilder.CreateBox("windowGlass", { width: 0.025, height: height - 0.16, depth: width - 0.16 }, scene);
+  glass.position.set(innerX + side * 0.025, (bottom + top) / 2, z);
   glass.material = glassMat;
 
+  // Vier tiefe Laibungen bilden einen echten, in der Wand sitzenden Rahmen.
   [bottom, top].forEach((y) => {
-    const bar = B.MeshBuilder.CreateBox("windowFrameBar", { width: 0.06, height: 0.1, depth: width + 0.16 }, scene);
-    bar.position.set(x - side * 0.19, y, z);
-    bar.rotation.y = Math.PI / 2;
+    const bar = B.MeshBuilder.CreateBox("windowFrameHorizontal", { width: 0.42, height: 0.12, depth: width + 0.16 }, scene);
+    bar.position.set(x - side * 0.02, y, z);
     bar.material = frameMat;
   });
-  for (let i = 0; i <= 2; i++) {
-    const mullion = B.MeshBuilder.CreateBox("windowMullion", { width: 0.05, height, depth: 0.05 }, scene);
-    mullion.position.set(x - side * 0.19, (bottom + top) / 2, z - width / 2 + (width / 2) * i);
+  for (const edgeZ of [z - width / 2, z + width / 2]) {
+    const jamb = B.MeshBuilder.CreateBox("windowFrameJamb", { width: 0.42, height: height, depth: 0.12 }, scene);
+    jamb.position.set(x - side * 0.02, (bottom + top) / 2, edgeZ);
+    jamb.material = frameMat;
+  }
+  for (const mullionZ of [z - width / 6, z + width / 6]) {
+    const mullion = B.MeshBuilder.CreateBox("windowMullion", { width: 0.1, height: height - 0.1, depth: 0.075 }, scene);
+    mullion.position.set(innerX, (bottom + top) / 2, mullionZ);
     mullion.material = frameMat;
   }
+  const transom = B.MeshBuilder.CreateBox("windowTransom", { width: 0.1, height: 0.075, depth: width - 0.1 }, scene);
+  transom.position.set(innerX, bottom + height * 0.58, z);
+  transom.material = frameMat;
+
+  const sill = B.MeshBuilder.CreateBox("windowSill", { width: 0.62, height: 0.09, depth: width + 0.24 }, scene);
+  sill.position.set(x - side * 0.16, bottom - 0.055, z);
+  sill.material = frameMat;
 }
 
 function buildEntranceLips(scene, wallMat) {
@@ -126,13 +152,65 @@ function buildEntranceLips(scene, wallMat) {
   right.receiveShadows = true;
 }
 
+function buildOuterShell(scene, wallMat, frameMat, glassMat, lobbySignMat) {
+  const shellDepth = ROOM.halfDepth - ROOM.shellFront;
+  for (const x of [-ROOM.shellHalfWidth, ROOM.shellHalfWidth]) {
+    const wall = B.MeshBuilder.CreateBox("outerSideWall", { width: 0.3, height: ROOM.wallHeight + 0.4, depth: shellDepth }, scene);
+    wall.position.set(x, (ROOM.wallHeight + 0.4) / 2, (ROOM.halfDepth + ROOM.shellFront) / 2);
+    wall.material = wallMat;
+    wall.receiveShadows = true;
+  }
+  for (const x of [-16.75, 16.75]) {
+    const backReturn = B.MeshBuilder.CreateBox("outerBackReturn", { width: 6.5, height: ROOM.wallHeight + 0.4, depth: 0.35 }, scene);
+    backReturn.position.set(x, (ROOM.wallHeight + 0.4) / 2, ROOM.halfDepth - 0.15);
+    backReturn.material = wallMat;
+    backReturn.receiveShadows = true;
+  }
+
+  // Eine zurückgesetzte Lobby fängt jede Kameraperspektive ab. Die Kamera bleibt
+  // frei beweglich, blickt vor dem eigentlichen Trainingsraum aber nicht mehr ins Void.
+  const frontZ = ROOM.shellFront + 0.18;
+  const wallHeight = ROOM.wallHeight + 0.4;
+  const sideWidth = 12.8;
+  for (const x of [-13.6, 13.6]) {
+    const panel = B.MeshBuilder.CreateBox("lobbyFrontWall", { width: sideWidth, height: wallHeight, depth: 0.35 }, scene);
+    panel.position.set(x, wallHeight / 2, frontZ);
+    panel.material = wallMat;
+  }
+  const header = B.MeshBuilder.CreateBox("lobbyEntranceHeader", { width: 14.4, height: 1.05, depth: 0.38 }, scene);
+  header.position.set(0, wallHeight - 0.525, frontZ);
+  header.material = wallMat;
+  const sign = B.MeshBuilder.CreatePlane("lobbyGymSign", { width: 6.8, height: 0.72 }, scene);
+  sign.position.set(0, wallHeight - 0.52, frontZ + 0.205);
+  sign.material = lobbySignMat;
+
+  const entryGlass = B.MeshBuilder.CreateBox("lobbyEntryGlass", { width: 13.8, height: wallHeight - 1.05, depth: 0.06 }, scene);
+  entryGlass.position.set(0, (wallHeight - 1.05) / 2, frontZ + 0.18);
+  entryGlass.material = glassMat;
+  for (const x of [-6.9, -3.45, 0, 3.45, 6.9]) {
+    const post = B.MeshBuilder.CreateBox("lobbyEntryPost", { width: 0.13, height: wallHeight - 0.94, depth: 0.3 }, scene);
+    post.position.set(x, (wallHeight - 1.05) / 2, frontZ);
+    post.material = frameMat;
+  }
+  const rail = B.MeshBuilder.CreateBox("lobbyEntryRail", { width: 13.9, height: 0.12, depth: 0.3 }, scene);
+  rail.position.set(0, 1.15, frontZ);
+  rail.material = frameMat;
+
+  const mat = B.MeshBuilder.CreateBox("entranceRunner", { width: 5.4, height: 0.025, depth: 4.8 }, scene);
+  mat.position.set(0, 0.02, ROOM.shellFront + 2.8);
+  mat.material = createMaterial(scene, "entranceRunnerMat", "#171a1f", 0.98);
+}
+
 function buildCeiling(scene, ceilingMat, trimMat, shadowGenerator, detailed) {
-  const ceiling = B.MeshBuilder.CreateBox("ceiling", { width: 27.6, height: ROOM.ceilingThickness, depth: 19.6 }, scene);
-  ceiling.position.set(0, ROOM.wallHeight + 0.2 + ROOM.ceilingThickness / 2, 0);
+  const ceilingDepth = ROOM.halfDepth - ROOM.shellFront + 0.6;
+  const ceiling = B.MeshBuilder.CreateBox("ceiling", { width: ROOM.shellHalfWidth * 2 + 0.6, height: ROOM.ceilingThickness, depth: ceilingDepth }, scene);
+  // Unterkante exakt auf Wandoberkante: kein Licht-/Void-Schlitz zwischen Wand
+  // und Decke, auch nicht bei flachen Kamerawinkeln.
+  ceiling.position.set(0, ROOM.wallHeight + ROOM.ceilingThickness / 2, (ROOM.halfDepth + ROOM.shellFront) / 2);
   ceiling.material = ceilingMat;
   ceiling.receiveShadows = true;
 
-  const trussY = ROOM.wallHeight + 0.15;
+  const trussY = ROOM.wallHeight - 0.05;
   const trussZs = [-6, -2, 2, 6];
   trussZs.forEach((z) => buildTruss(scene, z, trussY, trimMat, shadowGenerator, detailed));
 

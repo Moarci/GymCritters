@@ -140,7 +140,9 @@ function applyRenderQuality() {
 
 function createScene() {
   scene = new B.Scene(engine);
-  scene.clearColor = new B.Color4(0.055, 0.064, 0.084, 1);
+  // Sicherheitsnetz außerhalb der geschlossenen Halle: selbst an extremen
+  // Kamerawinkeln erscheint ein kühles Tageslicht statt schwarzem Weltraum.
+  scene.clearColor = new B.Color4(0.34, 0.39, 0.42, 1);
   scene.ambientColor = new B.Color3(0.25, 0.27, 0.32);
   scene.imageProcessingConfiguration.contrast = 1.08;
   scene.imageProcessingConfiguration.exposure = 1.05;

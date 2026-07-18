@@ -1,5 +1,19 @@
 # Changelog
 
+## Gym-Umgebung
+
+- geschlossene Gebäudehülle mit durchgehendem Boden und bündiger Betondecke statt schwarzer Außenleere
+- zurückgesetzte Eingangslobby mit Glasfront, Läufer und beleuchtetem „GYM CRITTERS“-Schild
+- korrekt eingelassene Industriefenster mit tiefen Rahmen, Laibungen, Sprossen, Querstreben und Fensterbänken
+- prozedurale Stadtansicht am Morgen hinter den Scheiben statt sternenartigem Nachthimmel
+
+## Dauerhafte lokale Spielstände
+
+- alle Node- und Python-Startwege verwenden fest `http://127.0.0.1:8347`
+- keine Ausweichports mehr, die versehentlich einen leeren Browser-Speicher anzeigen
+- ein zweiter Start erkennt die bereits laufende Gym-Critters-Instanz und öffnet sie erneut
+- verständliche Fehlermeldung, falls ein fremdes Programm den festen Spiel-Port belegt
+
 ## Mobile-Optimierung
 
 - Hochformat vollwertig spielbar: eigenes HUD-Layout, stabiles horizontales Sichtfeld, Orientierungshinweis entfällt

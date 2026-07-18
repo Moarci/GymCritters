@@ -75,6 +75,42 @@ export function createDuskGradientTexture(scene, name, { size = 256 } = {}) {
   return texture;
 }
 
+export function createGymExteriorTexture(scene, name, { width = 1024, height = 512 } = {}) {
+  const texture = new B.DynamicTexture(name, { width, height }, scene, false);
+  const ctx = texture.getContext();
+  const sky = ctx.createLinearGradient(0, 0, 0, height);
+  sky.addColorStop(0, "#6f8797");
+  sky.addColorStop(0.5, "#a9b5ba");
+  sky.addColorStop(0.72, "#d7c7ae");
+  sky.addColorStop(1, "#736f6a");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, width, height);
+
+  // Unscharfe Stadtsilhouette statt Sternenhimmel: Durch die Scheiben wirkt es nun
+  // wie ein Gym in einem echten Gewerbehof am frühen Morgen.
+  const buildings = [
+    [0, 285, 160, 227, "#4f5960"], [125, 245, 220, 267, "#59636a"],
+    [310, 320, 190, 192, "#454e55"], [465, 265, 245, 247, "#5e676b"],
+    [675, 305, 210, 207, "#4a5358"], [850, 225, 190, 287, "#626a6d"],
+  ];
+  for (const [x, y, w, h, color] of buildings) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = "rgba(246, 220, 160, 0.56)";
+    for (let wx = x + 22; wx < x + w - 12; wx += 42) {
+      for (let wy = y + 25; wy < Math.min(height - 18, y + h); wy += 38) {
+        if (((wx + wy) / 10) % 3 > 0.7) ctx.fillRect(wx, wy, 14, 8);
+      }
+    }
+  }
+  ctx.fillStyle = "rgba(224, 231, 229, 0.35)";
+  ctx.fillRect(0, 345, width, 5);
+  texture.update();
+  texture.wrapU = B.Texture.WRAP_ADDRESSMODE;
+  texture.wrapV = B.Texture.CLAMP_ADDRESSMODE;
+  return texture;
+}
+
 export function createMuralTexture(scene, name, { width = 2048, height = 768, phrase = "CLOSING CREW", accent = "#a7f46a" } = {}) {
   const texture = new B.DynamicTexture(name, { width, height }, scene, false);
   const ctx = texture.getContext();
