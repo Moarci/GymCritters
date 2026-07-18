@@ -247,7 +247,10 @@ function buildRaccoon() {
   const legR = jointedLimb("rightLeg", [0.21, 0.6, 0], 0.3, 0.26, 0.13, fur, dark, fur);
   for (const arm of [armL, armR]) {
     const paw = B.MeshBuilder.CreateSphere("paw", { diameter: 0.18, segments: 10 }, scene);
-    paw.parent = arm.tip; paw.position.set(0, -0.02, 0); paw.material = dark;
+    paw.parent = arm.tip;
+    paw.position.set(0, -0.055, -0.015);
+    paw.scaling.set(0.9, 1.35, 0.78);
+    paw.material = dark;
   }
   for (const leg of [legL, legR]) {
     const foot = B.MeshBuilder.CreateSphere("foot", { diameter: 0.21, segments: 10 }, scene);
@@ -755,9 +758,9 @@ function animateCharacter(dt, moving, sprinting) {
     playerParts.rightArm.rotation.x = -armSwing;
     playerParts.leftArm.rotation.z = state.character === "squirrel" ? -0.17 : -0.22;
     playerParts.rightArm.rotation.z = state.character === "squirrel" ? 0.17 : 0.22;
-    // Der Ellbogen pendelt mit: staerker gebeugt, wenn der Arm zurueckschwingt.
-    playerParts.leftElbow.rotation.x = -0.18 - Math.max(0, Math.sin(phase)) * 0.3 * gait.intensity;
-    playerParts.rightElbow.rotation.x = -0.18 - Math.max(0, -Math.sin(phase)) * 0.3 * gait.intensity;
+    // Positive X-Rotation beugt den Unterarm zur Vorderseite (-Z).
+    playerParts.leftElbow.rotation.x = 0.18 + Math.max(0, Math.sin(phase)) * 0.3 * gait.intensity;
+    playerParts.rightElbow.rotation.x = 0.18 + Math.max(0, -Math.sin(phase)) * 0.3 * gait.intensity;
     playerVisual.rotation.x = B.Scalar.Lerp(playerVisual.rotation.x, 0, 0.15);
   }
   playerParts.leftLeg.rotation.x = -legSwing;

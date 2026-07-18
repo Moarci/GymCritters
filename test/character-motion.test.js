@@ -19,7 +19,7 @@ test("carryPose unterscheidet die drei Gewichtsklassen sichtbar", () => {
   const schwer = carryPose("heavy");
   const sperrig = carryPose("bulky");
   const leicht = carryPose("light");
-  assert.ok(schwer.armX > leicht.armX, "schwere Last hängt tiefer als leichte (weniger angewinkelt)");
+  assert.ok(schwer.armX < leicht.armX, "schwere Last hängt tiefer als leichte (weniger angewinkelt)");
   assert.ok(sperrig.armZ > schwer.armZ, "sperrige Last spreizt die Arme weiter");
   assert.ok(sperrig.armZ > leicht.armZ);
 });
@@ -173,9 +173,17 @@ test("raccoonTailSpec ist deterministisch", () => {
 test("carryPose beugt den Ellbogen — am stärksten unter schwerer Last", () => {
   const schwer = carryPose("heavy");
   const leicht = carryPose("light");
-  assert.ok(schwer.elbowX < 0, "der Ellbogen beugt nach innen (negativ)");
+  assert.ok(schwer.elbowX > 0, "der Ellbogen beugt zur Vorderseite der Figur (-Z)");
   assert.ok(Math.abs(schwer.elbowX) > Math.abs(leicht.elbowX), "schwere Last verlangt die stärkste Beugung");
   assert.ok(Math.abs(carryPose("bulky").elbowX) > 0, "auch sperrige Last beugt");
+});
+
+test("carryPose richtet Schulter und Ellbogen zur Vorderseite der Figur", () => {
+  for (const gewicht of ["heavy", "bulky", "light"]) {
+    const pose = carryPose(gewicht);
+    assert.ok(pose.armX > 0, `${gewicht}: Oberarm zeigt nicht nach vorn`);
+    assert.ok(pose.elbowX > 0, `${gewicht}: Unterarm zeigt nicht nach vorn`);
+  }
 });
 
 test("surfacePoint trifft entlang der Achsen exakt den Radius", () => {

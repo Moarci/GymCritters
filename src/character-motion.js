@@ -12,15 +12,18 @@ export function dominantWeight(weights) {
   return dominant;
 }
 
-// Drei klar unterscheidbare Silhouetten. armX ist die Beugung nach vorn
-// (negativer = höher angewinkelt), armZ die Spreizung, torsoLean die Rücklage
-// des ganzen Körpers als Gegengewicht zur schweren Last.
+// Drei klar unterscheidbare Silhouetten. armX ist die Beugung nach vorn.
+// Die Figur schaut lokal nach -Z; bei einem nach -Y hängenden Arm bedeutet
+// deshalb eine positive X-Rotation „nach vorn“. armZ steuert die Spreizung,
+// torsoLean die Rücklage des Körpers als Gegengewicht zur schweren Last.
 // elbowX beugt den Unterarm am Ellbogengelenk — erst dadurch sehen die
 // Haltungen nach Halten aus statt nach steif vorgestreckten Stangen.
 const POSES = {
-  heavy: { armX: -0.25, armZ: 0.12, elbowX: -1.0, torsoLean: -0.12 },
-  bulky: { armX: -0.6, armZ: 0.6, elbowX: -0.45, torsoLean: 0 },
-  light: { armX: -0.85, armZ: 0.3, elbowX: -0.35, torsoLean: 0 },
+  // Die Figuren schauen lokal nach -Z. Da die Arme nach -Y zeigen, dreht eine
+  // positive X-Rotation Schulter und Ellbogen nach vorn; negativ wäre rückwärts.
+  heavy: { armX: 0.25, armZ: 0.12, elbowX: 1.0, torsoLean: -0.12 },
+  bulky: { armX: 0.6, armZ: 0.6, elbowX: 0.45, torsoLean: 0 },
+  light: { armX: 0.85, armZ: 0.3, elbowX: 0.35, torsoLean: 0 },
 };
 
 export function carryPose(weight) {
