@@ -1391,6 +1391,13 @@ function updateSoundButton() {
   ui.soundButton.setAttribute("aria-label", save.soundEnabled ? "Ton ausschalten" : "Ton einschalten");
 }
 
+// Ein gemeinsamer Weg für alle Fälle, in denen die Eingabe abreißen kann. Ohne das
+// bleibt ein gehaltener Joystick nach einem Tab-Wechsel dauerhaft ausgelenkt.
+function releaseAllInput() {
+  state.keys.clear();
+  touchInput.reset();
+}
+
 window.addEventListener("keydown", (event) => {
   const controlled = ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight", "KeyE", "KeyC", "Escape", "KeyP"];
   if (controlled.includes(event.code)) event.preventDefault();
@@ -1402,9 +1409,13 @@ window.addEventListener("keydown", (event) => {
   if (event.code === "KeyE" && !event.repeat && state.playing) state.interactPressed = true;
 });
 window.addEventListener("keyup", (event) => state.keys.delete(event.code));
-window.addEventListener("blur", () => state.keys.clear());
+window.addEventListener("blur", releaseAllInput);
 window.addEventListener("resize", () => { engine.resize(); updateOrientationHint(); });
-document.addEventListener("visibilitychange", () => { if (document.hidden && state.playing && !state.ended) setPaused(true); });
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) return;
+  releaseAllInput();
+  if (state.playing && !state.ended) setPaused(true);
+});
 
 ui.startButton.addEventListener("click", startRound); ui.restartButton.addEventListener("click", startRound); ui.pauseRestartButton.addEventListener("click", startRound);
 ui.resumeButton.addEventListener("click", () => setPaused(false)); ui.pauseButton.addEventListener("click", () => setPaused(true)); ui.pauseMenuButton.addEventListener("click", returnToMenu);
