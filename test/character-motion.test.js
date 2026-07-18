@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  dominantWeight, carryPose, gaitParams, curveLean, idleMotion, LEAN_CAP,
+  dominantWeight, carryPose, gaitParams, curveLean, idleMotion, squirrelTailSpec, LEAN_CAP,
 } from "../src/character-motion.js";
 
 test("dominantWeight wählt die schwerste Klasse aus der Liste", () => {
@@ -101,4 +101,36 @@ test("idleMotion zuckt selten, aber deutlich — kein Dauerzittern", () => {
 
 test("idleMotion ist deterministisch — gleiche Zeit, gleiches Ergebnis", () => {
   assert.deepEqual(idleMotion(7.3), idleMotion(7.3));
+});
+
+test("squirrelTailSpec liefert acht streng verjüngte Segmente", () => {
+  const spec = squirrelTailSpec();
+  assert.equal(spec.length, 8);
+  for (let i = 1; i < spec.length; i++) {
+    assert.ok(spec[i].diameter < spec[i - 1].diameter, `Segment ${i} verjüngt sich nicht`);
+  }
+  const taper = 1 - spec.at(-1).diameter / spec[0].diameter;
+  assert.ok(taper >= 0.4, `Verjüngung nur ${Math.round(taper * 100)} %, gefordert sind 40`);
+});
+
+test("squirrelTailSpec bleibt unter der Kopfoberkante und hinter der Figur kompakt", () => {
+  // tailRoot sitzt auf 0,72; die Kopfoberkante liegt bei ~1,93.
+  for (const segment of squirrelTailSpec()) {
+    const [x, y, z] = segment.position;
+    assert.ok(y <= 1.21, `Segment zu hoch: ${y}`);
+    assert.ok(z <= 0.78, `Segment zu tief: ${z}`);
+    assert.ok(Math.abs(x) <= 0.1, `Segment pendelt zu weit: ${x}`);
+    assert.ok(y >= 0 && z >= 0, "der Bogen läuft nach oben-hinten, nie unter die Wurzel");
+  }
+});
+
+test("squirrelTailSpec rollt sich ein — die Zuwächse werden zum Ende kleiner", () => {
+  const spec = squirrelTailSpec();
+  const ersterSchritt = spec[1].position[1] - spec[0].position[1];
+  const letzterSchritt = spec.at(-1).position[1] - spec.at(-2).position[1];
+  assert.ok(letzterSchritt < ersterSchritt * 0.6, "ohne Einrollen wächst der Schwanz linear aus der Figur");
+});
+
+test("squirrelTailSpec ist deterministisch", () => {
+  assert.deepEqual(squirrelTailSpec(), squirrelTailSpec());
 });

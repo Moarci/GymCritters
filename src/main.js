@@ -18,7 +18,7 @@ import { SQUASH_DURATION, comboImpactScale, deliveryPitch, impactSound, impactSt
 import { createTouchInput } from "./input/index.js";
 import { clampPitch } from "./input/touch-look.js";
 import { createQualityState, stepQuality } from "./perf/adaptive-quality.js";
-import { carryPose, curveLean, dominantWeight, gaitParams, idleMotion } from "./character-motion.js";
+import { carryPose, curveLean, dominantWeight, gaitParams, idleMotion, squirrelTailSpec } from "./character-motion.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -253,12 +253,12 @@ function buildSquirrel() {
   const leftLeg = limb("leftLeg", -0.2, 0.28, dark, 0.12, 0.46, true);
   const rightLeg = limb("rightLeg", 0.2, 0.28, dark, 0.12, 0.46, true);
   const tailRoot = new B.TransformNode("tailRoot", scene); tailRoot.parent = playerVisual; tailRoot.position.set(0, 0.72, 0.34);
-  for (let i = 0; i < 8; i++) {
-    const puff = sphere(`squirrelTail${i}`, 0.62 - i * 0.025, [0, 0, 0], i % 2 ? dark : fur);
+  squirrelTailSpec().forEach((segment, i) => {
+    const puff = sphere(`squirrelTail${i}`, segment.diameter, [0, 0, 0], i % 2 ? dark : fur);
     puff.parent = tailRoot;
-    puff.position.set(Math.sin(i * 0.42) * 0.16, 0.18 + i * 0.23, i * 0.25);
+    puff.position.set(...segment.position);
     puff.scaling.set(0.8, 1.1, 0.72);
-  }
+  });
   return { body, head, eyes, leftArm, rightArm, leftLeg, rightLeg, tailRoot };
 }
 

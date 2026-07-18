@@ -55,6 +55,26 @@ export function curveLean(angularVelocity) {
   return LEAN_CAP * Math.tanh(angularVelocity * 0.35);
 }
 
+// Fibis Schwanz als Bogen statt als Rohr: Die Sinus-Kurven lassen die Zuwächse
+// zum Ende hin schrumpfen — der Schwanz rollt sich ein, statt linear aus der
+// Figur zu wachsen. Der Scheitel (rel. ~1,2 über der Wurzel auf 0,72) bleibt
+// knapp unter der Kopfoberkante (~1,93). Die starke Verjüngung (0,46 -> 0,25)
+// macht aus der Wurst eine Feder.
+export function squirrelTailSpec() {
+  const segments = [];
+  for (let i = 0; i < 8; i++) {
+    segments.push({
+      diameter: 0.46 - i * 0.03,
+      position: [
+        0.1 * Math.sin(i * 0.42),
+        1.2 * Math.sin(i * 0.26),
+        0.72 * Math.sin(i * 0.24),
+      ],
+    });
+  }
+  return segments;
+}
+
 // Leerlauf: Atmen plus gelegentliches Schwanzzucken. Bewusst deterministisch
 // aus der Zeit berechnet — kein Math.random() im Render-Loop, damit das
 // Verhalten reproduzierbar und testbar bleibt. Die achte Potenz macht aus der
