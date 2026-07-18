@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { LEVELS } from "../src/config.js";
 import {
   CLASS_FLOOR_MAT_LAYOUT,
+  GYM_POSTER_SPEC,
+  INTERIOR_SIGN_ROTATION_Y,
   LEVEL_DECOR_SPECS,
   classFloorMatPlacement,
   getLevelObstacleDescriptors,
@@ -20,6 +22,13 @@ test("jedes spielbare Level besitzt ein eigenes, nicht leeres Dekorkonzept", () 
     assert.ok(spec.floor.width > 0 && spec.floor.depth > 0);
     assert.ok(spec.obstacles.length > 0, `${id} benötigt mindestens ein sichtbares Hindernis`);
   }
+});
+
+test("Gym-Plakat und Level-Schilder zeigen lesbar in den Innenraum", () => {
+  assert.equal(INTERIOR_SIGN_ROTATION_Y, 0);
+  assert.match(GYM_POSTER_SPEC.kicker, /GYM CRITTERS/);
+  assert.ok(GYM_POSTER_SPEC.phrase.length >= 12);
+  assert.match(GYM_POSTER_SPEC.subline, /MOVE.+SORT.+SUPPORT/);
 });
 
 test("Levelhindernisse tragen eindeutige IDs und gültige Kollisionsmaße", () => {

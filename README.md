@@ -30,7 +30,7 @@ V5 macht aus der einfachen Aufräumrunde eine kleine Gym-Schicht: Gegenstände e
 | Bereich | Inhalt |
 |---|---|
 | **Living Shifts** | Drei Schichtphasen, gestaffelte Gegenstandswellen und wechselnde Bonusereignisse statt einer statischen Item-Verteilung. |
-| **Drei Level-Identitäten** | Feierabend, Nach dem Kurs und Leg Day Chaos besitzen eigene Bodenflächen, Beschilderung, Deko, Kollisionshindernisse, Item-Schwerpunkte und Ereignisse. |
+| **Drei Level-Identitäten** | Feierabend, Nach dem Kurs und Leg Day Chaos besitzen eigene Bodenflächen, ungespiegelte Crew-Beschilderung, Deko, Kollisionshindernisse, Item-Schwerpunkte und Ereignisse. |
 | **Zwei Critter** | Rocco ist stark mit schweren Lasten; Fibi ist schneller und trägt zwei leichte Gegenstände gleichzeitig. |
 | **Präzises Greifen** | Zwei-Knochen-IK richtet Schulter, Ellbogen und Pfoten an den Gegenständen aus; Tragehaltung und Gang reagieren auf die Gewichtsklasse. |
 | **Verlässliche Interaktion** | Reichweite, Blickrichtung und freie Sicht bestimmen das Ziel. Sichtbare Hindernisse blockieren Bewegung und Aufnahme konsistent; Matten und Hanteln landen in maßgenau abgestimmten, kollisionsfreien Ablage-Slots. |
@@ -94,7 +94,7 @@ Die Gegenstandsmenge in dieser Tabelle ist die jeweilige Modusbasis. Im Crew-Ter
 | Trainingsmatte | 100 | Mattenzone | sperrig |
 | Medizinball | 105 | Ballnetz | sperrig |
 | Trinkflasche | 75 | Pfandzone | leicht |
-| Springseil | 65 | Seilhaken | leicht |
+| Springseil | 65 | Seilhaken | leicht – große U-Schlaufe mit zwei Griffen |
 | Handtuch | 50 | Wäsche | leicht |
 
 ## Karriere und Belohnungen

@@ -111,20 +111,147 @@ export function createGymExteriorTexture(scene, name, { width = 1024, height = 5
   return texture;
 }
 
-export function createMuralTexture(scene, name, { width = 2048, height = 768, phrase = "CLOSING CREW", accent = "#a7f46a" } = {}) {
+function fittedFontSize(ctx, text, maxWidth, preferredSize, minimumSize) {
+  let size = preferredSize;
+  while (size > minimumSize) {
+    ctx.font = `900 ${Math.round(size)}px Arial, sans-serif`;
+    if (ctx.measureText(text).width <= maxWidth) break;
+    size -= Math.max(2, preferredSize * 0.025);
+  }
+  return Math.max(minimumSize, size);
+}
+
+export function createMuralTexture(scene, name, {
+  width = 2048,
+  height = 768,
+  phrase = "CLOSING CREW",
+  accent = "#a7f46a",
+  kicker = "GYM CRITTERS // SHIFT STANDARD",
+  subline = "MOVE • SORT • SHINE",
+} = {}) {
   const texture = new B.DynamicTexture(name, { width, height }, scene, false);
   const ctx = texture.getContext();
-  ctx.fillStyle = "#232823";
+
+  const background = ctx.createLinearGradient(0, 0, width, height);
+  background.addColorStop(0, "#11161d");
+  background.addColorStop(0.58, "#1b222b");
+  background.addColorStop(1, "#0c1117");
+  ctx.fillStyle = background;
   ctx.fillRect(0, 0, width, height);
-  const splatterColors = [accent, "#ffad5c", "#63b4ef"];
-  for (let i = 0; i < 26; i++) {
-    ctx.fillStyle = splatterColors[i % splatterColors.length];
-    ctx.globalAlpha = 0.16 + Math.random() * 0.18;
-    const x = Math.random() * width, y = Math.random() * height, r = 30 + Math.random() * 110;
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+
+  ctx.strokeStyle = "rgba(255,255,255,0.055)";
+  ctx.lineWidth = Math.max(1, height * 0.004);
+  const grid = height * 0.18;
+  for (let x = -height; x < width + height; x += grid) {
+    ctx.beginPath();
+    ctx.moveTo(x, height);
+    ctx.lineTo(x + height * 0.7, 0);
+    ctx.stroke();
   }
-  ctx.globalAlpha = 1;
+
+  const railWidth = width * 0.026;
+  ctx.fillStyle = accent;
+  ctx.fillRect(0, 0, railWidth, height);
+  ctx.fillStyle = "rgba(255,255,255,0.16)";
+  ctx.fillRect(railWidth, 0, Math.max(2, width * 0.004), height);
+
+  const badgeX = width * 0.105;
+  const badgeY = height * 0.51;
+  const badgeRadius = height * 0.2;
+  ctx.fillStyle = "#0b0f14";
+  ctx.beginPath();
+  ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = Math.max(4, height * 0.018);
+  ctx.stroke();
+  ctx.fillStyle = accent;
+  ctx.font = `900 ${Math.round(height * 0.22)}px Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("GC", badgeX, badgeY + height * 0.012);
+
+  const textX = width * 0.205;
+  const maxTextWidth = width * 0.74;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = accent;
+  ctx.font = `700 ${Math.round(height * 0.072)}px Arial, sans-serif`;
+  ctx.fillText(kicker.toUpperCase(), textX, height * 0.25);
+
+  const headlineSize = fittedFontSize(ctx, phrase, maxTextWidth, height * 0.265, height * 0.135);
+  ctx.font = `900 ${Math.round(headlineSize)}px Arial, sans-serif`;
+  ctx.fillStyle = "#f5f7f8";
+  ctx.fillText(phrase.toUpperCase(), textX, height * 0.59);
+
+  const underlineWidth = Math.min(maxTextWidth, ctx.measureText(phrase.toUpperCase()).width);
+  ctx.fillStyle = accent;
+  ctx.fillRect(textX, height * 0.655, underlineWidth, Math.max(5, height * 0.018));
+  ctx.fillStyle = "#aeb7c2";
+  ctx.font = `700 ${Math.round(height * 0.066)}px Arial, sans-serif`;
+  ctx.fillText(subline.toUpperCase(), textX, height * 0.82);
+
+  ctx.fillStyle = "rgba(255,255,255,0.48)";
+  ctx.font = `600 ${Math.round(height * 0.043)}px Arial, sans-serif`;
+  ctx.textAlign = "right";
+  ctx.fillText("EST. 2026  //  CREW 01", width * 0.96, height * 0.925);
+
   texture.update();
-  texture.drawText(phrase, null, height * 0.62, `bold ${Math.round(height * 0.28)}px Arial`, "#f7f6f1", "transparent", true);
+  return texture;
+}
+
+export function createShiftBannerTexture(scene, name, {
+  width = 2048,
+  height = 192,
+  phrase = "CREW SHIFT",
+  accent = "#a7f46a",
+} = {}) {
+  const texture = new B.DynamicTexture(name, { width, height }, scene, false);
+  const ctx = texture.getContext();
+  const background = ctx.createLinearGradient(0, 0, width, 0);
+  background.addColorStop(0, "#0b1016");
+  background.addColorStop(0.5, "#18212a");
+  background.addColorStop(1, "#0b1016");
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = accent;
+  ctx.fillRect(0, 0, width, Math.max(5, height * 0.055));
+  ctx.fillRect(0, height - Math.max(5, height * 0.055), width, Math.max(5, height * 0.055));
+
+  const badgeX = width * 0.055;
+  const badgeY = height / 2;
+  const badgeRadius = height * 0.28;
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#0b1016";
+  ctx.font = `900 ${Math.round(height * 0.3)}px Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("GC", badgeX, badgeY + height * 0.015);
+
+  const textX = width * 0.105;
+  ctx.textAlign = "left";
+  ctx.fillStyle = accent;
+  ctx.font = `700 ${Math.round(height * 0.115)}px Arial, sans-serif`;
+  ctx.fillText("LIVE SHIFT // CREW TERMINAL", textX, height * 0.32);
+
+  const headlineSize = fittedFontSize(ctx, phrase, width * 0.76, height * 0.33, height * 0.2);
+  ctx.font = `900 ${Math.round(headlineSize)}px Arial, sans-serif`;
+  ctx.fillStyle = "#f5f7f8";
+  ctx.fillText(phrase.toUpperCase(), textX, height * 0.73);
+
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(width * 0.955, badgeY, height * 0.075, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#aeb7c2";
+  ctx.font = `700 ${Math.round(height * 0.1)}px Arial, sans-serif`;
+  ctx.textAlign = "right";
+  ctx.fillText("ACTIVE", width * 0.93, height * 0.57);
+
+  texture.update();
   return texture;
 }

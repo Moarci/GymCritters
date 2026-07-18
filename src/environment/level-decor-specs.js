@@ -1,5 +1,14 @@
 const LEVEL_IDS = ["closing", "class", "legday"];
 
+export const INTERIOR_SIGN_ROTATION_Y = 0;
+
+export const GYM_POSTER_SPEC = Object.freeze({
+  kicker: "GYM CRITTERS // CREW CODE",
+  phrase: "MAKE THE GYM SHINE",
+  subline: "MOVE • SORT • SUPPORT",
+  accent: "#a7f46a",
+});
+
 export const CLASS_FLOOR_MAT_LAYOUT = Object.freeze({
   width: 1.35,
   depth: 2.35,

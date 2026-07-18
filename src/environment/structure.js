@@ -1,6 +1,7 @@
 import { B } from "../babylon.js";
 import { createMaterial, createTexturedMaterial } from "../materials.js";
 import { createConcreteTexture, createRustMetalTexture, createGymExteriorTexture, createMuralTexture } from "./textures.js";
+import { GYM_POSTER_SPEC, INTERIOR_SIGN_ROTATION_Y } from "./level-decor-specs.js";
 
 const ROOM = {
   halfWidth: 13.5,
@@ -24,17 +25,18 @@ export function buildStructure(scene, shadowGenerator, { quality = "high" } = {}
   const glassMat = createTexturedMaterial(scene, "gymWindowGlass", exteriorTex, { roughness: 0.16, metallic: 0.06 });
   glassMat.emissiveTexture = exteriorTex;
   glassMat.emissiveColor = new B.Color3(0.34, 0.37, 0.39);
-  const muralTex = createMuralTexture(scene, "backWallMural", { phrase: "CRITTER CREW", accent: "#a7f46a" });
+  const muralTex = createMuralTexture(scene, "backWallMural", GYM_POSTER_SPEC);
   const muralMat = createTexturedMaterial(scene, "mural", muralTex, { roughness: 0.75 });
   muralMat.emissiveTexture = muralTex;
   muralMat.emissiveColor = new B.Color3(0.18, 0.18, 0.18);
+  muralMat.backFaceCulling = true;
   const lobbySignTex = createMuralTexture(scene, "lobbySign", { width: 1536, height: 384, phrase: "GYM CRITTERS", accent: "#63b4ef" });
   const lobbySignMat = createTexturedMaterial(scene, "lobbySignMat", lobbySignTex, { roughness: 0.58 });
   lobbySignMat.emissiveTexture = lobbySignTex;
   lobbySignMat.emissiveColor = new B.Color3(0.38, 0.42, 0.34);
 
   buildFloor(scene, floorMat, seamMat);
-  buildBackWall(scene, backWallMat, muralMat);
+  buildBackWall(scene, backWallMat, muralMat, frameMat, shadowGenerator, detailed);
   buildSideWall(scene, -ROOM.halfWidth, wallMat, frameMat, glassMat, shadowGenerator, detailed);
   buildSideWall(scene, ROOM.halfWidth, wallMat, frameMat, glassMat, shadowGenerator, detailed);
   buildEntranceLips(scene, wallMat);
@@ -60,15 +62,52 @@ function buildFloor(scene, floorMat, seamMat) {
   }
 }
 
-function buildBackWall(scene, wallMat, muralMat) {
+function buildBackWall(scene, wallMat, muralMat, frameMat, shadowGenerator, detailed) {
   const wall = B.MeshBuilder.CreateBox("backWall", { width: 27, height: ROOM.wallHeight, depth: 0.35 }, scene);
   wall.position.set(0, ROOM.wallHeight / 2, 9.35);
   wall.material = wallMat;
   wall.receiveShadows = true;
-  const mural = B.MeshBuilder.CreatePlane("backWallMural", { width: 14, height: 3.6 }, scene);
-  mural.position.set(0, 2.6, 9.16);
-  mural.rotation.y = Math.PI;
+
+  const posterBacking = B.MeshBuilder.CreateBox("backWallPosterFrame", {
+    width: 14.55,
+    height: 3.78,
+    depth: 0.12,
+  }, scene);
+  posterBacking.position.set(0, 2.58, 9.095);
+  posterBacking.material = frameMat;
+  if (detailed) shadowGenerator.addShadowCaster(posterBacking);
+
+  const mural = B.MeshBuilder.CreatePlane("backWallMural", { width: 14, height: 3.3 }, scene);
+  mural.position.set(0, 2.58, 9.025);
+  mural.rotation.y = INTERIOR_SIGN_ROTATION_Y;
   mural.material = muralMat;
+  mural.isPickable = false;
+
+  const accentMat = createMaterial(scene, "posterFrameAccent", GYM_POSTER_SPEC.accent, 0.62, 0.2);
+  for (const x of [-7.12, 7.12]) {
+    const rail = B.MeshBuilder.CreateBox("posterAccentRail", {
+      width: 0.075,
+      height: 3.3,
+      depth: 0.035,
+    }, scene);
+    rail.position.set(x, 2.58, 9.012);
+    rail.material = accentMat;
+  }
+
+  if (detailed) {
+    for (const x of [-6.86, 6.86]) {
+      for (const y of [1.08, 4.08]) {
+        const bolt = B.MeshBuilder.CreateCylinder("posterFrameBolt", {
+          diameter: 0.09,
+          height: 0.035,
+          tessellation: 12,
+        }, scene);
+        bolt.position.set(x, y, 8.995);
+        bolt.rotation.x = Math.PI / 2;
+        bolt.material = accentMat;
+      }
+    }
+  }
 }
 
 function buildSideWall(scene, x, wallMat, frameMat, glassMat, shadowGenerator, detailed) {

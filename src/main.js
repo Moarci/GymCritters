@@ -42,7 +42,7 @@ import {
   optionFor,
 } from "./shift-settings.js";
 import { selectTripHazard, tripRule } from "./trip-physics.js";
-import { itemDisplaySlot, MEDBALL_DIAMETER } from "./item-placement.js";
+import { itemDisplaySlot, MEDBALL_DIAMETER, ROPE_ITEM_LAYOUT } from "./item-placement.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -190,7 +190,7 @@ const CARRY_PROFILES = {
   bottle: { scale: 0.72, rootY: -0.37, gripX: 0.17, gripY: 0.85, rotationZ: 0 },
   mat: { scale: 0.68, rootY: -0.17, gripX: 0.27, gripY: 0.84, rotationZ: 0.2 },
   kettlebell: { scale: 0.74, rootY: -0.34, gripX: 0.14, gripY: 0.84, rotationZ: 0 },
-  rope: { scale: 0.76, rootY: -0.06, gripX: 0.17, gripY: 0.84, rotationZ: 0 },
+  rope: { scale: 0.66, rootY: -0.08, gripX: 0.17, gripY: 0.84, rotationZ: -0.12 },
   medball: { scale: 0.76, rootY: -0.17, gripX: 0.22, gripY: 0.84, rotationZ: 0 },
 };
 
@@ -734,9 +734,49 @@ function createKettlebellItem(root, index) {
 function createRopeItem(root, index) {
   const colors = ["#e9a767", "#70c7c2", "#d36b61"];
   const ropeMat = material(`ropeItemMat${index}`, colors[index % colors.length], 0.85);
-  const coil = B.MeshBuilder.CreateTorus("ropeCoilItem", { diameter: 0.4, thickness: 0.07, tessellation: 20 }, scene);
-  coil.parent = root; coil.position.y = 0.1; coil.rotation.x = Math.PI / 2; coil.rotation.y = 0.3 * index; coil.material = ropeMat;
-  return [coil];
+  ropeMat.emissiveColor = B.Color3.FromHexString(colors[index % colors.length]).scale(0.08);
+  const gripMat = material(`ropeGripMat${index}`, "#252a33", 0.72, 0.12);
+  const collarMat = material(`ropeCollarMat${index}`, "#d7dbe1", 0.34, 0.62);
+  const path = ROPE_ITEM_LAYOUT.path.map(([x, y, z]) => new B.Vector3(x, y, z));
+  const cable = B.MeshBuilder.CreateTube("jumpRopeCable", {
+    path,
+    radius: ROPE_ITEM_LAYOUT.cableRadius,
+    tessellation: 12,
+    cap: B.Mesh.CAP_ALL,
+  }, scene);
+  cable.parent = root;
+  cable.material = ropeMat;
+  const meshes = [cable];
+
+  for (const x of [-ROPE_ITEM_LAYOUT.handleX, ROPE_ITEM_LAYOUT.handleX]) {
+    const handle = B.MeshBuilder.CreateCylinder("jumpRopeHandle", {
+      diameter: ROPE_ITEM_LAYOUT.handleDiameter,
+      height: ROPE_ITEM_LAYOUT.handleLength,
+      tessellation: 14,
+    }, scene);
+    handle.parent = root;
+    handle.position.set(x, ROPE_ITEM_LAYOUT.handleY, ROPE_ITEM_LAYOUT.handleCenterZ);
+    handle.rotation.x = Math.PI / 2;
+    handle.material = gripMat;
+    meshes.push(handle);
+
+    for (const z of [
+      ROPE_ITEM_LAYOUT.handleCenterZ - ROPE_ITEM_LAYOUT.handleLength / 2 + 0.035,
+      ROPE_ITEM_LAYOUT.handleCenterZ + ROPE_ITEM_LAYOUT.handleLength / 2 - 0.035,
+    ]) {
+      const gripRing = B.MeshBuilder.CreateTorus("jumpRopeGripRing", {
+        diameter: ROPE_ITEM_LAYOUT.handleDiameter * 1.04,
+        thickness: 0.016,
+        tessellation: 12,
+      }, scene);
+      gripRing.parent = root;
+      gripRing.position.set(x, ROPE_ITEM_LAYOUT.handleY, z);
+      gripRing.rotation.x = Math.PI / 2;
+      gripRing.material = collarMat;
+      meshes.push(gripRing);
+    }
+  }
+  return meshes;
 }
 
 function createMedballItem(root, index) {

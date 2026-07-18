@@ -2,6 +2,26 @@ export const MEDBALL_DIAMETER = 0.82;
 
 const MAX_DISPLAY_ITEMS = 16;
 
+export const ROPE_ITEM_LAYOUT = Object.freeze({
+  cableRadius: 0.028,
+  handleX: 0.44,
+  handleY: 0.09,
+  handleCenterZ: -0.38,
+  handleLength: 0.38,
+  handleDiameter: 0.13,
+  path: Object.freeze([
+    Object.freeze([-0.44, 0.09, -0.19]),
+    Object.freeze([-0.54, 0.07, 0.08]),
+    Object.freeze([-0.47, 0.055, 0.42]),
+    Object.freeze([-0.2, 0.05, 0.6]),
+    Object.freeze([0, 0.048, 0.64]),
+    Object.freeze([0.2, 0.05, 0.6]),
+    Object.freeze([0.47, 0.055, 0.42]),
+    Object.freeze([0.54, 0.07, 0.08]),
+    Object.freeze([0.44, 0.09, -0.19]),
+  ]),
+});
+
 export const DUMBBELL_RACK_LAYOUT = Object.freeze({
   width: 2.52,
   depth: 0.86,
@@ -110,7 +130,17 @@ export function itemDisplaySlot(zoneId, index) {
   if (zoneId === "ropes") {
     const hook = slot % 3;
     const layer = Math.floor(slot / 3);
-    return placement(-0.2 - layer * 0.045, 1.19 - layer * 0.012, (hook - 1) * 0.42, 0.58, 0, -Math.PI / 2);
+    const scale = 0.54;
+    const handleAtHookY = 1.35;
+    const rootY = handleAtHookY + ROPE_ITEM_LAYOUT.handleCenterZ * scale;
+    return placement(
+      -0.25 - layer * 0.04,
+      rootY - layer * 0.008,
+      (hook - 1) * 0.6,
+      scale,
+      Math.PI / 2,
+      -Math.PI / 2,
+    );
   }
 
   if (zoneId === "medballs") {
