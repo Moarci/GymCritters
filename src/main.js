@@ -289,6 +289,9 @@ function createCamera() {
   camera.lowerRadiusLimit = 4.7; camera.upperRadiusLimit = 6.1; camera.lowerBetaLimit = 1.1; camera.upperBetaLimit = 1.32;
   camera.wheelDeltaPercentage = 0.01; camera.panningSensibility = 0; camera.pinchPrecision = 65;
   camera.inertia = 0.78;
+  // Im Hochformat würde ein fixes vertikales FOV das Sichtfeld seitlich zusammenziehen,
+  // bis die Halle nicht mehr überblickbar ist. Fix ist die Breite, nicht die Höhe.
+  camera.fovMode = B.Camera.FOVMODE_HORIZONTAL_FIXED;
   // Babylon binds the arrow keys to camera rotation by default; those keys are ours
   // for movement, so holding one would spin alpha and drag the player facing with it.
   camera.inputs.removeByType("ArcRotateCameraKeyboardMoveInput");
