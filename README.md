@@ -12,7 +12,7 @@
 [![Dependencies](https://img.shields.io/badge/npm_Dependencies-0-success?style=flat-square)]()
 [![Play](https://img.shields.io/badge/▶_Play-Live_Demo-2ea44f?style=flat-square)](https://moarci.github.io/GymCritters/)
 [![GitHub Pages](https://img.shields.io/badge/Deployed_on-GitHub_Pages-222222?style=flat-square&logo=github&logoColor=white)](https://moarci.github.io/GymCritters/)
-[![License](https://img.shields.io/badge/License-unspecified-lightgrey?style=flat-square)](#-lizenz)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 Kamera-relative 3D-Steuerung — Synthetisches Audio via Web Audio API — localStorage-Spielstand — Zero Server-Side State
 
@@ -348,7 +348,7 @@ node start_server.js                                               # Lokal im Br
 
 ## 📄 Lizenz
 
-Für dieses Repository ist aktuell keine `LICENSE`-Datei hinterlegt — der Code ist damit standardmäßig **alle Rechte vorbehalten** (Standardverhalten für unlizenzierte öffentliche GitHub-Repos: sichtbar, aber nicht zur Wiederverwendung freigegeben). Bei Bedarf einer offenen Lizenz (z. B. MIT) gerne Bescheid geben.
+[MIT](LICENSE) — frei nutzbar, verändern und weitergeben erlaubt, ohne Gewährleistung.
 
 ---
 
