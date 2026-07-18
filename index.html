@@ -51,6 +51,14 @@
     <span id="contractProgress">0 / 0</span>
     <div class="contract-progress" aria-hidden="true"><div id="contractProgressBar"></div></div>
   </aside>
+  <aside id="shiftStatus" class="shift-status hidden" aria-label="Aktuelle Schichtphase">
+    <div class="shift-status-top">
+      <span id="shiftPhase">Auftakt · Welle 1/3</span>
+      <span id="shiftWaveDots" class="shift-wave-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <strong id="shiftEventTitle">Eingangsbereich schließen</strong>
+    <small id="shiftEventBonus">🧺 🥤 +20 % Bonus</small>
+  </aside>
   <div id="progressTrack" class="progress-track hidden" aria-hidden="true"><div id="progressBar"></div></div>
   <div id="navigator" class="navigator hidden">
     <span id="navArrow" class="nav-arrow" aria-hidden="true">▲</span>
@@ -234,6 +242,12 @@
         <div><span>Level-Bestwert</span><strong id="highScore">0</strong></div>
         <div><span>Bestzeit</span><strong id="bestTime">–</strong></div>
       </div>
+      <section id="roundCoach" class="round-coach" aria-labelledby="roundCoachTitle">
+        <span class="label">Crew-Coaching</span>
+        <strong id="roundCoachTitle">Nächster Fokus</strong>
+        <p id="roundCoachText"></p>
+        <div id="roundCoachMetrics" class="round-coach-metrics"></div>
+      </section>
       <div id="newAchievements" class="new-achievements hidden"></div>
       <div id="nextGoal" class="next-goal hidden"></div>
       <section id="resultContracts" class="result-contracts hidden" aria-label="Erfüllte Schichtaufträge"></section>

@@ -24,7 +24,7 @@ import { AudioSystem } from "./audio.js";
 import { B } from "./babylon.js";
 import { createMaterial } from "./materials.js";
 import { buildEnvironment, setActiveLevelDecor } from "./environment/index.js";
-import { cameraAlphaBehind, cameraYaw, comboMultiplier, formatTime, forwardFromYaw, horizontalDistance, lerpAngle, normalizeAngle, shuffle, yawTowards } from "./utils.js";
+import { cameraAlphaBehind, cameraYaw, comboMultiplier, formatTime, forwardFromYaw, horizontalDistance, lerpAngle, normalizeAngle, yawTowards } from "./utils.js";
 import { hasClearLineOfSight, scoreTarget } from "./targeting.js";
 import { SQUASH_DURATION, comboImpactScale, deliveryPitch, impactSound, impactStrength, squashAt } from "./impact.js";
 import { createTouchInput } from "./input/index.js";
@@ -33,7 +33,15 @@ import { createQualityState, stepQuality } from "./perf/adaptive-quality.js";
 import { deviceScalingFloor, fixedQualityScaling } from "./perf/render-scale.js";
 import { fovModeForViewport } from "./camera-fov.js";
 import { carryPose, curveLean, dominantWeight, facingRotation, gaitParams, idleMotion, raccoonTailSpec, solveTwoBoneIK, squirrelTailSpec, surfacePoint } from "./character-motion.js";
-import { shiftEvent, shiftEventMultiplier, unlockedWave, waveForItem } from "./shift-director.js";
+import {
+  shiftEvent,
+  shiftEventBonusPercent,
+  shiftEventMultiplier,
+  shiftPhase,
+  shiftPhaseLabel,
+  unlockedWave,
+  waveForItem,
+} from "./shift-director.js";
 import {
   SHIFT_SETTING_OPTIONS,
   itemCountForMode,
@@ -43,6 +51,8 @@ import {
 } from "./shift-settings.js";
 import { selectTripHazard, tripRule } from "./trip-physics.js";
 import { itemDisplaySlot, MEDBALL_DIAMETER, ROPE_ITEM_LAYOUT } from "./item-placement.js";
+import { buildRoundTypes, planSpawnPositions } from "./round-planner.js";
+import { roundCoaching } from "./round-coach.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -55,6 +65,8 @@ const ui = {
   scorePopLayer: $("scorePopLayer"), score: $("score"), progress: $("progress"), combo: $("combo"),
   timer: $("timer"), coins: $("coins"), carrying: $("carrying"), carryCard: $("carryCard"),
   contractHud: $("contractHud"), contractTitle: $("contractTitle"), contractProgress: $("contractProgress"), contractProgressBar: $("contractProgressBar"),
+  shiftStatus: $("shiftStatus"), shiftPhase: $("shiftPhase"), shiftWaveDots: $("shiftWaveDots"),
+  shiftEventTitle: $("shiftEventTitle"), shiftEventBonus: $("shiftEventBonus"),
   cameraButton: $("cameraButton"), cameraRecenterButton: $("cameraRecenterButton"), fullscreenHudButton: $("fullscreenHudButton"), soundButton: $("soundButton"),
   pauseButton: $("pauseButton"), mobileControls: $("mobileControls"), joystick: $("joystick"),
   joystickKnob: $("joystickKnob"), sprintButton: $("sprintButton"), interactButton: $("interactButton"),
@@ -78,6 +90,8 @@ const ui = {
   resultRank: $("resultRank"), resultRankDetail: $("resultRankDetail"), resultRankBox: document.querySelector(".result-rank"),
   resultTitle: $("resultTitle"), resultText: $("resultText"), finalScore: $("finalScore"),
   earnedCoins: $("earnedCoins"), highScore: $("highScore"), bestTime: $("bestTime"),
+  roundCoach: $("roundCoach"), roundCoachTitle: $("roundCoachTitle"), roundCoachText: $("roundCoachText"),
+  roundCoachMetrics: $("roundCoachMetrics"),
   newAchievements: $("newAchievements"), nextGoal: $("nextGoal"), restartButton: $("restartButton"), resultShopButton: $("resultShopButton"),
   resultContracts: $("resultContracts"), masteryResult: $("masteryResult"), masteryLevel: $("masteryLevel"),
   masteryProgressText: $("masteryProgressText"), masteryProgressBar: $("masteryProgressBar"),
@@ -598,16 +612,12 @@ function buildSpecs(levelId, modeId) {
   if (state.tutorial) return [{ type: "towel", tutorial: true }];
   const level = LEVELS[levelId];
   const mode = MODES[modeId];
-  const weighted = [];
-  for (const [type, weight] of Object.entries(level.itemWeights)) {
-    for (let i = 0; i < weight; i++) weighted.push(type);
-  }
-  const selected = [];
   const desired = itemCountForMode(mode, currentLevelSettings().itemAmount);
-  const mandatory = ["towel", "bottle", "dumbbell", "mat"];
-  mandatory.forEach((type) => selected.push(type));
-  while (selected.length < desired) selected.push(weighted[Math.floor(Math.random() * weighted.length)]);
-  return shuffle(selected).map((type) => ({ type }));
+  return buildRoundTypes({
+    levelId,
+    desired,
+    itemWeights: level.itemWeights,
+  }).map((type) => ({ type }));
 }
 
 function spawnItems() {
@@ -620,11 +630,23 @@ function spawnItems() {
   zones.forEach((zone) => { zone.deliveredCount = 0; });
 
   const specs = buildSpecs(state.level, state.mode);
-  const spawnPool = state.tutorial ? [[-2.5, -1.2]] : shuffle(LEVELS[state.level].spawnPool);
+  const spawnPool = state.tutorial
+    ? [[-2.5, -1.2]]
+    : planSpawnPositions({
+      pool: LEVELS[state.level].spawnPool,
+      count: specs.length,
+      start: LEVELS[state.level].start,
+      obstacles,
+      avoidAreas: zones.map((zone) => ({
+        position: [zone.position.x, zone.position.z],
+        radius: zone.radius,
+      })),
+      levelId: state.level,
+    });
   specs.forEach((spec, index) => {
     const type = spec.type;
     const definition = ITEM_TYPES[type];
-    const [x, z] = spawnPool[index % spawnPool.length];
+    const [x, z] = spawnPool[index];
     const root = new B.TransformNode(`item-${index}`, scene);
     root.position.set(x, 0.12, z);
     root.metadata = { baseY: 0.12, spinSpeed: 0.45 + (index % 3) * 0.08 };
@@ -642,7 +664,7 @@ function spawnItems() {
 
 function updateShiftDirector(initial = false) {
   if (state.tutorial || !items.length) return;
-  const nextWave = unlockedWave(state.delivered, items.length, currentLevelSettings().dynamics);
+  const nextWave = unlockedWave(state.delivered, items.length, currentLevelSettings().dynamics, state.level);
   if (nextWave > state.activeWave) {
     state.activeWave = nextWave;
     let activated = 0;
@@ -666,6 +688,27 @@ function updateShiftDirector(initial = false) {
       characterSays(event.description);
     }
   }
+  updateShiftStatus();
+}
+
+function updateShiftStatus() {
+  if (state.tutorial || !items.length || !state.playing || state.ended) {
+    ui.shiftStatus.classList.add("hidden");
+    return;
+  }
+  const dynamics = currentLevelSettings().dynamics;
+  const phase = shiftPhase(state.delivered, items.length);
+  const event = shiftEvent(state.level, state.delivered, items.length);
+  const targets = event.types
+    ? event.types.map((type) => ITEM_TYPES[type]?.icon).filter(Boolean).join(" ")
+    : "Schwer & sperrig";
+  ui.shiftPhase.textContent = `${shiftPhaseLabel(phase)} · Welle ${state.activeWave + 1}/3`;
+  ui.shiftEventTitle.textContent = event.title;
+  ui.shiftEventBonus.textContent = `${targets} +${shiftEventBonusPercent(event, dynamics)} % Bonus`;
+  [...ui.shiftWaveDots.children].forEach((dot, index) => {
+    dot.classList.toggle("active", index <= state.activeWave);
+  });
+  ui.shiftStatus.classList.remove("hidden");
 }
 
 function createItemMesh(type, root, index) {
@@ -1828,7 +1871,7 @@ function endRound(completed) {
   });
   persistSave(save);
 
-  ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.contractHud.classList.add("hidden"); ui.progressTrack.classList.add("hidden");
+  ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.contractHud.classList.add("hidden"); ui.shiftStatus.classList.add("hidden"); ui.progressTrack.classList.add("hidden");
   ui.navigator.classList.add("hidden"); ui.mobileControls.classList.add("hidden"); ui.tutorialCoach.classList.add("hidden");
   ui.pauseScreen.classList.add("hidden"); ui.resultScreen.classList.remove("hidden"); document.body.classList.remove("playing");
   ui.resultBadge.textContent = completed ? "GESCHAFFT" : "ZEIT VORBEI"; ui.resultBadge.classList.toggle("timeout", !completed);
@@ -1840,6 +1883,10 @@ function endRound(completed) {
   ui.resultRankBox.className = `result-rank rank-${rank.grade.toLowerCase()}`;
   ui.finalScore.textContent = String(state.score); ui.earnedCoins.textContent = `+${progressResult.coinsEarned}`;
   ui.highScore.textContent = String(modeStats.highScore); ui.bestTime.textContent = modeStats.bestTime ? formatTime(modeStats.bestTime) : "–";
+  renderRoundCoach({
+    ...roundRecord,
+    expectedSecondsPerItem: mode.expectedSecondsPerItem,
+  }, progressResult.trend);
   renderRoundProgress(progressResult);
   renderNewAchievements(unlocked); renderNextGoal(); updateCoinDisplays(); renderMenu();
   if (unlocked.length) showAchievementSequence(unlocked);
@@ -1869,7 +1916,7 @@ function calculateRank(completed) {
 function returnToMenu() {
   state.playing = false; state.paused = false; state.ended = true; state.finishing = false; state.tutorial = false;
   state.keys.clear(); state.velocity.set(0, 0, 0); audio.stopMusic(); touchInput.reset(); clearItemHighlight(); hidePrompt();
-  ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.contractHud.classList.add("hidden"); ui.progressTrack.classList.add("hidden"); ui.navigator.classList.add("hidden");
+  ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.contractHud.classList.add("hidden"); ui.shiftStatus.classList.add("hidden"); ui.progressTrack.classList.add("hidden"); ui.navigator.classList.add("hidden");
   ui.mobileControls.classList.add("hidden"); ui.pauseScreen.classList.add("hidden"); ui.resultScreen.classList.add("hidden"); ui.tutorialCoach.classList.add("hidden");
   ui.startScreen.classList.remove("hidden"); document.body.classList.remove("playing"); renderMenu();
 }
@@ -1895,6 +1942,19 @@ function updateHUD() {
   ui.timer.style.color = !untimed && state.timeLeft <= 20 ? "#ff7c74" : "";
   ui.carrying.textContent = heldLabel(); ui.carryCard.classList.toggle("active", state.heldItems.length > 0);
   ui.coins.textContent = String(save.coins);
+  updateShiftStatus();
+}
+
+function renderRoundCoach(round, trend) {
+  const coaching = roundCoaching(round, trend);
+  ui.roundCoach.dataset.tone = coaching.tone;
+  ui.roundCoachTitle.textContent = coaching.title;
+  ui.roundCoachText.textContent = coaching.body;
+  ui.roundCoachMetrics.replaceChildren(...coaching.metrics.map((metric) => {
+    const chip = document.createElement("span");
+    chip.textContent = metric;
+    return chip;
+  }));
 }
 
 function showWizardStep(step, { focus = false } = {}) {
@@ -1955,9 +2015,12 @@ function renderCharacterSelector() {
   ui.characterSelector.innerHTML = "";
   for (const character of Object.values(CHARACTERS)) {
     const unlocked = owns(save, character.id);
+    const speed = `${String(character.walkSpeed).replace(".", ",")} / ${String(character.sprintSpeed).replace(".", ",")}`;
+    const heavyTempo = `${Math.round(character.heavyPenalty * 100)} %`;
+    const heavyBonus = Math.round((character.heavyScoreBonus - 1) * 100);
     const card = document.createElement("button");
     card.className = `character-card${state.character === character.id ? " active" : ""}${unlocked ? "" : " locked"}`;
-    card.innerHTML = `<span class="character-avatar">${character.id === "raccoon" ? "🦝" : "🐿️"}</span><span class="character-copy"><strong>${character.name} · ${character.species}</strong><small>${character.description}</small></span><span class="character-badge">${unlocked ? (state.character === character.id ? "Aktiv" : "Wählen") : "🔒 Shop"}</span>`;
+    card.innerHTML = `<span class="character-avatar">${character.id === "raccoon" ? "🦝" : "🐿️"}</span><span class="character-copy"><strong>${character.name} · ${character.species}</strong><small>${character.description}</small><span class="character-stats"><span>Tempo <b>${speed}</b></span><span>Leicht <b>${character.lightCapacity}×</b></span><span>Schwer <b>${heavyTempo}</b></span>${heavyBonus ? `<span>Bonus <b>+${heavyBonus} %</b></span>` : ""}</span></span><span class="character-badge">${unlocked ? (state.character === character.id ? "Aktiv" : "Wählen") : "🔒 Shop"}</span>`;
     card.addEventListener("click", () => {
       if (!unlocked) { showModal(ui.shopScreen); return; }
       state.character = character.id; save.selectedCharacter = character.id; persistSave(save); buildCharacter(character.id); renderMenu();

@@ -65,6 +65,14 @@ export function shiftPhase(delivered, totalItems) {
   return "opening";
 }
 
+export function shiftPhaseLabel(phase) {
+  return {
+    opening: "Auftakt",
+    rush: "Rush",
+    finale: "Finale",
+  }[phase] || "Auftakt";
+}
+
 export function shiftEvent(levelId, delivered, totalItems) {
   const events = LEVEL_EVENTS[levelId] || LEVEL_EVENTS.closing;
   const ratio = delivered / Math.max(1, totalItems);
@@ -84,21 +92,56 @@ export function shiftEventMultiplier(event, item, dynamics = "standard") {
   return 1;
 }
 
-export function waveForItem(levelId, index, totalItems) {
-  const firstWave = levelId === "class" ? 4 : levelId === "legday" ? 5 : Math.ceil(totalItems * 0.6);
-  if (index < firstWave) return 0;
-  const remaining = Math.max(1, totalItems - firstWave);
-  return index < firstWave + Math.ceil(remaining / 2) ? 1 : 2;
+export function shiftEventBonusPercent(event, dynamics = "standard") {
+  if (!event) return 0;
+  const intensity = dynamics === "calm" ? 0.65 : dynamics === "intense" ? 1.35 : 1;
+  return Math.round(Math.max(0, event.multiplier - 1) * intensity * 100);
 }
 
-export function unlockedWave(delivered, totalItems, dynamics = "standard") {
-  const ratio = delivered / Math.max(1, totalItems);
-  const thresholds = dynamics === "calm"
+export function waveLayout(levelId, totalItems) {
+  const total = Math.max(0, Math.floor(Number(totalItems) || 0));
+  const desiredOpening = levelId === "class" ? 4 : levelId === "legday" ? 5 : Math.ceil(total * 0.6);
+  const opening = Math.min(total, desiredOpening);
+  const remaining = Math.max(0, total - opening);
+  const rush = Math.ceil(remaining / 2);
+  return {
+    opening,
+    rush,
+    finale: remaining - rush,
+  };
+}
+
+export function waveForItem(levelId, index, totalItems) {
+  const layout = waveLayout(levelId, totalItems);
+  if (index < layout.opening) return 0;
+  return index < layout.opening + layout.rush ? 1 : 2;
+}
+
+export function waveUnlockThresholds(levelId, totalItems, dynamics = "standard") {
+  const total = Math.max(0, Math.floor(Number(totalItems) || 0));
+  const layout = waveLayout(levelId, total);
+  const ratios = dynamics === "calm"
     ? [0.4, 0.72]
     : dynamics === "intense"
       ? [0.18, 0.46]
       : [0.26, 0.58];
-  if (ratio >= thresholds[1]) return 2;
-  if (ratio >= thresholds[0]) return 1;
+
+  // Ein prozentualer Grenzwert darf niemals mehr Lieferungen verlangen, als
+  // in den bisher sichtbaren Wellen überhaupt möglich sind. Das war zuvor
+  // z. B. bei "Nach dem Kurs" + Volles Haus + Ruhig eine echte Sackgasse.
+  const rush = layout.rush > 0
+    ? Math.min(layout.opening, Math.max(1, Math.ceil(total * ratios[0])))
+    : Infinity;
+  const finale = layout.finale > 0
+    ? Math.min(layout.opening + layout.rush, Math.max(rush, Math.ceil(total * ratios[1])))
+    : Infinity;
+  return { rush, finale };
+}
+
+export function unlockedWave(delivered, totalItems, dynamics = "standard", levelId = "closing") {
+  const completed = Math.max(0, Math.floor(Number(delivered) || 0));
+  const thresholds = waveUnlockThresholds(levelId, totalItems, dynamics);
+  if (completed >= thresholds.finale) return 2;
+  if (completed >= thresholds.rush) return 1;
   return 0;
 }
