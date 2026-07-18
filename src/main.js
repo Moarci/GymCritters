@@ -42,7 +42,7 @@ import {
   optionFor,
 } from "./shift-settings.js";
 import { selectTripHazard, tripRule } from "./trip-physics.js";
-import { matRackSlot } from "./item-placement.js";
+import { itemDisplaySlot, MEDBALL_DIAMETER } from "./item-placement.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -742,9 +742,23 @@ function createRopeItem(root, index) {
 function createMedballItem(root, index) {
   const colors = ["#d36b61", "#6aabd8", "#a7f46a"];
   const ballMat = material(`medballMat${index}`, colors[index % colors.length], 0.7);
-  const ball = B.MeshBuilder.CreateSphere("medball", { diameter: 0.5, segments: 16 }, scene);
-  ball.parent = root; ball.position.y = 0.25; ball.material = ballMat;
-  return [ball];
+  const seamMat = material(`medballSeam${index}`, "#242832", 0.82);
+  const ball = B.MeshBuilder.CreateSphere("medball", { diameter: MEDBALL_DIAMETER, segments: 20 }, scene);
+  ball.parent = root; ball.position.y = MEDBALL_DIAMETER / 2; ball.material = ballMat;
+  const meshes = [ball];
+  for (const [rotationX, rotationZ] of [[0, 0], [Math.PI / 2, 0], [0, Math.PI / 2]]) {
+    const seam = B.MeshBuilder.CreateTorus("medballSeam", {
+      diameter: MEDBALL_DIAMETER * 1.008,
+      thickness: 0.018,
+      tessellation: 28,
+    }, scene);
+    seam.parent = root;
+    seam.position.y = MEDBALL_DIAMETER / 2;
+    seam.rotation.set(rotationX, 0, rotationZ);
+    seam.material = seamMat;
+    meshes.push(seam);
+  }
+  return meshes;
 }
 
 function update() {
@@ -1513,32 +1527,13 @@ function animateDeliveredItem(item, zone, delay, onComplete) {
 
 function getDisplayPlacement(zone, item, index) {
   const p = zone.position.clone();
-  const rotation = B.Vector3.Zero();
-  let scale = 0.72;
-  if (zone.id === "rack") {
-    const level = index % 3; const side = Math.floor(index / 3) % 2;
-    p.set(zone.position.x + (side ? 0.55 : -0.55), 0.48 + level * 0.6, zone.position.z - 0.22); scale = 0.67;
-  } else if (zone.id === "laundry") {
-    p.set(zone.position.x + ((index % 2) - 0.5) * 0.32, 1.38 + Math.floor(index / 2) * 0.09, zone.position.z + ((index % 3) - 1) * 0.16);
-    rotation.y = index * 0.5; scale = 0.62;
-  } else if (zone.id === "bottles") {
-    p.set(zone.position.x + ((index % 3) - 1) * 0.38, 1.22, zone.position.z + (Math.floor(index / 3) - 0.5) * 0.32); scale = 0.62;
-  } else if (zone.id === "mats") {
-    const slot = matRackSlot(index);
-    p.set(zone.position.x + slot.x, slot.y, zone.position.z + slot.z);
-    rotation.z = slot.rotationZ;
-    scale = slot.scale;
-  } else if (zone.id === "kettlebells") {
-    const slot = [-0.42, 0, 0.42][index % 3];
-    p.set(zone.position.x + slot, 0.24 + Math.floor(index / 3) * 0.5, zone.position.z); scale = 0.62;
-  } else if (zone.id === "ropes") {
-    const slot = [-0.42, 0, 0.42][index % 3];
-    p.set(zone.position.x + 0.16, 0.95, zone.position.z + slot); rotation.y = index * 0.4; scale = 0.58;
-  } else if (zone.id === "medballs") {
-    const angle = index * 1.3; const radius = 0.35 + (index % 2) * 0.15;
-    p.set(zone.position.x + Math.cos(angle) * radius, 0.75, zone.position.z + Math.sin(angle) * radius); scale = 0.6;
-  }
-  return { position: p, rotation, scale };
+  const slot = itemDisplaySlot(zone.id, index);
+  p.set(zone.position.x + slot.x, slot.y, zone.position.z + slot.z);
+  return {
+    position: p,
+    rotation: new B.Vector3(slot.rotationX, slot.rotationY, slot.rotationZ),
+    scale: slot.scale,
+  };
 }
 
 function showDeliveryBurst(position, color) {
