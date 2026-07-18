@@ -1454,7 +1454,13 @@ document.querySelectorAll("[data-close]").forEach((button) => button.addEventLis
 ui.soundButton.addEventListener("click", () => { save.soundEnabled = !save.soundEnabled; audio.setEnabled(save.soundEnabled); persistSave(save); updateSoundButton(); if (save.soundEnabled) { audio.play("pickup"); if (state.playing && !state.paused) audio.startMusic(); } });
 ui.cameraSensitivity.addEventListener("input", () => { save.settings.cameraSensitivity = Number(ui.cameraSensitivity.value); persistSave(save); updateCameraSensitivity(); });
 ui.joystickScale.addEventListener("input", () => { save.settings.joystickScale = Number(ui.joystickScale.value); persistSave(save); applyJoystickScale(); });
-ui.qualitySetting.addEventListener("change", () => { save.settings.quality = ui.qualitySetting.value; persistSave(save); applyRenderQuality(); showToast("Grafikqualität angepasst", "good"); });
+ui.qualitySetting.addEventListener("change", () => {
+  save.settings.quality = ui.qualitySetting.value;
+  persistSave(save);
+  qualityState = createQualityState();
+  applyRenderQuality();
+  showToast("Grafikqualität angepasst", "good");
+});
 ui.vibrationSetting.addEventListener("change", () => { save.settings.vibration = ui.vibrationSetting.checked; persistSave(save); vibrate(20); });
 ui.resetTutorialButton.addEventListener("click", () => { save.tutorialCompleted = false; persistSave(save); showToast("Tutorial wird bei der nächsten Schicht gezeigt", "good"); });
 
