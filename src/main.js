@@ -56,7 +56,7 @@ const engine = new B.Engine(ui.canvas, true, { preserveDrawingBuffer: false, ste
 // Muss vor dem ersten applyRenderQuality()-Aufruf existieren (der folgt sofort unten,
 // noch vor der `let scene`-Gruppe) -- sonst schlägt der "auto"-Zweig mit einem
 // Temporal-Dead-Zone-Fehler auf `qualityState` fehl.
-let qualityState = createQualityState();
+let qualityState = createAdaptiveState();
 applyRenderQuality();
 
 const state = {
@@ -114,12 +114,24 @@ function qualityTier() {
   return save.settings.quality === "auto" ? qualityState.tier : save.settings.quality;
 }
 
+// Wo die Regelung anfängt. Ein hochauflösendes Display startet bewusst gröber, damit
+// es nicht erst eine Sekunde lang ruckeln muss.
+function deviceScalingFloor() {
+  return isTouchDevice && window.devicePixelRatio > 1.5 ? window.devicePixelRatio / 1.45 : 1;
+}
+
+// Der Geräteboden ist die UNTERE GRENZE des Reglers, nicht ein nachträgliches Maximum
+// darüber. Als Math.max(boden, scaling) lag der Boden auf Geräten mit DPR >= 2.9 über
+// maxScaling (2.0) -- die Regelung konnte den Wert dann nie beeinflussen und war
+// ausgerechnet auf aktuellen Oberklasse-Handys wirkungslos.
+function createAdaptiveState() {
+  const floor = deviceScalingFloor();
+  return createQualityState({ minScaling: floor, maxScaling: floor + 1 });
+}
+
 function applyRenderQuality() {
   if (save.settings.quality === "auto") {
-    // Die Regelung besitzt das Scaling. Der Geräte-DPR fließt als Startwert ein, damit
-    // ein hochauflösendes Display nicht erst eine Sekunde lang ruckeln muss.
-    const dprFloor = isTouchDevice && window.devicePixelRatio > 1.5 ? window.devicePixelRatio / 1.45 : 1;
-    engine.setHardwareScalingLevel(Math.max(dprFloor, qualityState.scaling));
+    engine.setHardwareScalingLevel(qualityState.scaling);
     return;
   }
   if (save.settings.quality === "low") {
@@ -1120,7 +1132,7 @@ function resetRoundState() {
   state.hudAccumulator = 0; state.interactPressed = false; state.keys.clear(); state.velocity.set(0, 0, 0);
   touchInput.reset(); resetZoneGuidance(); clearItemHighlight();
   // Jede Runde beginnt mit frischer Warmlaufphase: Szenenaufbau verzerrt die Messung.
-  qualityState = createQualityState();
+  qualityState = createAdaptiveState();
   zones.forEach((zone) => { zone.deliveredCount = 0; });
 }
 
@@ -1457,7 +1469,7 @@ ui.joystickScale.addEventListener("input", () => { save.settings.joystickScale =
 ui.qualitySetting.addEventListener("change", () => {
   save.settings.quality = ui.qualitySetting.value;
   persistSave(save);
-  qualityState = createQualityState();
+  qualityState = createAdaptiveState();
   applyRenderQuality();
   showToast("Grafikqualität angepasst", "good");
 });
