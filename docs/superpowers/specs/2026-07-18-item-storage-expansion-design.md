@@ -38,9 +38,9 @@ Positionen wurden gegen bestehende `obstacles` (Zonen, Bänke, Squat-Rack, Pflan
 
 | Zone | id | Label | Position | Radius | Beschreibung |
 |---|---|---|---|---|---|
-| Kettlebell-Ecke | `kettlebells` | "Kettlebell-Ecke" | `(-11.9, 0, 0.6)` | 1.8 | kleines Gestell an der linken Seitenwand, mittig |
-| Seilhaken | `ropes` | "Seilhaken" | `(11.9, 0, 0.6)` | 1.8 | Hakenleiste an der rechten Seitenwand, mittig |
-| Ballnetz | `medballs` | "Ballnetz" | `(-3.6, 0, 8.4)` | 1.9 | Netzkorb an der Rückwand, links neben dem Squat-Rack |
+| Kettlebell-Ecke | `kettlebells` | "Kettlebell-Ecke" | `(-11.0, 0, 0.6)` | 1.8 | kleines Gestell an der linken Seitenwand, mittig |
+| Seilhaken | `ropes` | "Seilhaken" | `(11.0, 0, 0.6)` | 1.8 | Hakenleiste an der rechten Seitenwand, mittig |
+| Ballnetz | `medballs` | "Ballnetz" | `(-6.5, 0, 6.7)` | 1.9 | Netzkorb an der Rückwand, in der Lücke zwischen Hantelregal und Bank |
 
 Jede Zone bekommt eine eigene kleine Aufbaufunktion (`createKettlebellRack`, `createRopeHooks`, `createMedballNet`) nach demselben Muster wie die bestehenden vier (`addZone(...)` + `obstacles.push(...)`), aufgerufen aus `createZones()`.
 
