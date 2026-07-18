@@ -15,6 +15,7 @@
 - Die Seilhaken wurden verbreitert und ihre Ablage-Slots richten jedes Springseil mit beiden Griffen auf Hakenhöhe aus.
 - Das große Gym-Plakat besitzt ein neues gerahmtes Crew-Code-Design mit klarer Typografie, Badge, Akzentlinien und kontrollierter Beleuchtung; Plakat und Level-Schilder zeigen nun mit der korrekten, ungespiegelten Vorderseite in den Raum.
 - Der aktuelle Levelname liegt als eigene schmale Live-Shift-Statusleiste oben im Plakatrahmen und verdeckt nicht länger die große Markenbotschaft.
+- Springseile hängen am geschlossenen Seilbogen; Öffnung und Griffe zeigen dadurch korrekt nach unten.
 - Drei Stolperrisiken verändern Auslöseradius, Mindesttempo, Abklingzeit und Dauer der Reaktion; Tutorial und unmittelbare Wiederholungen bleiben geschützt.
 - Der neue Zen-Modus besitzt kein Zeitlimit. Verstrichene Zeit wird für die private Entwicklungsauswertung erfasst, aber bewusst nicht als Bestzeit gewertet.
 - Gegenstandsmenge, Wellendynamik, Stolperrisiko und Zielhilfe lassen sich für jedes Level separat konfigurieren.

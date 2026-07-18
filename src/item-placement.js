@@ -9,6 +9,7 @@ export const ROPE_ITEM_LAYOUT = Object.freeze({
   handleCenterZ: -0.38,
   handleLength: 0.38,
   handleDiameter: 0.13,
+  hookPointZ: 0.64,
   path: Object.freeze([
     Object.freeze([-0.44, 0.09, -0.19]),
     Object.freeze([-0.54, 0.07, 0.08]),
@@ -131,14 +132,14 @@ export function itemDisplaySlot(zoneId, index) {
     const hook = slot % 3;
     const layer = Math.floor(slot / 3);
     const scale = 0.54;
-    const handleAtHookY = 1.35;
-    const rootY = handleAtHookY + ROPE_ITEM_LAYOUT.handleCenterZ * scale;
+    const hookY = 1.35;
+    const rootY = hookY - ROPE_ITEM_LAYOUT.hookPointZ * scale;
     return placement(
       -0.25 - layer * 0.04,
       rootY - layer * 0.008,
       (hook - 1) * 0.6,
       scale,
-      Math.PI / 2,
+      -Math.PI / 2,
       -Math.PI / 2,
     );
   }

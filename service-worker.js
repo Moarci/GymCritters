@@ -1,4 +1,4 @@
-const CACHE_VERSION = "gym-critters-v5-2026-07-19-r11";
+const CACHE_VERSION = "gym-critters-v5-2026-07-19-r12";
 const LOCAL_CACHE = `${CACHE_VERSION}-local`;
 const ENGINE_CACHE = `${CACHE_VERSION}-engine`;
 const APP_SCOPE = new URL("./", self.location.href);

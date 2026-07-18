@@ -118,13 +118,16 @@ test("Springseile besitzen eine erkennbare Schlaufe mit zwei langen Griffen", ()
   );
 });
 
-test("Springseile hängen auf der Raumseite mit beiden Griffen auf Hakenhöhe", () => {
+test("Springseile hängen am geschlossenen Bogen mit der Öffnung nach unten", () => {
   for (let index = 0; index < 16; index++) {
     const slot = itemDisplaySlot("ropes", index);
-    const handleCenterY = slot.y - ROPE_ITEM_LAYOUT.handleCenterZ * slot.scale;
+    const layerOffset = Math.floor(index / 3) * 0.008;
+    const hookPointY = slot.y + ROPE_ITEM_LAYOUT.hookPointZ * slot.scale;
+    const handleCenterY = slot.y + ROPE_ITEM_LAYOUT.handleCenterZ * slot.scale;
     assert.ok(slot.x <= -0.25, "Seil liegt hinter dem Wandboard");
-    assert.ok(Math.abs(handleCenterY - 1.35 + Math.floor(index / 3) * 0.008) < 0.001);
-    assert.equal(slot.rotationX, Math.PI / 2);
+    assert.ok(Math.abs(hookPointY - 1.35 + layerOffset) < 0.001, "Seilbogen verfehlt den Haken");
+    assert.ok(handleCenterY < hookPointY, "Griffe und Öffnung müssen unter dem Haken hängen");
+    assert.equal(slot.rotationX, -Math.PI / 2);
     assert.equal(slot.rotationY, -Math.PI / 2);
   }
 
