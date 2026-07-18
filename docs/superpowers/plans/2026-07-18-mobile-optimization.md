@@ -760,11 +760,14 @@ Am Ende von `style.css` anfügen:
   .stats > div:nth-child(-n+3) { border-right: 1px solid var(--line); }
   .stats strong { font-size: 13px; }
 
+  /* Die Abstände sind für ein ZWEIZEILIGES Objective gerechnet: bei 390px Breite
+     bricht der Text um und die Karte wird rund 50px hoch. Mit den Werten für eine
+     Zeile schnitt die Fortschrittsleiste mitten hinein. Im Browser nachgemessen. */
   .objective { top: 96px; font-size: 12px; max-width: 92vw; }
-  .progress-track { top: 128px; width: min(320px, 86vw); }
-  .navigator { top: 146px; transform: translateX(-50%) scale(.82); }
-  .toast { top: 196px; }
-  .speech-bubble { top: 168px; }
+  .progress-track { top: 154px; width: min(320px, 86vw); }
+  .navigator { top: 174px; transform: translateX(-50%) scale(.82); }
+  .toast { top: 226px; }
+  .speech-bubble { top: 200px; }
   .prompt { bottom: 232px; max-width: 90vw; white-space: normal; text-align: center; }
 
   .mobile-controls { bottom: max(30px, env(safe-area-inset-bottom)); align-items: flex-end; }
