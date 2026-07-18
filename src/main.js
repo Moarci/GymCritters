@@ -18,6 +18,8 @@ import { SQUASH_DURATION, comboImpactScale, deliveryPitch, impactSound, impactSt
 import { createTouchInput } from "./input/index.js";
 import { clampPitch } from "./input/touch-look.js";
 import { createQualityState, stepQuality } from "./perf/adaptive-quality.js";
+import { deviceScalingFloor, fixedQualityScaling } from "./perf/render-scale.js";
+import { fovModeForViewport } from "./camera-fov.js";
 import { carryPose, curveLean, dominantWeight, gaitParams, idleMotion, squirrelTailSpec } from "./character-motion.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
@@ -115,10 +117,8 @@ function qualityTier() {
   return save.settings.quality === "auto" ? qualityState.tier : save.settings.quality;
 }
 
-// Wo die Regelung anfängt. Ein hochauflösendes Display startet bewusst gröber, damit
-// es nicht erst eine Sekunde lang ruckeln muss.
-function deviceScalingFloor() {
-  return isTouchDevice && window.devicePixelRatio > 1.5 ? window.devicePixelRatio / 1.45 : 1;
+function deviceContext() {
+  return { touch: isTouchDevice, devicePixelRatio: window.devicePixelRatio || 1 };
 }
 
 // Der Geräteboden ist die UNTERE GRENZE des Reglers, nicht ein nachträgliches Maximum
@@ -126,7 +126,7 @@ function deviceScalingFloor() {
 // maxScaling (2.0) -- die Regelung konnte den Wert dann nie beeinflussen und war
 // ausgerechnet auf aktuellen Oberklasse-Handys wirkungslos.
 function createAdaptiveState() {
-  const floor = deviceScalingFloor();
+  const floor = deviceScalingFloor(deviceContext());
   return createQualityState({ minScaling: floor, maxScaling: floor + 1 });
 }
 
@@ -135,13 +135,7 @@ function applyRenderQuality() {
     engine.setHardwareScalingLevel(qualityState.scaling);
     return;
   }
-  if (save.settings.quality === "low") {
-    engine.setHardwareScalingLevel(Math.max(1.35, window.devicePixelRatio || 1));
-  } else if (isTouchDevice && window.devicePixelRatio > 1.5) {
-    engine.setHardwareScalingLevel(window.devicePixelRatio / 1.45);
-  } else {
-    engine.setHardwareScalingLevel(1);
-  }
+  engine.setHardwareScalingLevel(fixedQualityScaling(save.settings.quality, deviceContext()));
 }
 
 function createScene() {
@@ -318,9 +312,7 @@ function createCamera() {
   camera.lowerRadiusLimit = 4.7; camera.upperRadiusLimit = 6.1; camera.lowerBetaLimit = 1.1; camera.upperBetaLimit = 1.32;
   camera.wheelDeltaPercentage = 0.01; camera.panningSensibility = 0; camera.pinchPrecision = 65;
   camera.inertia = 0.78;
-  // Im Hochformat würde ein fixes vertikales FOV das Sichtfeld seitlich zusammenziehen,
-  // bis die Halle nicht mehr überblickbar ist. Fix ist die Breite, nicht die Höhe.
-  camera.fovMode = B.Camera.FOVMODE_HORIZONTAL_FIXED;
+  applyCameraFovMode();
   // Babylon binds the arrow keys to camera rotation by default; those keys are ours
   // for movement, so holding one would spin alpha and drag the player facing with it.
   camera.inputs.removeByType("ArcRotateCameraKeyboardMoveInput");
@@ -328,6 +320,16 @@ function createCamera() {
   // Auf Touch-Geräten übernimmt src/input/index.js die Look-Steuerung; Babylons
   // eigenes Canvas-Handling würde den zweiten Finger als Pinch-Zoom deuten.
   if (!isTouchDevice) camera.attachControl(ui.canvas, true);
+}
+
+// Fixiert die kurze Viewport-Kante (siehe camera-fov.js) — muss bei jeder
+// Größenänderung neu entschieden werden, sonst kippt ein Orientierungswechsel
+// die Perspektive ins Extrem (Desktop: Zoom-Effekt, Hochformat: Tunnelblick).
+function applyCameraFovMode() {
+  if (!camera) return;
+  camera.fovMode = fovModeForViewport(window.innerWidth, window.innerHeight) === "horizontal"
+    ? B.Camera.FOVMODE_HORIZONTAL_FIXED
+    : B.Camera.FOVMODE_VERTICAL_FIXED;
 }
 
 function updateCameraSensitivity() {
@@ -959,6 +961,13 @@ function deliverAtZone(zone) {
       }
     });
   });
+  // Mit dem letzten Gegenstand ist die Runde entschieden — die Uhr muss hier stehen
+  // bleiben, nicht erst nach der Landeanimation. Sonst kann der Timer in den 500 ms
+  // bis zum Aufschlag (plus 80 ms je weiterem Gegenstand im Wurf) ablaufen und die
+  // gewonnene Runde als "Zeit vorbei" beenden, obwohl der Fortschritt schon zählt.
+  // Das Tutorial bleibt ausgenommen: dort läuft ohnehin kein Timer, und
+  // finishTutorial() steigt bei gesetztem finishing an seinem eigenen Wächter aus.
+  if (!state.tutorial && state.delivered === items.length) state.finishing = true;
   reflowHeldItems(false);
   // Nur die Quittung auf den Tastendruck — die Wucht sitzt auf der Landung.
   audio.play("release"); setReaction("pickup", 0.28);
@@ -1489,7 +1498,7 @@ window.addEventListener("keydown", (event) => {
 });
 window.addEventListener("keyup", (event) => state.keys.delete(event.code));
 window.addEventListener("blur", releaseAllInput);
-window.addEventListener("resize", () => { engine.resize(); });
+window.addEventListener("resize", () => { engine.resize(); applyCameraFovMode(); });
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) return;
   releaseAllInput();
