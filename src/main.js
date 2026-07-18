@@ -14,7 +14,7 @@ import { createMaterial } from "./materials.js";
 import { buildEnvironment, setActiveLevelDecor } from "./environment/index.js";
 import { cameraAlphaBehind, cameraYaw, comboMultiplier, formatTime, forwardFromYaw, horizontalDistance, lerpAngle, normalizeAngle, rankValue, shuffle, yawTowards } from "./utils.js";
 import { scoreTarget } from "./targeting.js";
-import { SQUASH_DURATION, impactSound, impactStrength, squashAt } from "./impact.js";
+import { SQUASH_DURATION, comboImpactScale, deliveryPitch, impactSound, impactStrength, squashAt } from "./impact.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -831,8 +831,18 @@ function isDropPositionFree(position) {
 function deliverAtZone(zone) {
   const matching = state.heldItems.filter((item) => item.targetZone === zone.id);
   if (!matching.length) {
+    // Eine Serie ist nur dann etwas wert, wenn ihr Verlust hörbar ist. Ab drei
+    // Gegenständen rutscht die Tonleiter vernehmbar wieder herunter; darunter
+    // gab es nichts zu verlieren und der Fehlerton allein genügt.
+    const hatteSerie = state.combo >= 3;
     state.combo = 0; state.wrongPlacements += 1; audio.play("wrong"); vibrate([30, 30, 30]); setReaction("wrong", 0.7);
-    characterSays("Das gehört woanders hin …"); showToast(`Falscher Platz – hierhin gehören ${ITEM_TYPES[zone.type].plural}`, "bad"); updateHUD(); return;
+    if (hatteSerie) {
+      window.setTimeout(() => audio.play("comboBreak"), 180);
+      showToast(`Serie gerissen – hierhin gehören ${ITEM_TYPES[zone.type].plural}`, "bad");
+    } else {
+      showToast(`Falscher Platz – hierhin gehören ${ITEM_TYPES[zone.type].plural}`, "bad");
+    }
+    characterSays("Das gehört woanders hin …"); updateHUD(); return;
   }
 
   const mode = MODES[state.mode];
@@ -840,6 +850,9 @@ function deliverAtZone(zone) {
   let pending = matching.length;
   matching.forEach((item, index) => {
     state.combo += 1;
+    // Für die Eskalation festhalten: bis zur Landung zählt state.combo weiter,
+    // dieser Aufschlag gehört aber zu genau diesem Stand.
+    const comboDiesesWurfs = state.combo;
     state.maxCombo = Math.max(state.maxCombo, state.combo);
     const strengthBonus = item.weight === "heavy" ? currentCharacter().heavyScoreBonus : 1;
     const gained = Math.round(item.points * comboMultiplier(state.combo) * mode.scoreMultiplier * strengthBonus);
@@ -855,7 +868,7 @@ function deliverAtZone(zone) {
     // Versetzter Start, damit mehrere Gegenstände nacheinander landen und zwei
     // getrennte Aufschläge zu hören sind statt eines Matschs.
     animateDeliveredItem(item, zone, index * 80, () => {
-      playImpact(zone, item);
+      playImpact(zone, item, comboDiesesWurfs);
       pending -= 1;
       if (pending === 0) {
         showDeliveryBurst(zone.position, zone.marker.material.albedoColor);
@@ -943,9 +956,9 @@ function showDeliveryBurst(position, color) {
 // Der Moment, in dem ein Gegenstand tatsächlich landet. Bewusst getrennt vom
 // Tastendruck: der Gegenstand fliegt 500 ms, und die Wucht gehört ans Ende
 // dieses Fluges, nicht an seinen Anfang.
-function playImpact(zone, item) {
-  const strength = impactStrength(item.weight);
-  audio.playImpact(impactSound(item.type), strength);
+function playImpact(zone, item, combo) {
+  const strength = impactStrength(item.weight) * comboImpactScale(combo);
+  audio.playImpact(impactSound(item.type, deliveryPitch(combo)), strength);
   vibrate(Math.round(12 + strength * 22));
   squashZone(zone, strength);
   if (save.settings.quality !== "low") {

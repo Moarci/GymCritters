@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { impactStrength, squashAt, impactSound, SQUASH_DURATION } from "../src/impact.js";
+import {
+  impactStrength, squashAt, impactSound, SQUASH_DURATION,
+  deliveryPitch, comboImpactScale,
+} from "../src/impact.js";
 
 test("impactStrength ordnet die Gewichtsklassen absteigend", () => {
   assert.ok(impactStrength("heavy") > impactStrength("bulky"));
@@ -91,4 +94,51 @@ test("impactSound lässt Lautstärke und Dauer vom Tonhöhenfaktor unberührt", 
 
 test("SQUASH_DURATION ist eine brauchbare Animationsdauer in Sekunden", () => {
   assert.ok(SQUASH_DURATION > 0.1 && SQUASH_DURATION < 1);
+});
+
+test("deliveryPitch startet beim ersten Gegenstand auf normaler Tonhöhe", () => {
+  assert.equal(deliveryPitch(1), 1);
+});
+
+test("deliveryPitch behandelt Combo 0 wie den Anfang", () => {
+  assert.equal(deliveryPitch(0), 1);
+});
+
+test("deliveryPitch steigt mit jedem Schritt der Serie", () => {
+  for (let combo = 1; combo < 7; combo++) {
+    assert.ok(deliveryPitch(combo + 1) > deliveryPitch(combo), `Schritt ${combo} stieg nicht`);
+  }
+});
+
+test("deliveryPitch steigt in Halbtonschritten", () => {
+  const halbton = Math.pow(2, 1 / 12);
+  assert.ok(Math.abs(deliveryPitch(2) / deliveryPitch(1) - halbton) < 1e-9);
+  assert.ok(Math.abs(deliveryPitch(3) / deliveryPitch(2) - halbton) < 1e-9);
+});
+
+test("deliveryPitch ist bei einer Quinte gedeckelt und wird nie schrill", () => {
+  const quinte = Math.pow(2, 7 / 12);
+  for (const combo of [8, 12, 40, 999]) {
+    assert.ok(deliveryPitch(combo) <= quinte + 1e-9, `Combo ${combo} überschritt die Quinte`);
+  }
+  assert.ok(Math.abs(deliveryPitch(999) - quinte) < 1e-9, "der Deckel wird auch erreicht");
+});
+
+test("comboImpactScale lässt den ersten Aufschlag unverändert", () => {
+  assert.equal(comboImpactScale(1), 1);
+  assert.equal(comboImpactScale(0), 1);
+});
+
+test("comboImpactScale wächst monoton und ist gedeckelt", () => {
+  let vorher = comboImpactScale(1);
+  for (let combo = 2; combo <= 30; combo++) {
+    const jetzt = comboImpactScale(combo);
+    assert.ok(jetzt >= vorher, `Combo ${combo} fiel zurück`);
+    assert.ok(jetzt <= 1.35 + 1e-9, `Combo ${combo} sprengte den Deckel`);
+    vorher = jetzt;
+  }
+});
+
+test("comboImpactScale bleibt moderat — ein Aufschlag wird nie doppelt so wuchtig", () => {
+  assert.ok(comboImpactScale(999) < 1.5);
 });

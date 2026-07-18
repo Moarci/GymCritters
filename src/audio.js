@@ -55,6 +55,8 @@ export class AudioSystem {
       deliver: [[520, 0], [700, 0.07], [900, 0.14]],
       // Kurze Quittung auf den Tastendruck — der Wumms sitzt jetzt auf der Landung.
       release: [[660, 0]],
+      // Die Tonleiter, die man hochgeklettert ist, rutscht hörbar wieder runter.
+      comboBreak: [[560, 0], [420, 0.07], [314, 0.14], [235, 0.21]],
       wrong: [[180, 0], [135, 0.11]],
       purchase: [[480, 0], [720, 0.08], [960, 0.16]],
       achievement: [[660, 0], [880, 0.1], [1100, 0.2], [1320, 0.3]],
