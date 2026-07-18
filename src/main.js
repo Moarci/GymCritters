@@ -15,6 +15,9 @@ import { buildEnvironment, setActiveLevelDecor } from "./environment/index.js";
 import { cameraAlphaBehind, cameraYaw, comboMultiplier, formatTime, forwardFromYaw, horizontalDistance, lerpAngle, normalizeAngle, rankValue, shuffle, yawTowards } from "./utils.js";
 import { scoreTarget } from "./targeting.js";
 import { SQUASH_DURATION, comboImpactScale, deliveryPitch, impactSound, impactStrength, squashAt } from "./impact.js";
+import { createTouchInput } from "./input/index.js";
+import { clampPitch } from "./input/touch-look.js";
+import { createQualityState, stepQuality } from "./perf/adaptive-quality.js";
 import { carryPose, curveLean, dominantWeight, gaitParams, idleMotion } from "./character-motion.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
@@ -27,10 +30,10 @@ const ui = {
   achievementToast: $("achievementToast"), achievementIcon: $("achievementIcon"), achievementName: $("achievementName"),
   scorePopLayer: $("scorePopLayer"), score: $("score"), progress: $("progress"), combo: $("combo"),
   timer: $("timer"), coins: $("coins"), carrying: $("carrying"), carryCard: $("carryCard"),
-  cameraButton: $("cameraButton"), fullscreenHudButton: $("fullscreenHudButton"), soundButton: $("soundButton"),
+  cameraButton: $("cameraButton"), cameraRecenterButton: $("cameraRecenterButton"), fullscreenHudButton: $("fullscreenHudButton"), soundButton: $("soundButton"),
   pauseButton: $("pauseButton"), mobileControls: $("mobileControls"), joystick: $("joystick"),
   joystickKnob: $("joystickKnob"), sprintButton: $("sprintButton"), interactButton: $("interactButton"),
-  orientationHint: $("orientationHint"), startScreen: $("startScreen"), menuCoins: $("menuCoins"),
+  startScreen: $("startScreen"), menuCoins: $("menuCoins"),
   characterSelector: $("characterSelector"), levelSelector: $("levelSelector"), modeSelector: $("modeSelector"),
   startButton: $("startButton"), shopButton: $("shopButton"), achievementsButton: $("achievementsButton"),
   statsButton: $("statsButton"), settingsButton: $("settingsButton"), fullscreenButton: $("fullscreenButton"),
@@ -51,6 +54,10 @@ const isTouchDevice = window.matchMedia("(hover: none), (pointer: coarse)").matc
 const save = loadSave();
 const audio = new AudioSystem(save);
 const engine = new B.Engine(ui.canvas, true, { preserveDrawingBuffer: false, stencil: true, antialias: true });
+// Muss vor dem ersten applyRenderQuality()-Aufruf existieren (der folgt sofort unten,
+// noch vor der `let scene`-Gruppe) -- sonst schlägt der "auto"-Zweig mit einem
+// Temporal-Dead-Zone-Fehler auf `qualityState` fehl.
+let qualityState = createAdaptiveState();
 applyRenderQuality();
 
 const state = {
@@ -62,9 +69,23 @@ const state = {
   droppedItems: 0, maxCombo: 0, deliveredDumbbells: 0, deliveredByType: {}, heldItems: [], nearestItem: null, nearestZone: null,
   keys: new Set(), interactPressed: false, elapsed: 0, hudAccumulator: 0,
   velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 }, lean: 0,
-  touch: { x: 0, z: 0, sprint: false, pointerId: null },
   toastTimer: null, speechTimer: null, achievementTimer: null,
 };
+
+const touchInput = createTouchInput({
+  joystick: ui.joystick,
+  knob: ui.joystickKnob,
+  canvas: ui.canvas,
+  sprintButton: ui.sprintButton,
+  interactButton: ui.interactButton,
+  getSensitivity: () => save.settings.cameraSensitivity || 1,
+  isActive: () => state.playing && !state.paused,
+  onInteract: () => { state.interactPressed = true; },
+  // Nur auf Touch-Geräten die Canvas-Look-Zone registrieren: Auf Desktop schreibt
+  // Babylons attachControl (siehe createCamera) bereits auf dieselben Pointer-Events;
+  // zwei Schreiber ließen Yaw ca. 6-7x zu schnell laufen und Pitch gegeneinander kämpfen.
+  canvasLookEnabled: isTouchDevice,
+});
 
 let scene;
 let camera;
@@ -89,9 +110,32 @@ function vibrate(pattern) {
   if (save.settings.vibration && navigator.vibrate) navigator.vibrate(pattern);
 }
 
+// Die geltende Stufe ist bei "auto" die geregelte, sonst die gespeicherte Wahl.
+function qualityTier() {
+  return save.settings.quality === "auto" ? qualityState.tier : save.settings.quality;
+}
+
+// Wo die Regelung anfängt. Ein hochauflösendes Display startet bewusst gröber, damit
+// es nicht erst eine Sekunde lang ruckeln muss.
+function deviceScalingFloor() {
+  return isTouchDevice && window.devicePixelRatio > 1.5 ? window.devicePixelRatio / 1.45 : 1;
+}
+
+// Der Geräteboden ist die UNTERE GRENZE des Reglers, nicht ein nachträgliches Maximum
+// darüber. Als Math.max(boden, scaling) lag der Boden auf Geräten mit DPR >= 2.9 über
+// maxScaling (2.0) -- die Regelung konnte den Wert dann nie beeinflussen und war
+// ausgerechnet auf aktuellen Oberklasse-Handys wirkungslos.
+function createAdaptiveState() {
+  const floor = deviceScalingFloor();
+  return createQualityState({ minScaling: floor, maxScaling: floor + 1 });
+}
+
 function applyRenderQuality() {
-  const quality = save.settings.quality;
-  if (quality === "low") {
+  if (save.settings.quality === "auto") {
+    engine.setHardwareScalingLevel(qualityState.scaling);
+    return;
+  }
+  if (save.settings.quality === "low") {
     engine.setHardwareScalingLevel(Math.max(1.35, window.devicePixelRatio || 1));
   } else if (isTouchDevice && window.devicePixelRatio > 1.5) {
     engine.setHardwareScalingLevel(window.devicePixelRatio / 1.45);
@@ -114,16 +158,16 @@ function createScene() {
   key.position = new B.Vector3(8, 13, -8);
   key.intensity = 1.8;
 
-  shadowGenerator = new B.ShadowGenerator(save.settings.quality === "low" ? 512 : 1024, key);
+  shadowGenerator = new B.ShadowGenerator(qualityTier() === "low" ? 512 : 1024, key);
   shadowGenerator.useBlurExponentialShadowMap = true;
-  shadowGenerator.blurKernel = save.settings.quality === "low" ? 10 : 24;
+  shadowGenerator.blurKernel = qualityTier() === "low" ? 10 : 24;
   shadowGenerator.bias = 0.001;
 
   highlightLayer = new B.HighlightLayer("interactionHighlights", scene, { blurHorizontalSize: 1.2, blurVerticalSize: 1.2 });
   highlightLayer.innerGlow = false;
   highlightLayer.outerGlow = true;
 
-  const environment = buildEnvironment(scene, shadowGenerator, { quality: save.settings.quality });
+  const environment = buildEnvironment(scene, shadowGenerator, { quality: qualityTier() });
   zones = environment.zones;
   obstacles = environment.obstacles;
   createPlayerCollider();
@@ -274,11 +318,16 @@ function createCamera() {
   camera.lowerRadiusLimit = 4.7; camera.upperRadiusLimit = 6.1; camera.lowerBetaLimit = 1.1; camera.upperBetaLimit = 1.32;
   camera.wheelDeltaPercentage = 0.01; camera.panningSensibility = 0; camera.pinchPrecision = 65;
   camera.inertia = 0.78;
+  // Im Hochformat würde ein fixes vertikales FOV das Sichtfeld seitlich zusammenziehen,
+  // bis die Halle nicht mehr überblickbar ist. Fix ist die Breite, nicht die Höhe.
+  camera.fovMode = B.Camera.FOVMODE_HORIZONTAL_FIXED;
   // Babylon binds the arrow keys to camera rotation by default; those keys are ours
   // for movement, so holding one would spin alpha and drag the player facing with it.
   camera.inputs.removeByType("ArcRotateCameraKeyboardMoveInput");
   updateCameraSensitivity();
-  camera.attachControl(ui.canvas, true);
+  // Auf Touch-Geräten übernimmt src/input/index.js die Look-Steuerung; Babylons
+  // eigenes Canvas-Handling würde den zweiten Finger als Pinch-Zoom deuten.
+  if (!isTouchDevice) camera.attachControl(ui.canvas, true);
 }
 
 function updateCameraSensitivity() {
@@ -408,6 +457,15 @@ function createMedballItem(root, index) {
 
 function update() {
   const dt = Math.min(engine.getDeltaTime() / 1000, 0.05);
+  // Gemessen wird die ungeklemmte Frame-Zeit in Millisekunden: dt oben ist auf 50 ms
+  // gedeckelt, ein echter Einbruch wäre darin nicht mehr sichtbar.
+  if (save.settings.quality === "auto" && state.playing && !state.paused) {
+    const previous = qualityState;
+    qualityState = stepQuality(previous, engine.getDeltaTime());
+    // Nur anfassen, wenn sich wirklich etwas geändert hat -- setHardwareScalingLevel
+    // verwirft interne Render-Targets.
+    if (qualityState.scaling !== previous.scaling) applyRenderQuality();
+  }
   if (!state.paused) state.elapsed += dt;
   updateCamera(dt);
   animateWorld(dt);
@@ -426,6 +484,13 @@ function update() {
 
 function updateCamera(dt) {
   if (!camera || !player) return;
+  // Kameraausrichtung wird ausschließlich hier geschrieben. touch-look.js liefert nur
+  // Zahlen, damit es keinen zweiten Schreiber auf alpha/beta gibt.
+  const look = touchInput.consumeLook();
+  if (look.deltaYaw !== 0 || look.deltaPitch !== 0) {
+    camera.alpha -= look.deltaYaw;
+    camera.beta = clampPitch(camera.beta + look.deltaPitch, camera.lowerBetaLimit, camera.upperBetaLimit);
+  }
   const desired = player.position.add(new B.Vector3(0, 0.78, 0));
   camera.target = B.Vector3.Lerp(camera.target, desired, 1 - Math.exp(-9 * dt));
 }
@@ -466,11 +531,12 @@ function updatePlayer(dt) {
   const backPressed = state.keys.has("KeyS") || state.keys.has("ArrowDown");
   const leftPressed = state.keys.has("KeyA") || state.keys.has("ArrowLeft");
   const rightPressed = state.keys.has("KeyD") || state.keys.has("ArrowRight");
-  let inputX = (rightPressed ? 1 : 0) - (leftPressed ? 1 : 0) + state.touch.x;
-  let inputZ = (forwardPressed ? 1 : 0) - (backPressed ? 1 : 0) + state.touch.z;
+  const touch = touchInput.read();
+  let inputX = (rightPressed ? 1 : 0) - (leftPressed ? 1 : 0) + touch.x;
+  let inputZ = (forwardPressed ? 1 : 0) - (backPressed ? 1 : 0) + touch.z;
   const inputLength = Math.hypot(inputX, inputZ);
   const isMoving = inputLength > 0.04;
-  const wantsSprint = state.keys.has("ShiftLeft") || state.keys.has("ShiftRight") || state.touch.sprint;
+  const wantsSprint = state.keys.has("ShiftLeft") || state.keys.has("ShiftRight") || touch.sprint;
   const sprinting = wantsSprint && !carryingHeavy();
   const character = currentCharacter();
 
@@ -594,7 +660,7 @@ function updateReaction(dt) {
 }
 
 function updateTrail(dt, active) {
-  if (save.equipped.trail !== "golden-trail" || !active || save.settings.quality === "low") return;
+  if (save.equipped.trail !== "golden-trail" || !active || qualityTier() === "low") return;
   trailAccumulator += dt;
   if (trailAccumulator < 0.08) return;
   trailAccumulator = 0;
@@ -953,7 +1019,7 @@ function getDisplayPlacement(zone, item, index) {
 }
 
 function showDeliveryBurst(position, color) {
-  const count = save.settings.quality === "low" ? 6 : 12;
+  const count = qualityTier() === "low" ? 6 : 12;
   for (let i = 0; i < count; i++) {
     const particle = B.MeshBuilder.CreateSphere("rewardParticle", { diameter: 0.1, segments: 6 }, scene);
     const origin = position.add(new B.Vector3(0, 0.7, 0)); particle.position.copyFrom(origin);
@@ -976,7 +1042,7 @@ function playImpact(zone, item, combo) {
   audio.playImpact(impactSound(item.type, deliveryPitch(combo)), strength);
   vibrate(Math.round(12 + strength * 22));
   squashZone(zone, strength);
-  if (save.settings.quality !== "low") {
+  if (qualityTier() !== "low") {
     kickCamera(strength);
     showImpactDust(zone.position, strength);
   }
@@ -1079,7 +1145,9 @@ function resetRoundState() {
   state.score = 0; state.combo = 0; state.delivered = 0; state.wrongPlacements = 0; state.droppedItems = 0;
   state.maxCombo = 0; state.deliveredDumbbells = 0; state.deliveredByType = {}; state.heldItems = []; state.nearestItem = null; state.nearestZone = null;
   state.hudAccumulator = 0; state.interactPressed = false; state.keys.clear(); state.velocity.set(0, 0, 0);
-  resetTouchInput(); resetZoneGuidance(); clearItemHighlight();
+  touchInput.reset(); resetZoneGuidance(); clearItemHighlight();
+  // Jede Runde beginnt mit frischer Warmlaufphase: Szenenaufbau verzerrt die Messung.
+  qualityState = createAdaptiveState();
   zones.forEach((zone) => { zone.deliveredCount = 0; });
 }
 
@@ -1093,7 +1161,7 @@ function prepareSceneForRound() {
   ui.startScreen.classList.add("hidden"); ui.pauseScreen.classList.add("hidden"); ui.resultScreen.classList.add("hidden");
   ui.hud.classList.remove("hidden"); ui.objective.classList.remove("hidden"); ui.progressTrack.classList.remove("hidden");
   ui.mobileControls.classList.toggle("hidden", !isTouchDevice); ui.coins.textContent = String(save.coins);
-  document.body.classList.add("playing"); updateOrientationHint(); updateHUD(); ui.canvas.focus();
+  document.body.classList.add("playing"); updateHUD(); ui.canvas.focus();
 }
 
 function startTutorial() {
@@ -1140,7 +1208,7 @@ function finishTutorial() {
 function endRound(completed) {
   if (state.ended) return;
   state.ended = true; state.playing = false; state.paused = false; state.finishing = false; state.velocity.set(0, 0, 0);
-  resetTouchInput(); resetZoneGuidance(); clearItemHighlight(); hidePrompt(); audio.stopMusic();
+  touchInput.reset(); resetZoneGuidance(); clearItemHighlight(); hidePrompt(); audio.stopMusic();
   const mode = MODES[state.mode];
   const completionBonus = completed ? Math.round((state.timeLeft * 4 + 250) * mode.scoreMultiplier) : 0;
   state.score += completionBonus;
@@ -1203,7 +1271,7 @@ function calculateRank(completed) {
 
 function returnToMenu() {
   state.playing = false; state.paused = false; state.ended = true; state.finishing = false; state.tutorial = false;
-  state.keys.clear(); state.velocity.set(0, 0, 0); audio.stopMusic(); resetTouchInput(); clearItemHighlight(); hidePrompt();
+  state.keys.clear(); state.velocity.set(0, 0, 0); audio.stopMusic(); touchInput.reset(); clearItemHighlight(); hidePrompt();
   ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.progressTrack.classList.add("hidden"); ui.navigator.classList.add("hidden");
   ui.mobileControls.classList.add("hidden"); ui.pauseScreen.classList.add("hidden"); ui.resultScreen.classList.add("hidden"); ui.tutorialCoach.classList.add("hidden");
   ui.startScreen.classList.remove("hidden"); document.body.classList.remove("playing"); renderMenu();
@@ -1211,7 +1279,7 @@ function returnToMenu() {
 
 function setPaused(paused) {
   if (!state.playing || state.ended || state.finishing || state.paused === paused) return;
-  state.paused = paused; state.keys.clear(); state.velocity.set(0, 0, 0); state.interactPressed = false; resetTouchInput();
+  state.paused = paused; state.keys.clear(); state.velocity.set(0, 0, 0); state.interactPressed = false; touchInput.reset();
   ui.pauseScreen.classList.toggle("hidden", !paused); ui.mobileControls.classList.toggle("hidden", paused || !isTouchDevice);
   if (paused) { hidePrompt(); audio.stopMusic(); audio.play("pause"); }
   else { audio.startMusic(); ui.canvas.focus(); }
@@ -1387,24 +1455,10 @@ function showScorePop(text, bonus) {
 function setPrompt(html, correct = false) { ui.prompt.innerHTML = html; ui.prompt.classList.toggle("correct", correct); ui.prompt.classList.remove("hidden"); }
 function hidePrompt() { ui.prompt.classList.remove("correct"); ui.prompt.classList.add("hidden"); }
 
-function resetTouchInput() {
-  state.touch.x = 0; state.touch.z = 0; state.touch.sprint = false; state.touch.pointerId = null;
-  ui.joystickKnob.style.transform = "translate(0px, 0px)"; ui.sprintButton.classList.remove("active"); ui.interactButton.classList.remove("active");
-}
-function updateJoystick(event) {
-  const rect = ui.joystick.getBoundingClientRect(); const centerX = rect.left + rect.width / 2; const centerY = rect.top + rect.height / 2;
-  let dx = event.clientX - centerX; let dy = event.clientY - centerY; const maxDistance = rect.width * 0.31; const distance = Math.hypot(dx, dy);
-  if (distance > maxDistance) { dx = (dx / distance) * maxDistance; dy = (dy / distance) * maxDistance; }
-  state.touch.x = dx / maxDistance; state.touch.z = -dy / maxDistance; ui.joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
-}
 function applyJoystickScale() {
   const scale = save.settings.joystickScale || 1;
   ui.joystick.style.setProperty("--control-scale", String(scale));
   ui.mobileControls.style.setProperty("--control-scale", String(scale));
-}
-function updateOrientationHint() {
-  const portrait = window.matchMedia("(orientation: portrait)").matches;
-  ui.orientationHint.classList.toggle("hidden", !(isTouchDevice && state.playing && portrait));
 }
 function requestFullscreen() {
   const element = document.documentElement;
@@ -1414,6 +1468,13 @@ function requestFullscreen() {
 function updateSoundButton() {
   ui.soundButton.textContent = save.soundEnabled ? "🔊" : "🔇";
   ui.soundButton.setAttribute("aria-label", save.soundEnabled ? "Ton ausschalten" : "Ton einschalten");
+}
+
+// Ein gemeinsamer Weg für alle Fälle, in denen die Eingabe abreißen kann. Ohne das
+// bleibt ein gehaltener Joystick nach einem Tab-Wechsel dauerhaft ausgelenkt.
+function releaseAllInput() {
+  state.keys.clear();
+  touchInput.reset();
 }
 
 window.addEventListener("keydown", (event) => {
@@ -1427,37 +1488,39 @@ window.addEventListener("keydown", (event) => {
   if (event.code === "KeyE" && !event.repeat && state.playing) state.interactPressed = true;
 });
 window.addEventListener("keyup", (event) => state.keys.delete(event.code));
-window.addEventListener("blur", () => state.keys.clear());
-window.addEventListener("resize", () => { engine.resize(); updateOrientationHint(); });
-document.addEventListener("visibilitychange", () => { if (document.hidden && state.playing && !state.ended) setPaused(true); });
-ui.joystick.addEventListener("pointerdown", (event) => { if (!state.playing || state.paused) return; state.touch.pointerId = event.pointerId; ui.joystick.setPointerCapture(event.pointerId); updateJoystick(event); event.preventDefault(); });
-ui.joystick.addEventListener("pointermove", (event) => { if (state.touch.pointerId !== event.pointerId) return; updateJoystick(event); event.preventDefault(); });
-const releaseJoystick = (event) => { if (state.touch.pointerId !== event.pointerId) return; state.touch.pointerId = null; state.touch.x = 0; state.touch.z = 0; ui.joystickKnob.style.transform = "translate(0px, 0px)"; };
-ui.joystick.addEventListener("pointerup", releaseJoystick); ui.joystick.addEventListener("pointercancel", releaseJoystick);
-const setTouchSprint = (active) => { if (!state.playing || state.paused) active = false; state.touch.sprint = active; ui.sprintButton.classList.toggle("active", active); };
-ui.sprintButton.addEventListener("pointerdown", (event) => { setTouchSprint(true); ui.sprintButton.setPointerCapture(event.pointerId); event.preventDefault(); });
-ui.sprintButton.addEventListener("pointerup", () => setTouchSprint(false)); ui.sprintButton.addEventListener("pointercancel", () => setTouchSprint(false));
-ui.interactButton.addEventListener("pointerdown", (event) => { if (state.playing && !state.paused) state.interactPressed = true; ui.interactButton.classList.add("active"); ui.interactButton.setPointerCapture(event.pointerId); event.preventDefault(); });
-ui.interactButton.addEventListener("pointerup", () => ui.interactButton.classList.remove("active")); ui.interactButton.addEventListener("pointercancel", () => ui.interactButton.classList.remove("active"));
+window.addEventListener("blur", releaseAllInput);
+window.addEventListener("resize", () => { engine.resize(); });
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) return;
+  releaseAllInput();
+  if (state.playing && !state.ended) setPaused(true);
+});
 
 ui.startButton.addEventListener("click", startRound); ui.restartButton.addEventListener("click", startRound); ui.pauseRestartButton.addEventListener("click", startRound);
 ui.resumeButton.addEventListener("click", () => setPaused(false)); ui.pauseButton.addEventListener("click", () => setPaused(true)); ui.pauseMenuButton.addEventListener("click", returnToMenu);
 ui.resultMenuButton.addEventListener("click", returnToMenu); ui.resultShopButton.addEventListener("click", () => showModal(ui.shopScreen));
-ui.cameraButton.addEventListener("click", () => resetCamera(true)); ui.fullscreenButton.addEventListener("click", requestFullscreen); ui.fullscreenHudButton.addEventListener("click", requestFullscreen);
+ui.cameraButton.addEventListener("click", () => resetCamera(true)); ui.cameraRecenterButton.addEventListener("click", () => resetCamera(true));
+ui.fullscreenButton.addEventListener("click", requestFullscreen); ui.fullscreenHudButton.addEventListener("click", requestFullscreen);
 ui.shopButton.addEventListener("click", () => showModal(ui.shopScreen)); ui.achievementsButton.addEventListener("click", () => showModal(ui.achievementsScreen));
 ui.statsButton.addEventListener("click", () => showModal(ui.statsScreen)); ui.settingsButton.addEventListener("click", () => showModal(ui.settingsScreen));
 document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => $(button.getAttribute("data-close")).classList.add("hidden")));
 ui.soundButton.addEventListener("click", () => { save.soundEnabled = !save.soundEnabled; audio.setEnabled(save.soundEnabled); persistSave(save); updateSoundButton(); if (save.soundEnabled) { audio.play("pickup"); if (state.playing && !state.paused) audio.startMusic(); } });
 ui.cameraSensitivity.addEventListener("input", () => { save.settings.cameraSensitivity = Number(ui.cameraSensitivity.value); persistSave(save); updateCameraSensitivity(); });
 ui.joystickScale.addEventListener("input", () => { save.settings.joystickScale = Number(ui.joystickScale.value); persistSave(save); applyJoystickScale(); });
-ui.qualitySetting.addEventListener("change", () => { save.settings.quality = ui.qualitySetting.value; persistSave(save); applyRenderQuality(); showToast("Grafikqualität angepasst", "good"); });
+ui.qualitySetting.addEventListener("change", () => {
+  save.settings.quality = ui.qualitySetting.value;
+  persistSave(save);
+  qualityState = createAdaptiveState();
+  applyRenderQuality();
+  showToast("Grafikqualität angepasst", "good");
+});
 ui.vibrationSetting.addEventListener("change", () => { save.settings.vibration = ui.vibrationSetting.checked; persistSave(save); vibrate(20); });
 ui.resetTutorialButton.addEventListener("click", () => { save.tutorialCompleted = false; persistSave(save); showToast("Tutorial wird bei der nächsten Schicht gezeigt", "good"); });
 
 try {
   createScene();
   engine.runRenderLoop(() => scene.render());
-  renderMenu(); updateSoundButton(); applyJoystickScale(); updateOrientationHint();
+  renderMenu(); updateSoundButton(); applyJoystickScale();
   ui.loading.classList.add("hidden");
 } catch (error) {
   console.error(error); ui.loading.textContent = `Fehler beim Start: ${error.message}`;
