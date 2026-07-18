@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  dominantWeight, carryPose, gaitParams, curveLean, idleMotion, squirrelTailSpec, raccoonTailSpec, LEAN_CAP,
+  dominantWeight, carryPose, gaitParams, curveLean, idleMotion, squirrelTailSpec, raccoonTailSpec,
+  surfacePoint, facingRotation, LEAN_CAP,
 } from "../src/character-motion.js";
 
 test("dominantWeight wählt die schwerste Klasse aus der Liste", () => {
@@ -135,9 +136,9 @@ test("squirrelTailSpec ist deterministisch", () => {
   assert.deepEqual(squirrelTailSpec(), squirrelTailSpec());
 });
 
-test("raccoonTailSpec liefert sechs verjüngte Ringel-Segmente", () => {
+test("raccoonTailSpec liefert acht verjüngte Ringel-Segmente", () => {
   const spec = raccoonTailSpec();
-  assert.equal(spec.length, 6);
+  assert.equal(spec.length, 8);
   for (let i = 1; i < spec.length; i++) {
     assert.ok(spec[i].radius < spec[i - 1].radius, `Segment ${i} verjüngt sich nicht`);
   }
@@ -167,4 +168,49 @@ test("raccoonTailSpec dreht die Segmente tangential — Bogen statt Knick", () =
 
 test("raccoonTailSpec ist deterministisch", () => {
   assert.deepEqual(raccoonTailSpec(), raccoonTailSpec());
+});
+
+test("carryPose beugt den Ellbogen — am stärksten unter schwerer Last", () => {
+  const schwer = carryPose("heavy");
+  const leicht = carryPose("light");
+  assert.ok(schwer.elbowX < 0, "der Ellbogen beugt nach innen (negativ)");
+  assert.ok(Math.abs(schwer.elbowX) > Math.abs(leicht.elbowX), "schwere Last verlangt die stärkste Beugung");
+  assert.ok(Math.abs(carryPose("bulky").elbowX) > 0, "auch sperrige Last beugt");
+});
+
+test("surfacePoint trifft entlang der Achsen exakt den Radius", () => {
+  const radii = [0.4, 0.35, 0.3];
+  assert.deepEqual(surfacePoint(radii, [1, 0, 0]).map((v) => +v.toFixed(6)), [0.4, 0, 0]);
+  assert.deepEqual(surfacePoint(radii, [0, 1, 0]).map((v) => +v.toFixed(6)), [0, 0.35, 0]);
+  assert.deepEqual(surfacePoint(radii, [0, 0, -1]).map((v) => +v.toFixed(6)), [0, 0, -0.3]);
+});
+
+test("surfacePoint schiebt mit out entlang der Richtung weiter hinaus", () => {
+  const innen = surfacePoint([0.4, 0.4, 0.4], [0, 0, -1]);
+  const aussen = surfacePoint([0.4, 0.4, 0.4], [0, 0, -1], 0.05);
+  assert.ok(Math.abs(aussen[2] - (innen[2] - 0.05)) < 1e-9, "out wirkt entlang der Normale nach außen");
+});
+
+test("surfacePoint normalisiert die Richtung selbst", () => {
+  const a = surfacePoint([0.4, 0.35, 0.3], [2, 0, 0]);
+  const b = surfacePoint([0.4, 0.35, 0.3], [1, 0, 0]);
+  assert.deepEqual(a, b);
+});
+
+test("surfacePoint bleibt auf der Ellipsoid-Oberfläche, auch diagonal", () => {
+  const [x, y, z] = surfacePoint([0.41, 0.377, 0.394], [0.4, 0.15, -1]);
+  const wert = (x / 0.41) ** 2 + (y / 0.377) ** 2 + (z / 0.394) ** 2;
+  assert.ok(Math.abs(wert - 1) < 1e-9, `liegt nicht auf der Oberfläche: ${wert}`);
+});
+
+test("facingRotation richtet die lokale z-Achse auf die Richtung aus", () => {
+  assert.deepEqual(facingRotation([0, 0, 1]).map((v) => +v.toFixed(6)), [0, 0]);
+  const [pitchX] = facingRotation([0, 1, 0]);
+  assert.ok(Math.abs(pitchX + Math.PI / 2) < 1e-9, "senkrecht nach oben heißt Pitch -90 Grad");
+  const [, yawSeite] = facingRotation([1, 0, 0]);
+  assert.ok(Math.abs(yawSeite - Math.PI / 2) < 1e-9, "seitlich heißt Yaw 90 Grad");
+});
+
+test("facingRotation ist von der Länge der Richtung unabhängig", () => {
+  assert.deepEqual(facingRotation([0.3, 0.2, -0.9]), facingRotation([0.6, 0.4, -1.8]));
 });

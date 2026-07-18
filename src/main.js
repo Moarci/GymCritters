@@ -18,7 +18,7 @@ import { SQUASH_DURATION, comboImpactScale, deliveryPitch, impactSound, impactSt
 import { createTouchInput } from "./input/index.js";
 import { clampPitch } from "./input/touch-look.js";
 import { createQualityState, stepQuality } from "./perf/adaptive-quality.js";
-import { carryPose, curveLean, dominantWeight, gaitParams, idleMotion, raccoonTailSpec, squirrelTailSpec } from "./character-motion.js";
+import { carryPose, curveLean, dominantWeight, facingRotation, gaitParams, idleMotion, raccoonTailSpec, squirrelTailSpec, surfacePoint } from "./character-motion.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -210,81 +210,129 @@ function buildRaccoon() {
   const fur = material("raccoonFur", "#777d83", 0.92);
   const dark = material("raccoonDark", "#272b31", 0.95);
   const light = material("raccoonLight", "#d7d4c9", 0.93);
+  const white = material("raccoonEyeWhite", "#f7f6ec", 0.45);
+  const iris = material("raccoonIris", "#17191d", 0.4);
+  const mats = { dark, white, iris };
+
+  // Rumpf: Kapsel mit hellem Bauch-Ei vorn und dunklem Rueckenstreifen hinten —
+  // die Silhouette bekommt Vorder- und Rueckseite.
   const body = capsule("body", 0.43, 1.12, [0, 0.85, 0], fur); body.scaling.z = 0.86;
-  const belly = sphere("belly", 0.58, [0, 0.82, -0.34], light); belly.scaling.set(0.72, 1, 0.18);
-  const head = sphere("head", 0.82, [0, 1.57, -0.06], fur); head.scaling.set(1, 0.92, 0.96);
+  const belly = sphere("belly", 0.6, [0, 0.88, -0.35], light); belly.scaling.set(0.75, 1.15, 0.2);
+  const back = sphere("backStripe", 0.5, [0, 1.05, 0.33], dark); back.scaling.set(0.85, 1.3, 0.25);
 
-  // Gesicht als zusammenhaengende Einheit: jedes Teil ueberlappt seinen Traeger,
-  // nichts schwebt. Die Werte sind gegen die Ellipsoid-Oberflaechen gerechnet —
-  // Schnauze steckt im Kopf, Flecken im Kopf, Augen in den Flecken, Nase in der
-  // Schnauze.
+  const HEAD_CENTER = [0, 1.57, -0.06];
+  const HEAD_RADII = [0.41, 0.377, 0.394];
+  const head = sphere("head", 0.82, HEAD_CENTER, fur); head.scaling.set(1, 0.92, 0.96);
+
+  // Gesicht auf der Kopfoberflaeche: Wangen unten-seitlich, Brauen ueber den
+  // Flecken, ein Maskensteg ueber der Nasenwurzel verbindet die zwei Flecken
+  // zur klassischen Banditenmaske.
   const muzzle = sphere("muzzle", 0.5, [0, 1.44, -0.34], light); muzzle.scaling.set(0.85, 0.7, 0.6);
-  // Die Banditenmaske als zwei sichtbare Augenflecken statt eines Bands, das
-  // vorher komplett in der Kopfkugel verschwand.
-  for (const x of [-0.17, 0.17]) {
-    const patch = sphere("maskPatch", 0.3, [x, 1.62, -0.4], dark); patch.scaling.set(0.78, 0.95, 0.4);
+  const MUZZLE_RADII = [0.2125, 0.175, 0.15];
+  for (const side of [-1, 1]) {
+    faceDot("cheek", 0.26, light, HEAD_CENTER, HEAD_RADII, [side * 0.85, -0.25, -0.55], -0.035, [0.75, 0.9, 0.4]);
+    faceDot("brow", 0.15, light, HEAD_CENTER, HEAD_RADII, [side * 0.32, 0.55, -0.85], -0.015, [1, 0.7, 0.35]);
   }
-  const eyes = createEyes(1.63, -0.46, 0.17);
-  const nose = sphere("nose", 0.16, [0, 1.49, -0.52], material("raccoonNose", "#111318", 0.6)); nose.scaling.set(1, 0.8, 0.8);
+  faceDot("maskBridge", 0.24, dark, HEAD_CENTER, HEAD_RADII, [0, 0.18, -1], -0.035, [1.6, 0.5, 0.4]);
+  const eyeSockets = buildEyes(HEAD_CENTER, HEAD_RADII, 0.4, mats, true);
+  faceDot("nose", 0.17, material("raccoonNose", "#111318", 0.55), [0, 1.44, -0.34], MUZZLE_RADII, [0, 0.25, -1], -0.012, [1, 0.8, 0.75]);
 
-  // Runde, zweifarbige Ohren statt der Kegel-Huete, unten in der Kopfkugel
-  // eingelassen und leicht nach aussen gekippt.
+  // Runde, zweifarbige Ohren, unten in der Kopfkugel eingelassen.
   for (const x of [-0.26, 0.26]) {
     const ear = sphere("ear", 0.34, [x, 1.9, 0], dark); ear.scaling.set(0.9, 1, 0.45); ear.rotation.z = x < 0 ? -0.25 : 0.25;
-    const inner = sphere("earInner", 0.2, [x, 1.89, -0.06], light); inner.scaling.set(0.7, 0.85, 0.3); inner.rotation.z = ear.rotation.z;
+    const inner = sphere("earInner", 0.2, [x, 1.89, -0.07], light); inner.scaling.set(0.7, 0.85, 0.3); inner.rotation.z = ear.rotation.z;
   }
 
-  const leftArm = limb("leftArm", -0.46, 1.05, fur, 0.105, 0.68);
-  const rightArm = limb("rightArm", 0.46, 1.05, fur, 0.105, 0.68);
-  const leftLeg = limb("leftLeg", -0.22, 0.28, dark, 0.13, 0.48, true);
-  const rightLeg = limb("rightLeg", 0.22, 0.28, dark, 0.13, 0.48, true);
-
-  // Pfoten und Fuesse haengen an den Gliedmassen, nicht an der Figur — so
-  // machen sie Armschwung und Tragehaltung automatisch mit.
-  for (const arm of [leftArm, rightArm]) {
-    const paw = B.MeshBuilder.CreateSphere("paw", { diameter: 0.17, segments: 10 }, scene);
-    paw.parent = arm; paw.position.set(0, -0.36, 0); paw.material = dark;
+  // Zweigliedrige Arme und Beine mit Ellbogen und Knie. Pfoten und Fuesse
+  // haengen an den Gelenk-Enden und machen jede Haltung automatisch mit.
+  const armL = jointedLimb("leftArm", [-0.42, 1.28, 0], 0.34, 0.32, 0.105, fur, fur, fur);
+  const armR = jointedLimb("rightArm", [0.42, 1.28, 0], 0.34, 0.32, 0.105, fur, fur, fur);
+  const legL = jointedLimb("leftLeg", [-0.21, 0.6, 0], 0.3, 0.26, 0.13, fur, dark, fur);
+  const legR = jointedLimb("rightLeg", [0.21, 0.6, 0], 0.3, 0.26, 0.13, fur, dark, fur);
+  for (const arm of [armL, armR]) {
+    const paw = B.MeshBuilder.CreateSphere("paw", { diameter: 0.18, segments: 10 }, scene);
+    paw.parent = arm.tip; paw.position.set(0, -0.02, 0); paw.material = dark;
   }
-  for (const leg of [leftLeg, rightLeg]) {
-    const foot = B.MeshBuilder.CreateSphere("foot", { diameter: 0.2, segments: 10 }, scene);
-    foot.parent = leg; foot.position.set(0, -0.26, -0.06); foot.scaling.set(1, 0.55, 1.5); foot.material = dark;
+  for (const leg of [legL, legR]) {
+    const foot = B.MeshBuilder.CreateSphere("foot", { diameter: 0.21, segments: 10 }, scene);
+    foot.parent = leg.tip; foot.position.set(0, -0.03, -0.05); foot.scaling.set(1, 0.55, 1.5); foot.material = dark;
   }
 
+  // Ringelschwanz aus der getesteten Spezifikation; die Spitze ist immer
+  // dunkel — Waschbaerschwaenze enden dunkel.
   const tailRoot = new B.TransformNode("tailRoot", scene); tailRoot.parent = playerVisual; tailRoot.position.set(0, 0.88, 0.35);
-  raccoonTailSpec().forEach((segment, i) => {
-    const ring = B.MeshBuilder.CreateCapsule(`tail${i}`, { radius: segment.radius, height: 0.55 }, scene);
+  const tailSpec = raccoonTailSpec();
+  tailSpec.forEach((segment, i) => {
+    const ring = B.MeshBuilder.CreateCapsule("tail" + i, { radius: segment.radius, height: 0.5 }, scene);
     ring.parent = tailRoot; ring.position.set(...segment.position);
-    ring.rotation.x = segment.rotationX; ring.material = i % 2 === 0 ? dark : fur;
+    ring.rotation.x = segment.rotationX;
+    ring.material = i === tailSpec.length - 1 ? dark : (i % 2 === 0 ? dark : fur);
   });
-  return { body, head, eyes, leftArm, rightArm, leftLeg, rightLeg, tailRoot };
+
+  return {
+    body, head, eyes: eyeSockets, eyeSockets,
+    leftArm: armL.root, leftElbow: armL.joint, rightArm: armR.root, rightElbow: armR.joint,
+    leftLeg: legL.root, leftKnee: legL.joint, rightLeg: legR.root, rightKnee: legR.joint,
+    tailRoot,
+  };
 }
 
 function buildSquirrel() {
   const fur = material("squirrelFur", "#b66f3d", 0.93);
   const dark = material("squirrelDark", "#6c3f28", 0.95);
   const light = material("squirrelLight", "#efcc9d", 0.93);
+  const white = material("squirrelEyeWhite", "#f7f6ec", 0.45);
+  const iris = material("squirrelIris", "#201712", 0.4);
+  const mats = { dark, white, iris };
+
   const body = capsule("body", 0.4, 1.06, [0, 0.82, 0], fur); body.scaling.z = 0.84;
-  const belly = sphere("belly", 0.56, [0, 0.82, -0.34], light); belly.scaling.set(0.72, 1, 0.18);
-  const head = sphere("head", 0.78, [0, 1.55, -0.07], fur); head.scaling.set(0.95, 0.98, 0.92);
+  const belly = sphere("belly", 0.58, [0, 0.86, -0.34], light); belly.scaling.set(0.74, 1.12, 0.2);
+
+  const HEAD_CENTER = [0, 1.55, -0.07];
+  const HEAD_RADII = [0.3705, 0.3822, 0.3588];
+  const head = sphere("head", 0.78, HEAD_CENTER, fur); head.scaling.set(0.95, 0.98, 0.92);
   const muzzle = sphere("muzzle", 0.42, [0, 1.45, -0.41], light); muzzle.scaling.set(0.85, 0.62, 0.55);
-  const eyes = createEyes(1.64, -0.44, 0.17);
-  sphere("nose", 0.13, [0, 1.46, -0.5], material("squirrelNose", "#201712", 0.6));
+  const MUZZLE_RADII = [0.1785, 0.1302, 0.1155];
+  for (const side of [-1, 1]) {
+    faceDot("cheek", 0.22, light, HEAD_CENTER, HEAD_RADII, [side * 0.85, -0.3, -0.5], -0.03, [0.7, 0.85, 0.4]);
+  }
+  const eyeSockets = buildEyes(HEAD_CENTER, HEAD_RADII, 0.42, mats, false);
+  faceDot("nose", 0.13, material("squirrelNose", "#201712", 0.6), [0, 1.45, -0.41], MUZZLE_RADII, [0, 0.25, -1], -0.01, [1, 0.8, 0.75]);
+
+  // Spitze Ohren mit Pinsel-Tuffs — das Eichhoernchen-Erkennungszeichen.
   for (const x of [-0.25, 0.25]) {
     const ear = B.MeshBuilder.CreateCylinder("squirrelEar", { diameterTop: 0.03, diameterBottom: 0.24, height: 0.48, tessellation: 16 }, scene);
     ear.parent = playerVisual; ear.position.set(x, 1.98, -0.02); ear.rotation.z = x < 0 ? -0.16 : 0.16; ear.material = dark;
+    sphere("earTuft", 0.11, [x + (x < 0 ? -0.035 : 0.035), 2.24, -0.02], fur);
   }
-  const leftArm = limb("leftArm", -0.43, 1.04, fur, 0.095, 0.64);
-  const rightArm = limb("rightArm", 0.43, 1.04, fur, 0.095, 0.64);
-  const leftLeg = limb("leftLeg", -0.2, 0.28, dark, 0.12, 0.46, true);
-  const rightLeg = limb("rightLeg", 0.2, 0.28, dark, 0.12, 0.46, true);
+
+  const armL = jointedLimb("leftArm", [-0.41, 1.26, 0], 0.3, 0.3, 0.095, fur, fur, fur);
+  const armR = jointedLimb("rightArm", [0.41, 1.26, 0], 0.3, 0.3, 0.095, fur, fur, fur);
+  const legL = jointedLimb("leftLeg", [-0.19, 0.58, 0], 0.28, 0.24, 0.12, fur, dark, fur);
+  const legR = jointedLimb("rightLeg", [0.19, 0.58, 0], 0.28, 0.24, 0.12, fur, dark, fur);
+  for (const arm of [armL, armR]) {
+    const paw = B.MeshBuilder.CreateSphere("paw", { diameter: 0.16, segments: 10 }, scene);
+    paw.parent = arm.tip; paw.position.set(0, -0.02, 0); paw.material = dark;
+  }
+  for (const leg of [legL, legR]) {
+    const foot = B.MeshBuilder.CreateSphere("foot", { diameter: 0.2, segments: 10 }, scene);
+    foot.parent = leg.tip; foot.position.set(0, -0.03, -0.05); foot.scaling.set(1, 0.55, 1.45); foot.material = dark;
+  }
+
   const tailRoot = new B.TransformNode("tailRoot", scene); tailRoot.parent = playerVisual; tailRoot.position.set(0, 0.72, 0.34);
   squirrelTailSpec().forEach((segment, i) => {
-    const puff = sphere(`squirrelTail${i}`, segment.diameter, [0, 0, 0], i % 2 ? dark : fur);
+    const puff = sphere("squirrelTail" + i, segment.diameter, [0, 0, 0], i % 2 ? dark : fur);
     puff.parent = tailRoot;
     puff.position.set(...segment.position);
     puff.scaling.set(0.8, 1.1, 0.72);
   });
-  return { body, head, eyes, leftArm, rightArm, leftLeg, rightLeg, tailRoot };
+
+  return {
+    body, head, eyes: eyeSockets, eyeSockets,
+    leftArm: armL.root, leftElbow: armL.joint, rightArm: armR.root, rightElbow: armR.joint,
+    leftLeg: legL.root, leftKnee: legL.joint, rightLeg: legR.root, rightKnee: legR.joint,
+    tailRoot,
+  };
 }
 
 function capsule(name, radius, height, position, mat) {
@@ -295,22 +343,66 @@ function sphere(name, diameter, position, mat) {
   const mesh = B.MeshBuilder.CreateSphere(name, { diameter, segments: 16 }, scene);
   mesh.parent = playerVisual; mesh.position.set(...position); mesh.material = mat; return mesh;
 }
-function limb(name, x, y, mat, radius, height, vertical = false) {
-  const mesh = B.MeshBuilder.CreateCapsule(name, { radius, height }, scene);
-  mesh.parent = playerVisual; mesh.position.set(x, y, -0.04); mesh.material = mat;
-  if (!vertical) mesh.rotation.z = x < 0 ? -0.22 : 0.22;
+// Setzt ein flachgedruecktes Kugel-Detail AUF die Oberflaeche eines Ellipsoids:
+// Position ueber surfacePoint entlang der Blickrichtung, Ausrichtung ueber
+// facingRotation an die Oberflaechennormale geschmiegt. Damit liegen alle
+// Gesichtsteile nachweislich auf der Haut statt an geratenen z-Werten.
+function faceDot(name, diameter, mat, center, radii, dir, out, scale = null) {
+  const mesh = B.MeshBuilder.CreateSphere(name, { diameter, segments: 14 }, scene);
+  mesh.parent = playerVisual;
+  const punkt = surfacePoint(radii, dir, out);
+  mesh.position.set(center[0] + punkt[0], center[1] + punkt[1], center[2] + punkt[2]);
+  const [pitch, yaw] = facingRotation(dir);
+  mesh.rotation.set(pitch, yaw, 0);
+  if (scale) mesh.scaling.set(...scale);
+  mesh.material = mat;
   return mesh;
 }
-function createEyes(y, z, xOffset) {
-  const whiteMat = material(`eyeWhite-${Math.random()}`, "#f7f6ec", 0.45);
-  const irisMat = material(`iris-${Math.random()}`, "#17191d", 0.4);
-  const eyes = [];
-  for (const x of [-xOffset, xOffset]) {
-    const white = sphere("eyeWhite", 0.17, [x, y, z], whiteMat); white.scaling.set(0.82, 1.08, 0.45);
-    const pupil = sphere("pupil", 0.075, [x, y, z - 0.072], irisMat);
-    eyes.push({ white, pupil });
+
+// Der Augen-Stapel liegt Schicht fuer Schicht auf demselben Normalen-Strahl:
+// (Maskenfleck ->) Augenweiss -> Pupille -> Glanzlicht, jede Ebene strikt
+// weiter aussen als die vorige. Das Glanzlicht sitzt leicht oben-innen — das
+// gibt den Augen Leben. Liefert je Auge einen an der Oberflaeche
+// ausgerichteten Anker fuer die Sonnenbrille.
+function buildEyes(center, radii, spread, mats, withPatch) {
+  const sockets = [];
+  for (const side of [-1, 1]) {
+    const dir = [side * spread, 0.2, -1];
+    if (withPatch) faceDot("maskPatch", 0.33, mats.dark, center, radii, dir, -0.02, [0.85, 1, 0.4]);
+    faceDot("eyeWhite", 0.19, mats.white, center, radii, dir, withPatch ? 0.035 : 0.008, [0.8, 1, 0.5]);
+    faceDot("pupil", 0.09, mats.iris, center, radii, dir, withPatch ? 0.075 : 0.048);
+    const glint = faceDot("eyeGlint", 0.035, mats.white, center, radii, dir, withPatch ? 0.1 : 0.07);
+    glint.position.x -= side * 0.02;
+    glint.position.y += 0.02;
+    const socket = new B.TransformNode("eyeSocket", scene);
+    socket.parent = playerVisual;
+    const anker = surfacePoint(radii, dir, withPatch ? 0.09 : 0.06);
+    socket.position.set(center[0] + anker[0], center[1] + anker[1], center[2] + anker[2]);
+    const [pitch, yaw] = facingRotation(dir);
+    socket.rotation.set(pitch, yaw, 0);
+    sockets.push(socket);
   }
-  return eyes;
+  return sockets;
+}
+
+// Zweigliedrige Gliedmasse: Schulter-/Hueft-Drehpunkt -> Oberteil -> Gelenk ->
+// Unterteil -> Spitzen-Anker. Die Kappe am Drehpunkt verdeckt die Naht zum
+// Rumpf. Die Animation greift am Wurzel- und am Gelenkknoten an — Pfoten und
+// Baender haengen an den Segmenten und machen jede Pose automatisch mit.
+function jointedLimb(name, pivot, upperLen, lowerLen, radius, upperMat, lowerMat, capMat) {
+  const root = new B.TransformNode(name + "Root", scene);
+  root.parent = playerVisual; root.position.set(...pivot);
+  const cap = B.MeshBuilder.CreateSphere(name + "Cap", { diameter: radius * 2.7, segments: 12 }, scene);
+  cap.parent = root; cap.scaling.set(1, 0.85, 1); cap.material = capMat;
+  const upper = B.MeshBuilder.CreateCapsule(name + "Upper", { radius, height: upperLen + radius * 2 }, scene);
+  upper.parent = root; upper.position.y = -upperLen / 2; upper.material = upperMat;
+  const joint = new B.TransformNode(name + "Joint", scene);
+  joint.parent = root; joint.position.y = -upperLen;
+  const lower = B.MeshBuilder.CreateCapsule(name + "Lower", { radius: radius * 0.88, height: lowerLen + radius * 1.6 }, scene);
+  lower.parent = joint; lower.position.y = -lowerLen / 2; lower.material = lowerMat;
+  const tip = new B.TransformNode(name + "Tip", scene);
+  tip.parent = joint; tip.position.y = -lowerLen;
+  return { root, joint, tip };
 }
 
 function applyCosmetics() {
@@ -321,19 +413,26 @@ function applyCosmetics() {
   headband.material = material("headbandMat", headColors[headId] || headColors["headband-lime"], 0.7);
 
   if (save.equipped.face === "sunglasses") {
+    // Die Glaeser haengen an den Augen-Ankern und sitzen damit exakt vor den
+    // Pupillen — auf jeder Kopfform, ohne geratene Koordinaten.
     const lensMat = material("sunglassLens", "#151b24", 0.3, 0.15);
-    for (const x of [-0.17, 0.17]) {
-      const lens = B.MeshBuilder.CreateBox("sunglassLens", { width: 0.27, height: 0.17, depth: 0.035 }, scene);
-      lens.parent = playerVisual; lens.position.set(x, 1.65, -0.635); lens.material = lensMat;
+    for (const socket of playerParts.eyeSockets) {
+      const lens = B.MeshBuilder.CreateBox("sunglassLens", { width: 0.24, height: 0.15, depth: 0.028 }, scene);
+      lens.parent = socket; lens.position.set(0, 0, 0.012); lens.material = lensMat;
     }
-    const bridge = B.MeshBuilder.CreateBox("sunglassBridge", { width: 0.13, height: 0.035, depth: 0.035 }, scene);
-    bridge.parent = playerVisual; bridge.position.set(0, 1.65, -0.635); bridge.material = lensMat;
+    const [l, r] = playerParts.eyeSockets;
+    const bridge = B.MeshBuilder.CreateBox("sunglassBridge", { width: 0.14, height: 0.035, depth: 0.035 }, scene);
+    bridge.parent = playerVisual;
+    bridge.position.set((l.position.x + r.position.x) / 2, (l.position.y + r.position.y) / 2, Math.min(l.position.z, r.position.z) - 0.015);
+    bridge.material = lensMat;
   }
   if (save.equipped.wrist === "wristbands") {
     const wristMat = material("wristMat", "#f7f6f1", 0.8);
-    for (const [x, arm] of [[-0.46, playerParts.leftArm], [0.46, playerParts.rightArm]]) {
-      const wrist = B.MeshBuilder.CreateTorus("wristband", { diameter: 0.23, thickness: 0.055, tessellation: 18 }, scene);
-      wrist.parent = arm; wrist.position.y = -0.22; wrist.rotation.x = Math.PI / 2; wrist.material = wristMat;
+    // Schweissbaender gehoeren ans Handgelenk — also an den Unterarm, wo sie
+    // die Ellbogenbeugung mitmachen.
+    for (const elbow of [playerParts.leftElbow, playerParts.rightElbow]) {
+      const wrist = B.MeshBuilder.CreateTorus("wristband", { diameter: 0.21, thickness: 0.055, tessellation: 18 }, scene);
+      wrist.parent = elbow; wrist.position.y = -0.24; wrist.rotation.x = Math.PI / 2; wrist.material = wristMat;
     }
   }
 }
@@ -637,23 +736,31 @@ function animateCharacter(dt, moving, sprinting) {
   const armSwing = Math.sin(phase) * 0.55 * gait.intensity * gait.armSwing;
   const legSwing = Math.sin(phase) * 0.5 * gait.intensity;
   if (state.heldItems.length) {
-    // Die Haltung zeigt, was geschleppt wird: schwer hängt tief mit Rücklage,
-    // sperrig umklammert breit, leicht bleibt locker.
+    // Die Haltung zeigt, was geschleppt wird: schwer haengt tief, der Ellbogen
+    // traegt die eigentliche Beugung — erst das Gelenk macht Halten sichtbar.
     const pose = carryPose(weight);
     playerParts.leftArm.rotation.x = pose.armX;
     playerParts.rightArm.rotation.x = pose.armX;
     playerParts.leftArm.rotation.z = -pose.armZ;
     playerParts.rightArm.rotation.z = pose.armZ;
+    playerParts.leftElbow.rotation.x = pose.elbowX;
+    playerParts.rightElbow.rotation.x = pose.elbowX;
     playerVisual.rotation.x = B.Scalar.Lerp(playerVisual.rotation.x, pose.torsoLean, 0.15);
   } else {
     playerParts.leftArm.rotation.x = armSwing;
     playerParts.rightArm.rotation.x = -armSwing;
     playerParts.leftArm.rotation.z = state.character === "squirrel" ? -0.17 : -0.22;
     playerParts.rightArm.rotation.z = state.character === "squirrel" ? 0.17 : 0.22;
+    // Der Ellbogen pendelt mit: staerker gebeugt, wenn der Arm zurueckschwingt.
+    playerParts.leftElbow.rotation.x = -0.18 - Math.max(0, Math.sin(phase)) * 0.3 * gait.intensity;
+    playerParts.rightElbow.rotation.x = -0.18 - Math.max(0, -Math.sin(phase)) * 0.3 * gait.intensity;
     playerVisual.rotation.x = B.Scalar.Lerp(playerVisual.rotation.x, 0, 0.15);
   }
   playerParts.leftLeg.rotation.x = -legSwing;
   playerParts.rightLeg.rotation.x = legSwing;
+  // Das Knie beugt beim Durchschwingen — echtes Schreiten statt steifem Pendel.
+  playerParts.leftKnee.rotation.x = 0.55 * gait.intensity * Math.max(0, Math.sin(phase + 0.4));
+  playerParts.rightKnee.rotation.x = 0.55 * gait.intensity * Math.max(0, -Math.sin(phase + 0.4));
   const idle = !moving && !state.heldItems.length ? idleMotion(state.elapsed) : null;
   playerParts.body.scaling.y = 1 + (idle ? idle.breath : 0);
   playerParts.tailRoot.rotation.y = Math.sin(state.elapsed * (state.character === "squirrel" ? 4 : 3.2)) * 0.28 + (idle ? idle.tailFlick : 0);
