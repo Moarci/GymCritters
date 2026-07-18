@@ -25,6 +25,26 @@ test("stepQuality verändert den übergebenen Zustand nicht", () => {
   assert.equal(JSON.stringify(state), before);
 });
 
+test("stepQuality verändert den Zustand mitten im Fenster nicht", () => {
+  // Anders als beim Warmlauf-Test hat samples hier bereits Einträge; ein
+  // push() statt einer Kopie würde diese Probe direkt am Original erwischen.
+  let state = feed(createQualityState(), SMOOTH, QUALITY_LIMITS.warmupFrames);
+  state = feed(state, SMOOTH, QUALITY_LIMITS.windowSize / 2);
+  const before = JSON.stringify(state);
+  stepQuality(state, SMOOTH);
+  assert.equal(JSON.stringify(state), before);
+});
+
+test("stepQuality verändert den Zustand beim fensterabschließenden Herunterregeln nicht", () => {
+  // Genau der Frame, der das Fenster voll macht und eine Entscheidung samt
+  // samples-Reset auslöst, darf den übergebenen Zustand nicht mutieren.
+  let state = feed(createQualityState(), SMOOTH, QUALITY_LIMITS.warmupFrames);
+  state = feed(state, SLOW, QUALITY_LIMITS.windowSize - 1);
+  const before = JSON.stringify(state);
+  stepQuality(state, SLOW);
+  assert.equal(JSON.stringify(state), before);
+});
+
 test("stepQuality regelt während der Warmlaufphase nicht", () => {
   const state = createQualityState();
   const warm = feed(state, SLOW, QUALITY_LIMITS.warmupFrames - 1);
@@ -46,13 +66,28 @@ test("stepQuality kippt die Stufe erst, wenn das Scaling ausgereizt ist", () => 
   assert.equal(state.tier, "low");
 });
 
+test("stepQuality kippt die Stufe zurück, bevor das Scaling zu sinken beginnt", () => {
+  // Voll ausgereizter Zustand: Scaling am Maximum, Stufe bereits "low".
+  let state = feed(createQualityState(), SMOOTH, QUALITY_LIMITS.warmupFrames);
+  for (let round = 0; round < 40; round++) state = feed(state, SLOW, QUALITY_LIMITS.windowSize);
+  assert.equal(state.scaling, QUALITY_LIMITS.maxScaling);
+  assert.equal(state.tier, "low");
+
+  // Genau ein glattes Fenster: laut Reihenfolge "erst die Stufe zurück, dann
+  // das Scaling" muss tier bereits kippen, während scaling noch am Maximum steht.
+  const flipped = feed(state, SMOOTH, QUALITY_LIMITS.windowSize);
+  assert.equal(flipped.tier, "high", "die Stufe muss vor dem Scaling zurückkippen");
+  assert.equal(flipped.scaling, QUALITY_LIMITS.maxScaling, "das Scaling darf in diesem Schritt noch nicht sinken");
+});
+
 test("stepQuality überschreitet die Grenzen nicht", () => {
   let state = feed(createQualityState(), SMOOTH, QUALITY_LIMITS.warmupFrames);
   for (let round = 0; round < 80; round++) state = feed(state, SLOW, QUALITY_LIMITS.windowSize);
-  assert.ok(state.scaling <= QUALITY_LIMITS.maxScaling);
+  assert.equal(state.scaling, QUALITY_LIMITS.maxScaling);
   let recovered = state;
   for (let round = 0; round < 80; round++) recovered = feed(recovered, SMOOTH, QUALITY_LIMITS.windowSize);
-  assert.ok(recovered.scaling >= QUALITY_LIMITS.minScaling);
+  assert.equal(recovered.scaling, QUALITY_LIMITS.minScaling, "nach voller Erholung muss das Scaling wieder am Minimum stehen");
+  assert.equal(recovered.tier, "high", "nach voller Erholung muss die Stufe wieder auf high stehen");
 });
 
 test("stepQuality regelt bei viel Luft wieder herunter", () => {
@@ -61,6 +96,19 @@ test("stepQuality regelt bei viel Luft wieder herunter", () => {
   const loaded = state.scaling;
   state = feed(state, SMOOTH, QUALITY_LIMITS.windowSize);
   assert.ok(state.scaling < loaded, `erwartet Erholung, war ${state.scaling}`);
+});
+
+test("stepQuality zählt ein erfolgreiches und gehaltenes Hochregeln nicht als Fehlversuch", () => {
+  // Einmal herunterregeln, dann dauerhaft glatt bleiben: das Hochregeln
+  // gelingt und hält, failedUpgrades darf dabei nicht anspringen. Eine
+  // Implementierung, die bei JEDEM Herunterregeln failedUpgrades erhöht
+  // (statt nur nach einem gescheiterten Hochstufversuch), würde hier bereits
+  // nach dem ersten Fenster von 0 abweichen.
+  let state = feed(createQualityState(), SMOOTH, QUALITY_LIMITS.warmupFrames);
+  state = feed(state, SLOW, QUALITY_LIMITS.windowSize);
+  assert.ok(state.scaling > 1, "das einzelne langsame Fenster muss das Scaling anheben");
+  state = feed(state, SMOOTH, QUALITY_LIMITS.windowSize * 5);
+  assert.equal(state.failedUpgrades, 0, "ein gehaltenes Hochregeln ist kein Fehlversuch");
 });
 
 test("stepQuality gibt nach zwei erfolglosen Versuchen das Hochregeln auf", () => {
