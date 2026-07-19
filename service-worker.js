@@ -1,4 +1,4 @@
-const CACHE_VERSION = "gym-critters-v5-2026-07-19-r16";
+const CACHE_VERSION = "gym-critters-v5-2026-07-19-r17";
 const LOCAL_CACHE = `${CACHE_VERSION}-local`;
 const ENGINE_CACHE = `${CACHE_VERSION}-engine`;
 const APP_SCOPE = new URL("./", self.location.href);
@@ -24,6 +24,7 @@ const CORE_ASSETS = [
   "./src/materials.js",
   "./src/progression.js",
   "./src/round-coach.js",
+  "./src/rolling-hazard.js",
   "./src/round-planner.js",
   "./src/save.js",
   "./src/shift-director.js",

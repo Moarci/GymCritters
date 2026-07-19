@@ -55,6 +55,14 @@ import { buildRoundTypes, planSpawnPositions } from "./round-planner.js";
 import { roundCoaching } from "./round-coach.js";
 import { comboFlowState, courierBatchBonus, hazardCueIntensity } from "./game-feel.js";
 import { chargeFlowShield, createFlowShieldState, hasFlowShield, spendFlowShield } from "./flow-shield.js";
+import {
+  createRollingHazard,
+  laneFor,
+  rollingHazardActive,
+  rollingHazardHit,
+  rollingHazardPoint,
+  stepRollingHazard,
+} from "./rolling-hazard.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -165,7 +173,7 @@ const state = {
   maxCombo: 0, deliveredDumbbells: 0, deliveredByType: {}, heldItems: [], nearestItem: null, nearestZone: null,
   keys: new Set(), interactPressed: false, elapsed: 0, roundElapsed: 0, hudAccumulator: 0,
   velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 }, lean: 0,
-  activeWave: 0, shiftEventId: null, flowShield: createFlowShieldState(),
+  activeWave: 0, shiftEventId: null, flowShield: createFlowShieldState(), rollingAnnounced: false,
   cameraPreferredRadius: 5.6, cameraOccluded: false,
   toastTimer: null, speechTimer: null, achievementTimer: null,
 };
@@ -200,6 +208,7 @@ let highlightedItem = null;
 let deliveryObservers = [];
 let trailAccumulator = 0;
 let trailSparkPool = [];
+let rollingHazard = null;
 
 const CARRY_PROFILES = {
   dumbbell: { scale: 0.72, rootY: -0.12, gripX: 0.22, gripY: 0.84, rotationZ: 0 },
@@ -304,6 +313,7 @@ function rebuildSceneForQuality() {
   obstacles = [];
   deliveryObservers = [];
   trailSparkPool = [];
+  rollingHazard = null;
   highlightedItem = null;
   createScene();
   renderMenu();
@@ -709,7 +719,8 @@ function updateShiftStatus() {
   const targets = event.types
     ? event.types.map((type) => ITEM_TYPES[type]?.icon).filter(Boolean).join(" ")
     : "Schwer & sperrig";
-  ui.shiftPhase.textContent = `${shiftPhaseLabel(phase)} · Welle ${state.activeWave + 1}/3`;
+  const hazardActive = rollingHazardActive(state.level, phase);
+  ui.shiftPhase.textContent = `${shiftPhaseLabel(phase)} · Welle ${state.activeWave + 1}/3${hazardActive ? " · ⚠ Rollende Gefahr" : ""}`;
   ui.shiftEventTitle.textContent = event.title;
   ui.shiftEventBonus.textContent = `${targets} +${shiftEventBonusPercent(event, dynamics)} % Bonus`;
   [...ui.shiftWaveDots.children].forEach((dot, index) => {
@@ -917,6 +928,7 @@ function update() {
   updateComboTimer(dt);
   updateFlowShield(dt);
   updatePlayer(dt);
+  updateRollingHazard(dt);
   updateInteraction();
   if (state.interactPressed) {
     state.interactPressed = false;
@@ -1073,7 +1085,7 @@ function updatePlayer(dt) {
     })),
   });
   if (hazard) {
-    triggerTrip(hazard.source);
+    triggerTrip(hazard.source, "floor");
     animateCharacter(dt, false, false);
     return;
   }
@@ -1347,6 +1359,77 @@ function animateWorld(dt) {
   if (!state.playing && state.reaction.type) updateReaction(dt);
 }
 
+// Baut die rollende Gefahr einmal pro Szene: ein sichtbarer Medizinball mit
+// Nahtlinien und ein pulsierender Warnring am Boden, der die Bahn ankündigt.
+function ensureRollingBall(lane) {
+  if (rollingHazard) return rollingHazard;
+  const diameter = lane.radius * 2;
+  const root = new B.TransformNode("rollingHazard", scene);
+  const ballMat = material("rollingHazardBall", "#d36b61", 0.6);
+  ballMat.emissiveColor = B.Color3.FromHexString("#d36b61").scale(0.08);
+  const seamMat = material("rollingHazardSeam", "#242832", 0.82);
+  const ball = B.MeshBuilder.CreateSphere("rollingHazardBall", { diameter, segments: 22 }, scene);
+  ball.parent = root; ball.position.y = lane.radius; ball.material = ballMat; ball.isPickable = false;
+  shadowGenerator.addShadowCaster(ball);
+  const seams = [];
+  for (const [rotationX, rotationZ] of [[0, 0], [Math.PI / 2, 0], [0, Math.PI / 2]]) {
+    const seam = B.MeshBuilder.CreateTorus("rollingHazardSeam", { diameter: diameter * 1.01, thickness: 0.02, tessellation: 24 }, scene);
+    seam.parent = ball; seam.rotation.set(rotationX, 0, rotationZ); seam.material = seamMat; seam.isPickable = false;
+    seams.push(seam);
+  }
+  // Der Warnring liegt flach auf dem Boden (Torus-Grundlage ist die XZ-Ebene).
+  const ring = B.MeshBuilder.CreateTorus("rollingHazardRing", { diameter: diameter + 1, thickness: 0.05, tessellation: 32 }, scene);
+  ring.parent = root; ring.position.y = 0.03; ring.isPickable = false;
+  const ringMat = material("rollingHazardRingMat", "#ff6f4f", 0.6);
+  ringMat.emissiveColor = B.Color3.FromHexString("#ff5a3c").scale(0.85);
+  ringMat.unlit = true;
+  ring.material = ringMat;
+  root.setEnabled(false);
+  rollingHazard = { root, ball, ring, seams, sim: null, roll: 0 };
+  return rollingHazard;
+}
+
+function hideRollingHazard() {
+  if (!rollingHazard) return;
+  rollingHazard.root.setEnabled(false);
+  rollingHazard.sim = null;
+}
+
+// Führt die rollende Gefahr fort: aktiv erst ab dem Rush, danach quert der Ball
+// pausenlos seinen Laufweg. Ein Treffer nutzt dieselbe Stolperreaktion wie eine
+// Bodenfalle — inklusive Flow-Schild-Rettung — knockt aber auch eine stehende
+// Figur um, denn der Ball kommt zu ihr.
+function updateRollingHazard(dt) {
+  if (state.tutorial || !items.length) { hideRollingHazard(); return; }
+  const phase = shiftPhase(state.delivered, items.length);
+  if (!rollingHazardActive(state.level, phase)) { hideRollingHazard(); return; }
+  const lane = laneFor(state.level);
+  if (!lane) { hideRollingHazard(); return; }
+  const hazard = ensureRollingBall(lane);
+  if (!hazard.sim) {
+    hazard.sim = createRollingHazard(lane);
+    hazard.roll = 0;
+    hazard.root.setEnabled(true);
+    if (!state.rollingAnnounced) {
+      state.rollingAnnounced = true;
+      showToast("Achtung – rollende Gefahr auf dem Laufweg!", "bad");
+      characterSays(state.character === "squirrel" ? "Ball von der Seite – ausweichen!" : "Vorsicht, der Medizinball rollt!");
+      audio.play("wave");
+    }
+  }
+  const previous = hazard.sim.pos;
+  hazard.sim = stepRollingHazard(hazard.sim, dt);
+  const point = rollingHazardPoint(hazard.sim);
+  hazard.root.position.set(point.x, 0, point.z);
+  hazard.roll -= (hazard.sim.pos - previous) / lane.radius;
+  hazard.ball.rotation.z = hazard.roll;
+  const pulse = 1 + Math.sin(state.elapsed * 8) * 0.06;
+  hazard.ring.scaling.setAll(pulse);
+  if (state.tripCooldown <= 0 && state.tripTime <= 0 && rollingHazardHit(hazard.sim, player.position, player.metadata.radius)) {
+    triggerTrip({ root: { position: new B.Vector3(point.x, 0, point.z) } }, "rolling");
+  }
+}
+
 function canPickUp(item) {
   if (!item || !item.active || item.delivered) return false;
   const character = currentCharacter();
@@ -1582,7 +1665,7 @@ function findSafeDropPosition(baseAngle = player.rotation.y) {
   return new B.Vector3(player.position.x, 0.12, player.position.z);
 }
 
-function triggerTrip(hazard) {
+function triggerTrip(hazard, cause = "floor") {
   const risk = tripRule(currentLevelSettings().tripRisk);
   const dropped = [...state.heldItems];
   state.heldItems = [];
@@ -1609,13 +1692,17 @@ function triggerTrip(hazard) {
   reflowHeldItems(false);
   audio.play("trip");
   vibrate([35, 25, 55]);
-  const stumbleText = dropped.length ? `Gestolpert – ${dropped.length > 1 ? "alles" : dropped[0].label} fallen gelassen!` : "Hoppla – über etwas gestolpert!";
+  const rolling = cause === "rolling";
+  const stumbleText = rolling
+    ? (dropped.length ? `Medizinball erwischt – ${dropped.length > 1 ? "alles" : dropped[0].label} verloren!` : "Vom rollenden Medizinball umgerollt!")
+    : (dropped.length ? `Gestolpert – ${dropped.length > 1 ? "alles" : dropped[0].label} fallen gelassen!` : "Hoppla – über etwas gestolpert!");
   if (shielded) {
     showToast(`${stumbleText} Flow-Schild rettet die Serie!`, "good");
     characterSays(state.character === "squirrel" ? "Schild hält – Serie lebt!" : "Der Flow-Schild fängt das ab!");
   } else {
     showToast(stumbleText, "bad");
-    characterSays(state.character === "squirrel" ? "Uff! Alles noch dran?" : "Rocco, Augen auf den Boden!");
+    if (rolling) characterSays(state.character === "squirrel" ? "Autsch! Der kam von der Seite!" : "Dieser Ball wieder …");
+    else characterSays(state.character === "squirrel" ? "Uff! Alles noch dran?" : "Rocco, Augen auf den Boden!");
   }
   updateHUD();
 }
@@ -1897,9 +1984,9 @@ function resetRoundState() {
   state.score = 0; state.combo = 0; state.comboTime = 0; state.delivered = 0; state.wrongPlacements = 0; state.droppedItems = 0;
   state.trips = 0; state.tripTime = 0; state.tripCooldown = 0; state.roundElapsed = 0;
   state.maxCombo = 0; state.deliveredDumbbells = 0; state.deliveredByType = {}; state.heldItems = []; state.nearestItem = null; state.nearestZone = null;
-  state.activeWave = 0; state.shiftEventId = null; state.flowShield = createFlowShieldState();
+  state.activeWave = 0; state.shiftEventId = null; state.flowShield = createFlowShieldState(); state.rollingAnnounced = false;
   state.hudAccumulator = 0; state.interactPressed = false; state.keys.clear(); state.velocity.set(0, 0, 0);
-  touchInput.reset(); resetZoneGuidance(); clearItemHighlight();
+  touchInput.reset(); resetZoneGuidance(); clearItemHighlight(); hideRollingHazard();
   // Jede Runde beginnt mit frischer Warmlaufphase: Szenenaufbau verzerrt die Messung.
   qualityState = createAdaptiveState();
   zones.forEach((zone) => { zone.deliveredCount = 0; });
@@ -1965,7 +2052,7 @@ function finishTutorial() {
 function endRound(completed) {
   if (state.ended) return;
   state.ended = true; state.playing = false; state.paused = false; state.finishing = false; state.velocity.set(0, 0, 0);
-  touchInput.reset(); resetZoneGuidance(); clearItemHighlight(); hidePrompt(); audio.stopMusic();
+  touchInput.reset(); resetZoneGuidance(); clearItemHighlight(); hidePrompt(); hideRollingHazard(); audio.stopMusic();
   const mode = MODES[state.mode];
   const completionBonus = completed
     ? Math.round((mode.timed === false ? 250 : state.timeLeft * 4 + 250) * mode.scoreMultiplier)
@@ -2046,7 +2133,7 @@ function calculateRank(completed) {
 
 function returnToMenu() {
   state.playing = false; state.paused = false; state.ended = true; state.finishing = false; state.tutorial = false;
-  state.keys.clear(); state.velocity.set(0, 0, 0); audio.stopMusic(); touchInput.reset(); clearItemHighlight(); hidePrompt();
+  state.keys.clear(); state.velocity.set(0, 0, 0); audio.stopMusic(); touchInput.reset(); clearItemHighlight(); hidePrompt(); hideRollingHazard();
   ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.contractHud.classList.add("hidden"); ui.shiftStatus.classList.add("hidden"); ui.progressTrack.classList.add("hidden"); ui.navigator.classList.add("hidden");
   ui.flowVignette.classList.remove("active");
   ui.mobileControls.classList.add("hidden"); ui.pauseScreen.classList.add("hidden"); ui.resultScreen.classList.add("hidden"); ui.tutorialCoach.classList.add("hidden");
