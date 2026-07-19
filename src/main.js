@@ -408,6 +408,7 @@ function buildRaccoon() {
 
   return {
     body, head, eyes: eyeSockets, eyeSockets,
+    headCenter: HEAD_CENTER, headRadii: HEAD_RADII,
     leftArm: armL.root, leftElbow: armL.joint, rightArm: armR.root, rightElbow: armR.joint,
     leftArmRig: armL, rightArmRig: armR,
     leftLeg: legL.root, leftKnee: legL.joint, rightLeg: legR.root, rightKnee: legR.joint,
@@ -467,6 +468,7 @@ function buildSquirrel() {
 
   return {
     body, head, eyes: eyeSockets, eyeSockets,
+    headCenter: HEAD_CENTER, headRadii: HEAD_RADII,
     leftArm: armL.root, leftElbow: armL.joint, rightArm: armR.root, rightElbow: armR.joint,
     leftArmRig: armL, rightArmRig: armR,
     leftLeg: legL.root, leftKnee: legL.joint, rightLeg: legR.root, rightKnee: legR.joint,
@@ -544,36 +546,153 @@ function jointedLimb(name, pivot, upperLen, lowerLen, radius, upperMat, lowerMat
   return { root, joint, tip, upperLen, lowerLen };
 }
 
-function applyCosmetics() {
-  const headId = save.equipped.head || "headband-lime";
-  const headVisual = shopItem(headId)?.visual || { color: "#a7f46a" };
-  const headband = B.MeshBuilder.CreateTorus("cosmeticHeadband", { diameter: state.character === "squirrel" ? 0.66 : 0.71, thickness: 0.075, tessellation: 28 }, scene);
-  headband.parent = playerVisual; headband.position.set(0, 1.72, -0.02); headband.rotation.x = Math.PI / 2; headband.scaling.y = 0.93;
-  headband.material = material("headbandMat", headVisual.color || "#a7f46a", 0.7, headVisual.metallic || 0);
+// Mischt eine Hex-Farbe Richtung Schwarz (factor < 0) oder Weiß (factor > 0)
+// und liefert wieder Hex — damit Zierstreifen und Rahmen als abgesetzter Ton
+// zur Grundfarbe des Accessoires passen, ohne eine zweite Farbe im Katalog.
+function shadeColor(hex, factor) {
+  const c = B.Color3.FromHexString(hex);
+  const mix = (v) => Math.round(Math.max(0, Math.min(1, factor < 0 ? v * (1 + factor) : v + (1 - v) * factor)) * 255);
+  return "#" + [mix(c.r), mix(c.g), mix(c.b)].map((n) => n.toString(16).padStart(2, "0")).join("");
+}
 
-  if (save.equipped.face) {
-    // Die Glaeser haengen an den Augen-Ankern und sitzen damit exakt vor den
-    // Pupillen — auf jeder Kopfform, ohne geratene Koordinaten.
-    const faceVisual = shopItem(save.equipped.face)?.visual || { color: "#151b24" };
-    const lensMat = material("sunglassLens", faceVisual.color || "#151b24", 0.3, faceVisual.metallic ?? 0.15);
-    for (const socket of playerParts.eyeSockets) {
-      const lens = B.MeshBuilder.CreateBox("sunglassLens", { width: 0.24, height: 0.15, depth: 0.028 }, scene);
-      lens.parent = socket; lens.position.set(0, 0, 0.012); lens.material = lensMat;
-    }
-    const [l, r] = playerParts.eyeSockets;
-    const bridge = B.MeshBuilder.CreateBox("sunglassBridge", { width: 0.14, height: 0.035, depth: 0.035 }, scene);
-    bridge.parent = playerVisual;
-    bridge.position.set((l.position.x + r.position.x) / 2, (l.position.y + r.position.y) / 2, Math.min(l.position.z, r.position.z) - 0.015);
-    bridge.material = lensMat;
+// Verbindet zwei lokale Punkte mit einer schlanken Kapsel und richtet deren
+// Achse exakt auf die Verbindungsrichtung aus. So sind Brillenbügel und -steg
+// real zwischen ihren Ankern verbaut, statt als lose Klötzchen im Raum zu
+// liegen — jede Kopfform bekommt automatisch die passende Länge.
+function strut(name, from, to, radius, mat, parent) {
+  const a = new B.Vector3(from[0], from[1], from[2]);
+  const b = new B.Vector3(to[0], to[1], to[2]);
+  const span = b.subtract(a);
+  const len = span.length();
+  const mesh = B.MeshBuilder.CreateCapsule(name, { radius, height: Math.max(len, radius * 2) }, scene);
+  mesh.parent = parent;
+  mesh.position.copyFrom(a.add(b).scale(0.5));
+  const axis = span.scale(1 / (len || 1));
+  const dot = B.Scalar.Clamp(B.Vector3.Dot(B.Vector3.Up(), axis), -1, 1);
+  let rotAxis = B.Vector3.Cross(B.Vector3.Up(), axis);
+  if (rotAxis.lengthSquared() < 1e-6) rotAxis = B.Vector3.Right();
+  mesh.rotationQuaternion = B.Quaternion.RotationAxis(rotAxis.normalize(), Math.acos(dot));
+  mesh.material = mat;
+  return mesh;
+}
+
+function applyCosmetics() {
+  applyHeadband();
+  if (save.equipped.face) applySunglasses();
+  if (save.equipped.wrist) applyWristbands();
+}
+
+// Stirnband: ein flacher Ring, der an den Kopf-Ellipsoid geschmiegt ist —
+// Höhe auf Brauenhöhe, Breite auf den Kopfquerschnitt skaliert, Front leicht
+// abgesenkt. Ein Zierstreifen, ein seitlicher Knoten und zwei herabhängende
+// Bänder machen aus dem Reifen ein wirklich gebundenes Stirnband.
+function applyHeadband() {
+  const headVisual = shopItem(save.equipped.head || "headband-lime")?.visual || { color: "#a7f46a" };
+  const color = headVisual.color || "#a7f46a";
+  const metallic = headVisual.metallic || 0;
+  const bandMat = material("headbandMat", color, 0.5, metallic);
+  const trimMat = material("headbandTrim", shadeColor(color, -0.32), 0.45, metallic);
+
+  const center = playerParts.headCenter;
+  const radii = playerParts.headRadii;
+  const browFrac = 0.52;                                       // Anteil des vertikalen Radius über Kopfmitte
+  const shrink = Math.sqrt(Math.max(0.2, 1 - browFrac * browFrac)); // horizontale Verjüngung auf Brauenhöhe
+  const rx = radii[0] * shrink + 0.02;
+  const rz = radii[2] * shrink + 0.02;
+
+  const root = new B.TransformNode("headbandRoot", scene);
+  root.parent = playerVisual;
+  root.position.set(center[0], center[1] + radii[1] * browFrac, center[2]);
+  root.rotation.x = -0.1;                                      // Front sinkt leicht auf die Braue
+
+  const band = B.MeshBuilder.CreateTorus("cosmeticHeadband", { diameter: 2 * rx, thickness: 0.12, tessellation: 44 }, scene);
+  band.parent = root; band.scaling.set(1, 0.6, rz / rx); band.material = bandMat;
+  // Erhabener Mittelstreifen als Kontrast-Detail.
+  const trim = B.MeshBuilder.CreateTorus("headbandTrim", { diameter: 2 * rx + 0.012, thickness: 0.12, tessellation: 44 }, scene);
+  trim.parent = root; trim.scaling.set(1, 0.24, rz / rx); trim.material = trimMat;
+
+  // Seitlicher Knoten mit zwei herabfallenden Bändern (hinten-links am Kopf).
+  const knotAngle = 2.5;
+  const kx = Math.cos(knotAngle) * rx;
+  const kz = Math.sin(knotAngle) * rz;
+  const knot = B.MeshBuilder.CreateSphere("headbandKnot", { diameter: 0.14, segments: 12 }, scene);
+  knot.parent = root; knot.position.set(kx, 0, kz); knot.scaling.set(1.3, 0.95, 0.85); knot.material = bandMat;
+  for (const t of [-1, 1]) {
+    const tail = B.MeshBuilder.CreateCapsule("headbandTail", { radius: 0.03, height: 0.34 }, scene);
+    tail.parent = root;
+    tail.position.set(kx + t * 0.05, -0.17, kz + 0.02);
+    tail.rotation.x = 0.55; tail.rotation.z = t * 0.28;
+    tail.material = t < 0 ? bandMat : trimMat;
   }
-  if (save.equipped.wrist) {
-    const wristVisual = shopItem(save.equipped.wrist)?.visual || { color: "#f7f6f1" };
-    const wristMat = material("wristMat", wristVisual.color || "#f7f6f1", 0.8, wristVisual.metallic || 0);
-    // Schweissbaender gehoeren ans Handgelenk — also an den Unterarm, wo sie
-    // die Ellbogenbeugung mitmachen.
-    for (const elbow of [playerParts.leftElbow, playerParts.rightElbow]) {
-      const wrist = B.MeshBuilder.CreateTorus("wristband", { diameter: 0.21, thickness: 0.055, tessellation: 18 }, scene);
-      wrist.parent = elbow; wrist.position.y = -0.24; wrist.rotation.x = Math.PI / 2; wrist.material = wristMat;
+}
+
+// Sonnenbrille: gewölbte ovale Gläser mit eigener Fassung, verbunden durch
+// einen erhöhten Nasensteg und zwei Bügeln, die entlang der Kopfseiten zu den
+// Ohren laufen. Gläser und Fassung hängen an den Augen-Ankern (exakt vor der
+// Pupille), Steg und Bügel werden aus denselben Ankern im Körperraum verbaut.
+function applySunglasses() {
+  const faceVisual = shopItem(save.equipped.face)?.visual || { color: "#151b24" };
+  const lensColor = faceVisual.color || "#151b24";
+  const lensMat = new B.PBRMaterial("sunglassLens", scene);
+  lensMat.albedoColor = B.Color3.FromHexString(lensColor);
+  lensMat.roughness = 0.14;
+  lensMat.metallic = faceVisual.metallic ?? 0.2;
+  lensMat.alpha = 0.92;                                        // Gläser wirken leicht durchscheinend
+  lensMat.emissiveColor = B.Color3.FromHexString(lensColor).scale(0.22);
+  const frameMat = material("sunglassFrame", shadeColor(lensColor, -0.45), 0.35, 0.4);
+
+  const sockets = playerParts.eyeSockets;
+  for (const socket of sockets) {
+    const lens = B.MeshBuilder.CreateSphere("sunglassLens", { diameter: 0.2, segments: 18 }, scene);
+    lens.parent = socket; lens.position.set(0, 0, 0.022); lens.scaling.set(1.18, 0.82, 0.34); lens.material = lensMat;
+    const rim = B.MeshBuilder.CreateTorus("sunglassRim", { diameter: 0.24, thickness: 0.03, tessellation: 26 }, scene);
+    rim.parent = socket; rim.position.set(0, 0, 0.03); rim.rotation.x = Math.PI / 2;
+    rim.scaling.set(1.06, 1, 0.78); rim.material = frameMat;
+  }
+
+  const [l, r] = sockets;
+  const sign = [-1, 1];
+  // Nasensteg leicht erhöht zwischen den Innenkanten der beiden Fassungen.
+  strut("sunglassBridge",
+    [l.position.x + 0.055, l.position.y + 0.03, l.position.z],
+    [r.position.x - 0.055, r.position.y + 0.03, r.position.z],
+    0.022, frameMat, playerVisual);
+
+  // Bügel: von der Außenkante jedes Glases seitlich am Kopf entlang nach hinten
+  // bis kurz vor die Ohren, plus ein kurzer Bogen als Ohrbügel.
+  const center = playerParts.headCenter;
+  const radii = playerParts.headRadii;
+  sockets.forEach((socket, i) => {
+    const s = sign[i];
+    const start = [socket.position.x + s * 0.11, socket.position.y + 0.02, socket.position.z + 0.02];
+    // Ohr-Anker exakt auf der Kopf-Ellipse (seitlich und leicht nach hinten),
+    // damit Bügelende und Ohrbügel an der Schläfe anliegen statt abzustehen.
+    const earPt = surfacePoint(radii, [s, 0.35, 0.8], 0.02);
+    const ear = [center[0] + earPt[0], center[1] + earPt[1], center[2] + earPt[2]];
+    strut("sunglassTemple", start, ear, 0.02, frameMat, playerVisual);
+    const hook = B.MeshBuilder.CreateCapsule("sunglassHook", { radius: 0.019, height: 0.1 }, scene);
+    hook.parent = playerVisual; hook.position.set(ear[0], ear[1] - 0.045, ear[2] + 0.02); hook.material = frameMat;
+  });
+}
+
+// Schweißbänder: ein voller Frottee-Bulge (Zylinder) am Handgelenk mit zwei
+// abgesetzten Zierringen, sitzt am Unterarm nahe der Pfote und macht jede
+// Ellbogenbeugung automatisch mit.
+function applyWristbands() {
+  const wristVisual = shopItem(save.equipped.wrist)?.visual || { color: "#f7f6f1" };
+  const color = wristVisual.color || "#f7f6f1";
+  const metallic = wristVisual.metallic || 0;
+  const cuffMat = material("wristCuff", color, 0.94, metallic);
+  const trimMat = material("wristTrim", shadeColor(color, -0.22), 0.9, metallic);
+  // An der tatsächlichen Unterarmlänge ausgerichtet: die Manschette sitzt bei
+  // beiden Critter gleich nah am Handgelenk und hält Abstand zur Pfote.
+  for (const rig of [playerParts.leftArmRig, playerParts.rightArmRig]) {
+    const y = -rig.lowerLen * 0.72;
+    const cuff = B.MeshBuilder.CreateCylinder("wristband", { diameter: 0.215, height: 0.13, tessellation: 22 }, scene);
+    cuff.parent = rig.joint; cuff.position.y = y; cuff.material = cuffMat;
+    for (const off of [-0.05, 0.05]) {
+      const ring = B.MeshBuilder.CreateTorus("wristbandTrim", { diameter: 0.225, thickness: 0.024, tessellation: 22 }, scene);
+      ring.parent = rig.joint; ring.position.y = y + off; ring.material = trimMat;
     }
   }
 }
