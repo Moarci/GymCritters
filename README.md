@@ -1,14 +1,14 @@
 <div align="center">
 
-# 🦝🐿️ Gym Critters V5.1 — Crew Terminal
+# 🦝🐿️ Gym Critters V5.3 — Mechanische Tiefe
 
 **Ein lokal-first 3D-Browsergame ohne Build-Schritt, Backend oder Account.**
 
-**v5.1.0** — Physische Stolperfallen, zeitloser Zen-Modus, levelweises Feintuning, Leistungsentwicklung und ein komplett neues Crew-Terminal.
+**v5.3.0** — Flow-Schild, rollende Gefahr, charaktereigene Reaktionen und sichtbare Wellen-Herkunft vertiefen den Kern-Loop von Zahlen zu spürbarer Mechanik – aufbauend auf den neun Spielmodi aus V5.2.
 
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES2020%2B-F7DF1E?style=flat-square&logo=javascript&logoColor=black)](https://developer.mozilla.org/docs/Web/JavaScript)
 [![Babylon.js](https://img.shields.io/badge/Babylon.js-via_CDN-BB464B?style=flat-square&logo=babylondotjs&logoColor=white)](https://www.babylonjs.com)
-[![Version](https://img.shields.io/badge/version-5.1.0-a7f46a?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.3.0-a7f46a?style=flat-square)](CHANGELOG.md)
 [![Dependencies](https://img.shields.io/badge/npm_dependencies-0-success?style=flat-square)](package.json)
 [![Play](https://img.shields.io/badge/▶_Live_Demo-2ea44f?style=flat-square)](https://moarci.github.io/GymCritters/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
@@ -40,11 +40,11 @@ V5 macht aus der einfachen Aufräumrunde eine kleine Gym-Schicht: Gegenstände e
 | **Rollende Gefahr** | Ab dem Rush quert ein rollender Medizinball einen offenen Laufweg – ein mechanisches Schichtereignis, das Timing und Umrouten erzwingt statt nur Punkte zu verändern. |
 | **Eigene Reaktionen** | Rocco und Fibi greifen, stolpern, jubeln und warten spürbar unterschiedlich: geerdet-wuchtig gegen flink-federnd, inklusive charaktertypischem Leerlaufwiegen. |
 | **Sichtbare Wellen-Herkunft** | Neue Wellen kommen aus einer Nachschubquelle am Hallenrand – Kiste öffnet sich, Gegenstände fliegen im Bogen an ihren Platz, statt einfach zu erscheinen. |
-| **Vier Spielmodi** | Entspannt, Standard, Blitz und der neue Zen-Modus ohne Zeitlimit. |
+| **Neun Spielmodi** | Entspannt, Standard, Blitz, Sprint, Marathon, Nachtschicht, Perfektionist sowie die zeitlosen Zen- und Flow-Schichten. |
 | **Level-Feintuning** | Gegenstandsmenge, Schichtdynamik, Stolperrisiko und Zielhilfe werden für jedes Level separat gespeichert. |
 | **Entwicklung über Zeit** | Bis zu 120 Runden bilden eine lokale Historie mit vergleichbarem Leistungsindex, Trend, Filterung und Verlaufskurve. |
 | **Crew-Terminal** | Fünfstufiger Schicht-Wizard für Crew, Level, Modus, Feintuning und Startprüfung – mit klarer Auswahlhierarchie und responsivem Utility-Dock. |
-| **Fortschritt** | Münzshop, 15 Achievements, faire Bestwerte je Level × Modus, fünf Meisterschaftsstufen pro Level und drei lokale Tagesverträge. |
+| **Fortschritt** | Münzshop, 18 Achievements, faire Bestwerte je Level × Modus, fünf Meisterschaftsstufen pro Level und drei lokale Tagesverträge. |
 | **Lokal-first Saves** | Automatische Migration, feste lokale Origin sowie validierter JSON-Export und -Import des Spielstands. |
 | **Desktop und Mobile** | Maus-/Tastatursteuerung, Touch-Look, virtueller Joystick, Vibrationsfeedback, Hochformat-HUD und adaptive Grafikqualität. |
 | **Accessibility** | Semantische Dialoge, Fokusführung, Screenreader-Status, sichtbare Fokusrahmen, Forced Colors und reduzierte Bewegungen. |
@@ -115,7 +115,14 @@ Die geschlossene Gebäudehülle, bündigen Industriefenster, Eingangslobby und p
 | Entspannt | 180 s | 8 | ×0,9 | immer |
 | Standard | 120 s | 10 | ×1,0 | immer |
 | Blitz | 90 s | 12 | ×1,3 | nur beim Tragen |
+| Sprint | 45 s | 6 | ×1,55 | nur beim Tragen |
+| Marathon | 300 s | 16 | ×1,1 | nur beim Tragen |
+| Nachtschicht | 130 s | 11 | ×1,45 | aus |
+| Perfektionist | 150 s | 9 | ×1,6 | immer |
 | Zen | kein Limit | 10 | ×0,85 | immer |
+| Flow | kein Limit | 14 | ×0,95 | nur beim Tragen |
+
+Sprint verdichtet eine ganze Schicht auf 45 Sekunden, Marathon dehnt sie über viele Wellen, die Nachtschicht verzichtet komplett auf Zielhilfe, Perfektionist belohnt makellose Serien am stärksten und Flow bietet das zeitlose Aufräumen mit langer Combo. Jeder Modus besitzt zudem ein eigenes Combo-Zeitfenster.
 
 Die Gegenstandsmenge in dieser Tabelle ist die jeweilige Modusbasis. Im Crew-Terminal lässt sie sich pro Level auf **Kompakt**, **Standard** oder **Volles Haus** stellen. Zusätzlich stehen ruhige, lebendige und intensive Wellen sowie drei Stolperrisiken und vier Zielhilfe-Stufen zur Wahl.
 
@@ -156,7 +163,7 @@ Fortschritt und Belohnungen werden sofort gespeichert. Bereits verdiente Belohnu
 - XP entstehen durch Abschluss, Punktzahl, eine Runde ohne Fallenlassen und perfekte Ordnung.
 - Meisterschaft verleiht keine permanenten Werteboni und hält Highscores dadurch fair.
 - Highscore, Bestzeit, Rang und Rundenzahl werden separat für jede Kombination aus Level und Modus geführt.
-- Zen-Runden besitzen bewusst keine Bestzeit und keinen Timerdruck; ihr tatsächliches Tempo fließt nur in die private Entwicklungsauswertung ein.
+- Zeitlose Runden (Zen und Flow) besitzen bewusst keine Bestzeit und keinen Timerdruck; ihr tatsächliches Tempo fließt nur in die private Entwicklungsauswertung ein.
 
 ### Leistungsentwicklung
 
@@ -164,9 +171,9 @@ Jeder Rundenabschluss speichert einen kompakten lokalen Historieneintrag. Ein no
 
 ### Shop und Achievements
 
-Der Shop enthält 15 Freischaltungen: Fibi, Stirn- und Schweißbänder, Sportbrillen sowie mehrere Laufspuren bis zur Critter-Crew-Spur. Insgesamt existieren 15 Achievements:
+Der Shop enthält 15 Freischaltungen: Fibi, Stirn- und Schweißbänder, Sportbrillen sowie mehrere Laufspuren bis zur Critter-Crew-Spur. Insgesamt existieren 18 Achievements:
 
-`Erste Schicht`, `Klebrige Pfoten`, `Perfekte Ordnung`, `Schwerarbeiter`, `Kettlebell-König`, `Seilspringer`, `Ballkünstler`, `Vollsortiment`, `Gym-Held`, `Blitzsauber`, `Sammler`, `Stammcrew`, `Zuverlässige Pfoten`, `Gym-Meister` und `Crew-Verdiener`.
+`Erste Schicht`, `Klebrige Pfoten`, `Perfekte Ordnung`, `Schwerarbeiter`, `Kettlebell-König`, `Seilspringer`, `Ballkünstler`, `Vollsortiment`, `Gym-Held`, `Blitzsauber`, `Sprintass`, `Nachteule`, `Ausdauercrew`, `Sammler`, `Stammcrew`, `Zuverlässige Pfoten`, `Gym-Meister` und `Crew-Verdiener`.
 
 ## 🕹 Steuerung
 
@@ -282,7 +289,7 @@ npm run smoke     # App-Shell über einen temporären HTTP-Server prüfen
 npm run test:ci   # alle drei Prüfungen in derselben Reihenfolge
 ```
 
-Die Suite umfasst **257 Tests**. Sie deckt unter anderem Save-Migrationen, Rundentrends, Zen-Wertung, Stolperphysik, geometrisch geprüfte Ablageplätze, den fünfstufigen Schicht-Wizard, Level-Feintuning, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
+Die Suite umfasst **263 Tests**. Sie deckt unter anderem Save-Migrationen, Rundentrends, die Konfiguration aller neun Modi, Zen- und Flow-Wertung, Flow-Schild, rollende Gefahr, charaktereigene Reaktionen, Wellen-Herkunft, Stolperphysik, geometrisch geprüfte Ablageplätze, den fünfstufigen Schicht-Wizard, Level-Feintuning, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
 
 [`.github/workflows/quality.yml`](.github/workflows/quality.yml) führt `npm run test:ci` bei Pull Requests, Pushes auf `main` und manuellen Workflow-Starts mit Node.js 22 aus.
 
@@ -292,6 +299,7 @@ Rendering und visuelle 3D-Qualität benötigen weiterhin eine manuelle Browserko
 
 | Version | Schwerpunkt |
 |---|---|
+| **V5.2 — Mehr Modi** | Fünf zusätzliche Spielmodi (Sprint, Marathon, Nachtschicht, Perfektionist, Flow), pro Modus konfigurierbares Combo-Zeitfenster sowie neue Achievements und Tagesverträge. |
 | **V5.1 — Crew Terminal** | Physische Stolperfallen, Zen ohne Zeitlimit, levelweises Feintuning, langfristige Leistungsentwicklung und eine komplett neue Menüoberfläche. |
 | **V5 — Living Shifts** | Dynamische Schichten, Level-Identitäten, IK, verlässliche Interaktion, faire Karriere, Tagesverträge, Offline-App-Shell und Accessibility. |
 | **V4 — Critter Crew** | Fibi, Münzshop, Cosmetics, Achievements, Tutorial, mehrere Level und Mobile-Steuerung. |

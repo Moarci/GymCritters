@@ -1,6 +1,6 @@
 # Changelog
 
-## V5.4.0 – Mechanische Tiefe (2026-07-19)
+## V5.3.0 – Mechanische Tiefe (2026-07-19)
 
 ### Gameplay – Flow-Schild
 
@@ -33,8 +33,41 @@
 ### Qualität
 
 - Vier neue Babylon-unabhängige Module: `src/flow-shield.js` (Ladung, Verbrauch, Zerfall des Schilds), `src/rolling-hazard.js` (Bahn, Abprall, Treffererkennung), `src/character-reactions.js` (charaktereigene Reaktions- und Leerlaufposen) und `src/wave-origin.js` (Quellpositionen und Wurfparabel) für deterministische Tests.
-- 27 neue Tests decken den Flow-Schild, die rollende Gefahr, die Charakterreaktionen (Kanaltrennung, neutrale Stolper-Enden, Fibis elastisches Überschwingen gegen Roccos schweres Nachsacken, seitenrichtige Neigung, positiver Siegeshüpfer, lebhafterer Leerlauf) und die Wellen-Herkunft (Randlage der Quellen, exakter Bogenanfang/-abschluss, angehobener Scheitel, geklemmtes t) ab; die Suite umfasst nun 257 Tests.
+- 27 neue Tests decken den Flow-Schild, die rollende Gefahr, die Charakterreaktionen (Kanaltrennung, neutrale Stolper-Enden, Fibis elastisches Überschwingen gegen Roccos schweres Nachsacken, seitenrichtige Neigung, positiver Siegeshüpfer, lebhafterer Leerlauf) und die Wellen-Herkunft (Randlage der Quellen, exakter Bogenanfang/-abschluss, angehobener Scheitel, geklemmtes t) ab.
 - Service Worker, Offline-App-Shell-Test und Cache-Version wurden um alle vier Module ergänzt.
+
+### Accessoires und Optik
+
+- Die im Shop kaufbaren tragbaren Accessoires wurden vollständig neu modelliert und sitzen jetzt maßgenau am Körper – für Waschbär und Eichhörnchen gleichermaßen, abgeleitet aus der jeweiligen Kopf- und Armgeometrie statt aus geratenen Festwerten.
+- Das Stirnband ist kein frei stehender Ring mehr, sondern ein flacher, an den Kopf-Ellipsoid geschmiegter Band-Reifen hoch auf der Stirn: leicht nach vorn abgesenkt, mit erhabenem Zierstreifen, seitlichem Knoten und zwei herabhängenden Bändern.
+- Die Sonnenbrille besitzt jetzt gewölbte, ovale Gläser mit eigener Fassung, einem erhöhten Nasensteg und zwei Bügeln, die den Kopfseiten entlang zu den Ohren laufen und dort in einem kurzen Ohrbügel enden – statt zweier flacher Klötzchen mit Balken.
+- Die Schweißbänder sind volle Frottee-Manschetten mit abgesetzten Zierringen und sitzen am Handgelenk nahe der Pfote, sodass sie jede Ellbogenbeugung mitmachen.
+- Zierstreifen und Fassungen leiten ihren Kontrastton automatisch aus der Grundfarbe des jeweiligen Shop-Artikels ab; alle Metallic-Varianten (Chrom, Gold) bleiben erhalten.
+
+## V5.2.0 – Mehr Modi (2026-07-18)
+
+### Gameplay
+
+- Fünf neue Spielmodi ergänzen das Crew-Terminal und decken zusätzliche Nischen ab:
+  - **Sprint** (⏱️): 45 Sekunden, sechs Gegenstände und Punktefaktor ×1,55 für eine ultrakurze Höchstleistungsschicht.
+  - **Marathon** (🏃): 300 Sekunden und 16 Gegenstände für eine lange Ausdauerschicht mit vielen gestaffelten Wellen.
+  - **Nachtschicht** (🌙): 130 Sekunden ganz ohne Navigator – nur Überblick und Erinnerung führen ans Ziel, dafür Punktefaktor ×1,45.
+  - **Perfektionist** (🎯): höchster Punktefaktor ×1,6 bei knappem Combo-Zeitfenster; jede Serie muss sitzen.
+  - **Flow** (🌊): zeitlos wie Zen, aber mit vielen Gegenständen, langem Combo-Fenster und Zielhilfe nur beim Tragen.
+- Jeder Modus besitzt jetzt ein eigenes, konfigurierbares Combo-Zeitfenster statt einer fest verdrahteten Sonderregel für einzelne Modi.
+- Die Rang-Details der zeitlosen Modi sind nicht länger auf „Zen" festgelegt und passen damit auch zum neuen Flow-Modus.
+
+### Fortschritt
+
+- Drei neue Achievements würdigen die neuen Modi: **Sprintass**, **Nachteule** und **Ausdauercrew** (insgesamt nun 18 Achievements).
+- Zwei neue Tagesverträge – **Nachtdienst** und **Langstrecke** – erweitern den deterministischen Schicht-Vertragspool.
+- Bestwerte, Modus-Statistiken und die Entwicklungshistorie werden für alle neuen Modi automatisch geführt; wie bei Zen führen die zeitlosen Modi bewusst keine Bestzeit.
+
+### Qualität
+
+- Neue Babylon-unabhängige Tests sichern die Konfiguration aller neun Modi, die Navigator- und Umfangslogik sowie das Freischalten der modusbezogenen Achievements ab.
+- Die vollständige Suite umfasst nun 236 Tests sowie Syntax- und HTTP-Smoke-Prüfungen.
+- Bestehende Spielstände werden ohne Schemaänderung übernommen: Statistik-Container für neue Modi entstehen additiv beim Laden.
 
 ## V5.1.0 – Crew Terminal (2026-07-18)
 
