@@ -665,10 +665,13 @@ function applySunglasses() {
   sockets.forEach((socket, i) => {
     const s = sign[i];
     const start = [socket.position.x + s * 0.11, socket.position.y + 0.02, socket.position.z + 0.02];
-    const ear = [center[0] + s * radii[0] * 0.94, center[1] + radii[1] * 0.32, center[2] + radii[2] * 0.55];
+    // Ohr-Anker exakt auf der Kopf-Ellipse (seitlich und leicht nach hinten),
+    // damit Bügelende und Ohrbügel an der Schläfe anliegen statt abzustehen.
+    const earPt = surfacePoint(radii, [s, 0.35, 0.8], 0.02);
+    const ear = [center[0] + earPt[0], center[1] + earPt[1], center[2] + earPt[2]];
     strut("sunglassTemple", start, ear, 0.02, frameMat, playerVisual);
-    const hook = B.MeshBuilder.CreateCapsule("sunglassHook", { radius: 0.019, height: 0.11 }, scene);
-    hook.parent = playerVisual; hook.position.set(ear[0], ear[1] - 0.05, ear[2]); hook.material = frameMat;
+    const hook = B.MeshBuilder.CreateCapsule("sunglassHook", { radius: 0.019, height: 0.1 }, scene);
+    hook.parent = playerVisual; hook.position.set(ear[0], ear[1] - 0.045, ear[2] + 0.02); hook.material = frameMat;
   });
 }
 
@@ -681,12 +684,15 @@ function applyWristbands() {
   const metallic = wristVisual.metallic || 0;
   const cuffMat = material("wristCuff", color, 0.94, metallic);
   const trimMat = material("wristTrim", shadeColor(color, -0.22), 0.9, metallic);
-  for (const elbow of [playerParts.leftElbow, playerParts.rightElbow]) {
+  // An der tatsächlichen Unterarmlänge ausgerichtet: die Manschette sitzt bei
+  // beiden Critter gleich nah am Handgelenk und hält Abstand zur Pfote.
+  for (const rig of [playerParts.leftArmRig, playerParts.rightArmRig]) {
+    const y = -rig.lowerLen * 0.72;
     const cuff = B.MeshBuilder.CreateCylinder("wristband", { diameter: 0.215, height: 0.13, tessellation: 22 }, scene);
-    cuff.parent = elbow; cuff.position.y = -0.2; cuff.material = cuffMat;
+    cuff.parent = rig.joint; cuff.position.y = y; cuff.material = cuffMat;
     for (const off of [-0.05, 0.05]) {
       const ring = B.MeshBuilder.CreateTorus("wristbandTrim", { diameter: 0.225, thickness: 0.024, tessellation: 22 }, scene);
-      ring.parent = elbow; ring.position.y = -0.2 + off; ring.material = trimMat;
+      ring.parent = rig.joint; ring.position.y = y + off; ring.material = trimMat;
     }
   }
 }
