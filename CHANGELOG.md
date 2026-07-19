@@ -16,11 +16,18 @@
 - Ein Treffer wirft die Figur um, lässt getragene Gegenstände fallen und nutzt dieselbe Stolperreaktion wie eine Bodenfalle – inklusive Flow-Schild-Rettung. Anders als eine liegende Stolperfalle knockt der Ball auch eine stehende Figur um.
 - Ein pulsierender Warnring am Boden, ein Ankündigungstoast und ein dauerhaftes „⚠ Rollende Gefahr" in der Schicht-Statusleiste machen die Gefahr rechtzeitig lesbar.
 
+### Gameplay – Charaktereigene Reaktionen
+
+- **Rocco und Fibi reagieren jetzt spürbar unterschiedlich.** Griff, Fehler-Kopfschütteln, Stolpern, Siegesgeste und Leerlauf beziehen ihre Werte aus einem charaktereigenen Profil statt aus geteilten Konstanten.
+- Rocco (kräftig, geerdet): ruhiger Griff mit kurzer Antizipation, schweres langsames Kopfschütteln, ein wuchtiger Stolperer, der beim Aufsetzen nachsackt, und ein solides Doppel-Pumpen zum Sieg.
+- Fibi (flink, federnd): hoher Pop beim Greifen, schnelles zappeliges Zucken, ein leichter Stolperer, der elastisch über die Senkrechte zurückfedert, und ein energiegeladener Siegesdreh.
+- Im Leerlauf wiegt sich der ganze Körper charaktertypisch – Rocco langsam und nachdenklich, Fibi schnell und wach –, ohne das eigenständig gebaute Gesicht abzukoppeln.
+
 ### Qualität
 
-- Zwei neue Babylon-unabhängige Module: `src/flow-shield.js` (Ladung, Verbrauch, Zerfall des Schilds) und `src/rolling-hazard.js` (Bahn, Abprall, Treffererkennung) für deterministische Tests.
-- 13 neue Tests decken den Flow-Schild (Laden nur bei Spitzenflow, einmaliges Freischalten, gedeckelter Speicher, langsamer Zerfall, genau einmalige Absorption) sowie die rollende Gefahr (Bahngrenzen, Phasenaktivierung, Abprall auch bei großem Zeitschritt, Achsen, Trefferreichweite) ab; die Suite umfasst nun 243 Tests.
-- Service Worker, Offline-App-Shell-Test und Cache-Version wurden um beide Module ergänzt.
+- Drei neue Babylon-unabhängige Module: `src/flow-shield.js` (Ladung, Verbrauch, Zerfall des Schilds), `src/rolling-hazard.js` (Bahn, Abprall, Treffererkennung) und `src/character-reactions.js` (charaktereigene Reaktions- und Leerlaufposen) für deterministische Tests.
+- 22 neue Tests decken den Flow-Schild, die rollende Gefahr (Bahngrenzen, Phasenaktivierung, Abprall auch bei großem Zeitschritt, Achsen, Trefferreichweite) und die Charakterreaktionen (Kanaltrennung, neutrale Stolper-Enden, Fibis elastisches Überschwingen gegen Roccos schweres Nachsacken, seitenrichtige Neigung, positiver Siegeshüpfer, lebhafterer Leerlauf) ab; die Suite umfasst nun 252 Tests.
+- Service Worker, Offline-App-Shell-Test und Cache-Version wurden um alle drei Module ergänzt.
 
 ## V5.1.0 – Crew Terminal (2026-07-18)
 

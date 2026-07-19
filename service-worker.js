@@ -1,4 +1,4 @@
-const CACHE_VERSION = "gym-critters-v5-2026-07-19-r17";
+const CACHE_VERSION = "gym-critters-v5-2026-07-19-r18";
 const LOCAL_CACHE = `${CACHE_VERSION}-local`;
 const ENGINE_CACHE = `${CACHE_VERSION}-engine`;
 const APP_SCOPE = new URL("./", self.location.href);
@@ -15,6 +15,7 @@ const CORE_ASSETS = [
   "./src/camera-fov.js",
   "./src/challenges.js",
   "./src/character-motion.js",
+  "./src/character-reactions.js",
   "./src/config.js",
   "./src/flow-shield.js",
   "./src/game-feel.js",

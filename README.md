@@ -38,6 +38,7 @@ V5 macht aus der einfachen Aufräumrunde eine kleine Gym-Schicht: Gegenstände e
 | **Flow-Feedback** | Combo-Zeitleiste, dreistufige Flow-Vignette, eskalierende Lieferimpacts und animierte Wellen machen erfolgreiche Serien unmittelbar spürbar. |
 | **Flow-Schild** | Gehaltener Spitzenflow bankt einen Serienschutz, der den nächsten Stolperer oder die nächste Fehlablage abfängt – eine knappe Ressource für mutige Routenentscheidungen unter Druck. |
 | **Rollende Gefahr** | Ab dem Rush quert ein rollender Medizinball einen offenen Laufweg – ein mechanisches Schichtereignis, das Timing und Umrouten erzwingt statt nur Punkte zu verändern. |
+| **Eigene Reaktionen** | Rocco und Fibi greifen, stolpern, jubeln und warten spürbar unterschiedlich: geerdet-wuchtig gegen flink-federnd, inklusive charaktertypischem Leerlaufwiegen. |
 | **Vier Spielmodi** | Entspannt, Standard, Blitz und der neue Zen-Modus ohne Zeitlimit. |
 | **Level-Feintuning** | Gegenstandsmenge, Schichtdynamik, Stolperrisiko und Zielhilfe werden für jedes Level separat gespeichert. |
 | **Entwicklung über Zeit** | Bis zu 120 Runden bilden eine lokale Historie mit vergleichbarem Leistungsindex, Trend, Filterung und Verlaufskurve. |
@@ -77,6 +78,14 @@ Schichtereignisse waren bisher rein numerisch – sie veränderten nur Bonuspunk
 - Ein pulsierender Warnring am Boden, ein Ankündigungstoast und ein dauerhaftes „⚠ Rollende Gefahr" in der Schicht-Statusleiste kündigen die Bahn rechtzeitig an.
 
 Der Spieler entscheidet dadurch bei jeder Querung zwischen Warten, schnellem Timing und einem Umweg – die Route wird zur echten Frage statt zur reinen Distanz.
+
+## Charaktereigene Reaktionen
+
+Rocco und Fibi unterscheiden sich nicht mehr nur in Tempo und Traglast, sondern in ihrer ganzen Körpersprache. Jede Reaktion – Greifen, Fehler-Kopfschütteln, Stolpern, Siegesgeste und Leerlauf – bezieht ihre Werte aus einem charaktereigenen Profil.
+
+- **Rocco** (kräftig, geerdet): ruhiger Griff mit kurzer Antizipation, schweres langsames Kopfschütteln, ein wuchtiger Stolperer, der beim Aufsetzen nachsackt, und ein solides Doppel-Pumpen zum Sieg.
+- **Fibi** (flink, federnd): ein hoher Pop beim Greifen, schnelles zappeliges Zucken, ein leichter Stolperer, der elastisch über die Senkrechte zurückfedert, und ein energiegeladener Siegesdreh.
+- Im Leerlauf wiegt sich der ganze Körper charaktertypisch. Bewusst wird nie der Kopf allein gedreht – Gesicht, Ohren und Nase hängen eigenständig an der Figur und würden sonst abkoppeln.
 
 ### Level-Identitäten
 
@@ -210,6 +219,7 @@ GymCritters/
     ├── game-feel.js          # Gefahrenlesbarkeit, Combo-Flow und Charakter-Lieferbonus
     ├── flow-shield.js        # Serienschutz aus gehaltenem Spitzenflow
     ├── rolling-hazard.js     # Bahn, Abprall und Treffer der rollenden Gefahr
+    ├── character-reactions.js # Charaktereigene Reaktions- und Leerlaufposen
     ├── save.js               # Persistenz, Migration, Export/Import, Achievements
     ├── progression.js        # Bestwerte, Karriere und Meisterschaft
     ├── challenges.js         # Deterministische Tagesverträge
@@ -262,7 +272,7 @@ npm run smoke     # App-Shell über einen temporären HTTP-Server prüfen
 npm run test:ci   # alle drei Prüfungen in derselben Reihenfolge
 ```
 
-Die Suite umfasst **243 Tests**. Sie deckt unter anderem Save-Migrationen, Rundentrends, Zen-Wertung, Stolperphysik, geometrisch geprüfte Ablageplätze, den fünfstufigen Schicht-Wizard, Level-Feintuning, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
+Die Suite umfasst **252 Tests**. Sie deckt unter anderem Save-Migrationen, Rundentrends, Zen-Wertung, Stolperphysik, geometrisch geprüfte Ablageplätze, den fünfstufigen Schicht-Wizard, Level-Feintuning, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
 
 [`.github/workflows/quality.yml`](.github/workflows/quality.yml) führt `npm run test:ci` bei Pull Requests, Pushes auf `main` und manuellen Workflow-Starts mit Node.js 22 aus.
 

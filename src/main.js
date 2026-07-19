@@ -63,6 +63,7 @@ import {
   rollingHazardPoint,
   stepRollingHazard,
 } from "./rolling-hazard.js";
+import { idleGesture, reactionPose, reactionProfile } from "./character-reactions.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -172,7 +173,7 @@ const state = {
   droppedItems: 0, trips: 0, tripTime: 0, tripCooldown: 0,
   maxCombo: 0, deliveredDumbbells: 0, deliveredByType: {}, heldItems: [], nearestItem: null, nearestZone: null,
   keys: new Set(), interactPressed: false, elapsed: 0, roundElapsed: 0, hudAccumulator: 0,
-  velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 }, lean: 0,
+  velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 }, lean: 0, idleSway: { swayY: 0, swayZ: 0 },
   activeWave: 0, shiftEventId: null, flowShield: createFlowShieldState(), rollingAnnounced: false,
   cameraPreferredRadius: 5.6, cameraOccluded: false,
   toastTimer: null, speechTimer: null, achievementTimer: null,
@@ -1153,6 +1154,9 @@ function animateCharacter(dt, moving, sprinting) {
   playerParts.leftKnee.rotation.x = 0.55 * gait.intensity * Math.max(0, Math.sin(phase + 0.4));
   playerParts.rightKnee.rotation.x = 0.55 * gait.intensity * Math.max(0, -Math.sin(phase + 0.4));
   const idle = !moving && !state.heldItems.length ? idleMotion(state.elapsed) : null;
+  // Charaktereigenes Wiegen im Leerlauf: Rocco langsam und nachdenklich, Fibi
+  // schnell und wach. updateReaction legt es als Ruhelage auf playerVisual an.
+  state.idleSway = idle ? idleGesture(reactionProfile(state.character), state.elapsed) : { swayY: 0, swayZ: 0 };
   playerParts.body.scaling.y = 1 + (idle ? idle.breath : 0);
   playerParts.tailRoot.rotation.y = Math.sin(state.elapsed * (state.character === "squirrel" ? 4 : 3.2)) * 0.28 + (idle ? idle.tailFlick : 0);
   playerParts.tailRoot.rotation.x = 0.13 + Math.sin(state.elapsed * 2.1) * 0.06;
@@ -1266,26 +1270,30 @@ function setReaction(type, duration = 0.7) {
 
 function updateReaction(dt) {
   if (!state.reaction.type) {
-    playerVisual.rotation.z = B.Scalar.Lerp(playerVisual.rotation.z, state.lean, 0.22);
-    playerVisual.rotation.y = B.Scalar.Lerp(playerVisual.rotation.y, 0, 0.22);
+    // Ruhelage: Kurvenneigung plus charaktereigenes Leerlaufwiegen.
+    const sway = state.idleSway || { swayY: 0, swayZ: 0 };
+    playerVisual.rotation.z = B.Scalar.Lerp(playerVisual.rotation.z, state.lean + sway.swayZ, 0.22);
+    playerVisual.rotation.y = B.Scalar.Lerp(playerVisual.rotation.y, sway.swayY, 0.22);
     playerVisual.scaling.copyFrom(B.Vector3.Lerp(playerVisual.scaling, B.Vector3.One(), 0.18));
     return;
   }
   state.reaction.time -= dt;
   const elapsed = state.reaction.duration - state.reaction.time;
-  if (state.reaction.type === "wrong") playerVisual.rotation.z = Math.sin(elapsed * 26) * 0.14;
-  if (state.reaction.type === "pickup") playerVisual.scaling.setAll(1 + Math.sin(Math.min(1, elapsed / state.reaction.duration) * Math.PI) * 0.07);
-  if (state.reaction.type === "trip") {
-    const phase = Math.min(1, elapsed / state.reaction.duration);
-    const stumble = Math.sin(phase * Math.PI);
-    playerVisual.rotation.x = 0.52 * stumble;
-    playerVisual.rotation.z = state.reaction.side * 0.18 * stumble;
-    playerVisual.position.y = -0.84 - 0.09 * stumble;
-  }
-  if (state.reaction.type === "celebrate") {
-    playerVisual.rotation.y = Math.sin(elapsed * 8) * 0.35;
-    playerVisual.position.y = -0.84 + Math.abs(Math.sin(elapsed * 8)) * 0.14;
-  }
+  // Rocco und Fibi teilen sich denselben Applier, aber jede Reaktion bespielt
+  // nur ihre eigenen Kanäle (null = unberührt lassen); die Werte stammen aus dem
+  // charaktereigenen Profil.
+  const pose = reactionPose({
+    type: state.reaction.type,
+    elapsed,
+    duration: state.reaction.duration,
+    side: state.reaction.side ?? 1,
+    profile: reactionProfile(state.character),
+  });
+  if (pose.rotationX !== null) playerVisual.rotation.x = pose.rotationX;
+  if (pose.rotationY !== null) playerVisual.rotation.y = pose.rotationY;
+  if (pose.rotationZ !== null) playerVisual.rotation.z = pose.rotationZ;
+  if (pose.scale !== null) playerVisual.scaling.setAll(pose.scale);
+  if (pose.offsetY !== null) playerVisual.position.y = -0.84 + pose.offsetY;
   if (state.reaction.time <= 0) state.reaction = { type: null, time: 0, duration: 0 };
 }
 
