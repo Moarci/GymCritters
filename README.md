@@ -39,6 +39,7 @@ V5 macht aus der einfachen Aufräumrunde eine kleine Gym-Schicht: Gegenstände e
 | **Flow-Schild** | Gehaltener Spitzenflow bankt einen Serienschutz, der den nächsten Stolperer oder die nächste Fehlablage abfängt – eine knappe Ressource für mutige Routenentscheidungen unter Druck. |
 | **Rollende Gefahr** | Ab dem Rush quert ein rollender Medizinball einen offenen Laufweg – ein mechanisches Schichtereignis, das Timing und Umrouten erzwingt statt nur Punkte zu verändern. |
 | **Eigene Reaktionen** | Rocco und Fibi greifen, stolpern, jubeln und warten spürbar unterschiedlich: geerdet-wuchtig gegen flink-federnd, inklusive charaktertypischem Leerlaufwiegen. |
+| **Sichtbare Wellen-Herkunft** | Neue Wellen kommen aus einer Nachschubquelle am Hallenrand – Kiste öffnet sich, Gegenstände fliegen im Bogen an ihren Platz, statt einfach zu erscheinen. |
 | **Vier Spielmodi** | Entspannt, Standard, Blitz und der neue Zen-Modus ohne Zeitlimit. |
 | **Level-Feintuning** | Gegenstandsmenge, Schichtdynamik, Stolperrisiko und Zielhilfe werden für jedes Level separat gespeichert. |
 | **Entwicklung über Zeit** | Bis zu 120 Runden bilden eine lokale Historie mit vergleichbarem Leistungsindex, Trend, Filterung und Verlaufskurve. |
@@ -86,6 +87,14 @@ Rocco und Fibi unterscheiden sich nicht mehr nur in Tempo und Traglast, sondern 
 - **Rocco** (kräftig, geerdet): ruhiger Griff mit kurzer Antizipation, schweres langsames Kopfschütteln, ein wuchtiger Stolperer, der beim Aufsetzen nachsackt, und ein solides Doppel-Pumpen zum Sieg.
 - **Fibi** (flink, federnd): ein hoher Pop beim Greifen, schnelles zappeliges Zucken, ein leichter Stolperer, der elastisch über die Senkrechte zurückfedert, und ein energiegeladener Siegesdreh.
 - Im Leerlauf wiegt sich der ganze Körper charaktertypisch. Bewusst wird nie der Kopf allein gedreht – Gesicht, Ohren und Nase hängen eigenständig an der Figur und würden sonst abkoppeln.
+
+## Sichtbare Wellen-Herkunft
+
+Neue Wellen erscheinen nicht mehr aus dem Nichts, sondern haben eine sichtbare Ursache. Jedes Level besitzt eine **Nachschubquelle** am Hallenrand – ein Nachschubwagen (Feierabend), eine Kursraumtür (Nach dem Kurs) oder eine Geräte-Palette (Leg Day) – als Kiste mit aufklappbarem Deckel in der Levelfarbe.
+
+- Öffnet sich eine **Rush- oder Finale-Welle**, klappt der Deckel auf, die Kiste federt kurz nach und die neuen Gegenstände fliegen einzeln in einem Bogen an ihren Platz.
+- Ein ankommender Gegenstand ist erst beim **Aufsetzen** spielbar – während des Flugs wird er von Interaktion, Stolpern und Bodenbewegung übersprungen. Die Auftakt-Gegenstände liegen weiterhin von Anfang an in der Halle.
+- Die Quelle ist ein reines Rand-Prop ohne Laufkollision und verengt den knapp getunten Laufraum nicht. Bei reduzierter Bewegung erscheinen neue Gegenstände ruhig an Ort und Stelle.
 
 ### Level-Identitäten
 
@@ -220,6 +229,7 @@ GymCritters/
     ├── flow-shield.js        # Serienschutz aus gehaltenem Spitzenflow
     ├── rolling-hazard.js     # Bahn, Abprall und Treffer der rollenden Gefahr
     ├── character-reactions.js # Charaktereigene Reaktions- und Leerlaufposen
+    ├── wave-origin.js        # Quellpositionen und Wurfparabel neuer Wellen
     ├── save.js               # Persistenz, Migration, Export/Import, Achievements
     ├── progression.js        # Bestwerte, Karriere und Meisterschaft
     ├── challenges.js         # Deterministische Tagesverträge
@@ -272,7 +282,7 @@ npm run smoke     # App-Shell über einen temporären HTTP-Server prüfen
 npm run test:ci   # alle drei Prüfungen in derselben Reihenfolge
 ```
 
-Die Suite umfasst **252 Tests**. Sie deckt unter anderem Save-Migrationen, Rundentrends, Zen-Wertung, Stolperphysik, geometrisch geprüfte Ablageplätze, den fünfstufigen Schicht-Wizard, Level-Feintuning, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
+Die Suite umfasst **257 Tests**. Sie deckt unter anderem Save-Migrationen, Rundentrends, Zen-Wertung, Stolperphysik, geometrisch geprüfte Ablageplätze, den fünfstufigen Schicht-Wizard, Level-Feintuning, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
 
 [`.github/workflows/quality.yml`](.github/workflows/quality.yml) führt `npm run test:ci` bei Pull Requests, Pushes auf `main` und manuellen Workflow-Starts mit Node.js 22 aus.
 

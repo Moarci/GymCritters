@@ -64,6 +64,7 @@ import {
   stepRollingHazard,
 } from "./rolling-hazard.js";
 import { idleGesture, reactionPose, reactionProfile } from "./character-reactions.js";
+import { waveArcPoint, waveSourceFor } from "./wave-origin.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -210,6 +211,7 @@ let deliveryObservers = [];
 let trailAccumulator = 0;
 let trailSparkPool = [];
 let rollingHazard = null;
+let waveSource = null;
 
 const CARRY_PROFILES = {
   dumbbell: { scale: 0.72, rootY: -0.12, gripX: 0.22, gripY: 0.84, rotationZ: 0 },
@@ -315,6 +317,7 @@ function rebuildSceneForQuality() {
   deliveryObservers = [];
   trailSparkPool = [];
   rollingHazard = null;
+  waveSource = null;
   highlightedItem = null;
   createScene();
   renderMenu();
@@ -677,6 +680,8 @@ function spawnItems() {
     items.push(item);
     if (active) animateItemReveal(item, index * 34);
   });
+  if (state.tutorial) hideWaveSource();
+  else showWaveSourceForLevel();
 }
 
 function updateShiftDirector(initial = false) {
@@ -686,15 +691,18 @@ function updateShiftDirector(initial = false) {
     state.activeWave = nextWave;
     let activated = 0;
     for (const item of items) {
-      if (!item.active && item.wave <= state.activeWave) {
-        item.active = true;
+      if (!item.active && !item.launching && item.wave <= state.activeWave) {
+        // Der Gegenstand wird erst beim Landen „active“ — bis dahin fliegt er als
+        // reines Prop und wird von Interaktion, Stolpern und Bob übersprungen.
+        item.launching = true;
         item.root.setEnabled(true);
-        animateItemReveal(item, activated * 55);
+        animateItemFromSource(item, activated * 90);
         activated += 1;
       }
     }
     if (activated && !initial) {
-      showToast(`Neue Chaos-Welle: ${activated} Gegenstände`, "good");
+      emitFromWaveSource();
+      showToast(`Nachschub trifft ein: ${activated} Gegenstände`, "good");
       audio.play("wave");
     }
   }
@@ -768,6 +776,126 @@ function animateItemReveal(item, delay = 0) {
     item.root.metadata.revealPulse = 0;
     scene.onBeforeRenderObservable.remove(observer);
     deliveryObservers = deliveryObservers.filter((entry) => entry !== observer);
+  });
+  deliveryObservers.push(observer);
+}
+
+// Die Nachschubquelle: eine Kiste mit aufklappbarem Deckel am Hallenrand. Ein
+// reines Rand-Prop (keine Laufkollision), aus dem neue Wellen sichtbar in die
+// Halle kommen, statt einfach zu erscheinen.
+function ensureWaveSource() {
+  if (waveSource) return waveSource;
+  const root = new B.TransformNode("waveSource", scene);
+  const bodyMat = material("waveSourceBody", "#5b4634", 0.86);
+  const accentMat = material("waveSourceAccent", "#a7f46a", 0.62);
+  accentMat.emissiveColor = B.Color3.FromHexString("#a7f46a").scale(0.14);
+  const lidMat = material("waveSourceLid", "#6d5540", 0.84);
+
+  const body = B.MeshBuilder.CreateBox("waveSourceCrate", { width: 1.4, height: 1.05, depth: 1.15 }, scene);
+  body.parent = root; body.position.y = 0.52; body.material = bodyMat; body.isPickable = false;
+  // Akzentband in Levelfarbe rund um den Kistenbauch.
+  const band = B.MeshBuilder.CreateBox("waveSourceBand", { width: 1.44, height: 0.16, depth: 1.19 }, scene);
+  band.parent = root; band.position.y = 0.6; band.material = accentMat; band.isPickable = false;
+  // Deckel dreht am hinteren Rand auf (Scharnier über einen Pivot-Knoten).
+  const hinge = new B.TransformNode("waveSourceHinge", scene);
+  hinge.parent = root; hinge.position.set(0, 1.04, 0.55);
+  const lid = B.MeshBuilder.CreateBox("waveSourceLid", { width: 1.42, height: 0.14, depth: 1.16 }, scene);
+  lid.parent = hinge; lid.position.set(0, 0, -0.58); lid.material = lidMat; lid.isPickable = false;
+
+  for (const mesh of [body, band, lid]) shadowGenerator.addShadowCaster(mesh);
+  root.setEnabled(false);
+  waveSource = { root, hinge, accentMat, bounce: null, lidAnim: null };
+  return waveSource;
+}
+
+function showWaveSourceForLevel() {
+  const source = ensureWaveSource();
+  const spec = waveSourceFor(state.level);
+  source.root.position.set(spec.position[0], 0, spec.position[1]);
+  // Kiste zur Hallenmitte drehen, damit der Deckel nach innen aufklappt.
+  source.root.rotation.y = Math.atan2(-spec.position[0], -spec.position[1]);
+  source.accentMat.diffuseColor = B.Color3.FromHexString(LEVELS[state.level].accent || "#a7f46a");
+  source.accentMat.emissiveColor = B.Color3.FromHexString(LEVELS[state.level].accent || "#a7f46a").scale(0.14);
+  source.hinge.rotation.x = 0;
+  source.root.scaling.setAll(1);
+  source.root.setEnabled(true);
+}
+
+function hideWaveSource() {
+  if (!waveSource) return;
+  if (waveSource.lidAnim) { scene.onBeforeRenderObservable.remove(waveSource.lidAnim); deliveryObservers = deliveryObservers.filter((e) => e !== waveSource.lidAnim); waveSource.lidAnim = null; }
+  waveSource.hinge.rotation.x = 0;
+  waveSource.root.setEnabled(false);
+}
+
+// Deckel klappt auf und zu, während die Kiste kurz nachfedert — der sichtbare
+// Auslöser für eine ankommende Welle.
+function emitFromWaveSource() {
+  if (!waveSource || !waveSource.root.isEnabled()) return;
+  if (prefersReducedMotion()) return;
+  if (waveSource.lidAnim) { scene.onBeforeRenderObservable.remove(waveSource.lidAnim); deliveryObservers = deliveryObservers.filter((e) => e !== waveSource.lidAnim); }
+  const started = performance.now();
+  const duration = 620;
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    const t = Math.min(1, (performance.now() - started) / duration);
+    // Schnell auf, langsam zu: sin-Puls für den Deckel, kleiner Stauch-Impuls.
+    const open = Math.sin(Math.min(1, t / 0.35) * Math.PI * 0.5) * (t < 0.65 ? 1 : Math.max(0, 1 - (t - 0.65) / 0.35));
+    waveSource.hinge.rotation.x = -1.15 * open;
+    const bounce = Math.sin(t * Math.PI) * 0.06;
+    waveSource.root.scaling.set(1 + bounce * 0.4, 1 - bounce, 1 + bounce * 0.4);
+    if (t >= 1) {
+      waveSource.hinge.rotation.x = 0;
+      waveSource.root.scaling.setAll(1);
+      scene.onBeforeRenderObservable.remove(observer);
+      deliveryObservers = deliveryObservers.filter((e) => e !== observer);
+      waveSource.lidAnim = null;
+    }
+  });
+  waveSource.lidAnim = observer;
+  deliveryObservers.push(observer);
+}
+
+// Ein neuer Wellen-Gegenstand fliegt im Bogen von der Nachschubquelle an seinen
+// Platz und wird erst beim Aufsetzen spielbar (active). Bei reduzierter Bewegung
+// erscheint er ruhig an Ort und Stelle.
+function animateItemFromSource(item, delay = 0) {
+  if (!item?.root) return;
+  const target = item.root.position.clone();
+  const land = () => {
+    item.root.position.copyFrom(target);
+    item.root.scaling.setAll(1);
+    item.root.metadata.revealPulse = 0;
+    item.active = true;
+    item.launching = false;
+  };
+  if (prefersReducedMotion() || !waveSource) {
+    item.root.metadata.revealPulse = 1;
+    land();
+    return;
+  }
+  const spec = waveSourceFor(state.level);
+  const from = { x: spec.position[0], y: spec.emitY, z: spec.position[1] };
+  const to = { x: target.x, y: target.y, z: target.z };
+  const started = performance.now() + Math.max(0, delay);
+  const duration = 620;
+  item.root.position.set(from.x, from.y, from.z);
+  item.root.scaling.setAll(0.32);
+  item.root.metadata.revealPulse = 1;
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    const now = performance.now();
+    if (now < started) return;
+    const t = Math.min(1, (now - started) / duration);
+    const eased = 1 - Math.pow(1 - t, 2);
+    const point = waveArcPoint(from, to, eased, 1.6);
+    item.root.position.set(point.x, point.y, point.z);
+    item.root.rotation.y += 0.16;
+    item.root.scaling.setAll(0.32 + eased * 0.68);
+    item.root.metadata.revealPulse = 1 - t;
+    if (t >= 1) {
+      land();
+      scene.onBeforeRenderObservable.remove(observer);
+      deliveryObservers = deliveryObservers.filter((entry) => entry !== observer);
+    }
   });
   deliveryObservers.push(observer);
 }
@@ -1994,7 +2122,7 @@ function resetRoundState() {
   state.maxCombo = 0; state.deliveredDumbbells = 0; state.deliveredByType = {}; state.heldItems = []; state.nearestItem = null; state.nearestZone = null;
   state.activeWave = 0; state.shiftEventId = null; state.flowShield = createFlowShieldState(); state.rollingAnnounced = false;
   state.hudAccumulator = 0; state.interactPressed = false; state.keys.clear(); state.velocity.set(0, 0, 0);
-  touchInput.reset(); resetZoneGuidance(); clearItemHighlight(); hideRollingHazard();
+  touchInput.reset(); resetZoneGuidance(); clearItemHighlight(); hideRollingHazard(); hideWaveSource();
   // Jede Runde beginnt mit frischer Warmlaufphase: Szenenaufbau verzerrt die Messung.
   qualityState = createAdaptiveState();
   zones.forEach((zone) => { zone.deliveredCount = 0; });
@@ -2060,7 +2188,7 @@ function finishTutorial() {
 function endRound(completed) {
   if (state.ended) return;
   state.ended = true; state.playing = false; state.paused = false; state.finishing = false; state.velocity.set(0, 0, 0);
-  touchInput.reset(); resetZoneGuidance(); clearItemHighlight(); hidePrompt(); hideRollingHazard(); audio.stopMusic();
+  touchInput.reset(); resetZoneGuidance(); clearItemHighlight(); hidePrompt(); hideRollingHazard(); hideWaveSource(); audio.stopMusic();
   const mode = MODES[state.mode];
   const completionBonus = completed
     ? Math.round((mode.timed === false ? 250 : state.timeLeft * 4 + 250) * mode.scoreMultiplier)
@@ -2141,7 +2269,7 @@ function calculateRank(completed) {
 
 function returnToMenu() {
   state.playing = false; state.paused = false; state.ended = true; state.finishing = false; state.tutorial = false;
-  state.keys.clear(); state.velocity.set(0, 0, 0); audio.stopMusic(); touchInput.reset(); clearItemHighlight(); hidePrompt(); hideRollingHazard();
+  state.keys.clear(); state.velocity.set(0, 0, 0); audio.stopMusic(); touchInput.reset(); clearItemHighlight(); hidePrompt(); hideRollingHazard(); hideWaveSource();
   ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.contractHud.classList.add("hidden"); ui.shiftStatus.classList.add("hidden"); ui.progressTrack.classList.add("hidden"); ui.navigator.classList.add("hidden");
   ui.flowVignette.classList.remove("active");
   ui.mobileControls.classList.add("hidden"); ui.pauseScreen.classList.add("hidden"); ui.resultScreen.classList.add("hidden"); ui.tutorialCoach.classList.add("hidden");

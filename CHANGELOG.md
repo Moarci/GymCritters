@@ -1,6 +1,6 @@
 # Changelog
 
-## V5.4.0 – Flow Mastery & Rollende Gefahr (2026-07-19)
+## V5.4.0 – Mechanische Tiefe (2026-07-19)
 
 ### Gameplay – Flow-Schild
 
@@ -23,11 +23,18 @@
 - Fibi (flink, federnd): hoher Pop beim Greifen, schnelles zappeliges Zucken, ein leichter Stolperer, der elastisch über die Senkrechte zurückfedert, und ein energiegeladener Siegesdreh.
 - Im Leerlauf wiegt sich der ganze Körper charaktertypisch – Rocco langsam und nachdenklich, Fibi schnell und wach –, ohne das eigenständig gebaute Gesicht abzukoppeln.
 
+### Gameplay – Sichtbare Wellen-Herkunft
+
+- **Neue Wellen kommen jetzt aus einer Nachschubquelle**, statt einfach zu erscheinen. Jedes Level besitzt eine Kiste mit aufklappbarem Deckel am Hallenrand (Nachschubwagen, Kursraumtür, Geräte-Palette).
+- Beim Öffnen einer Rush- oder Finale-Welle klappt der Deckel auf, die Kiste federt kurz nach und die neuen Gegenstände fliegen einzeln in einem Bogen an ihren Platz.
+- Ein ankommender Gegenstand ist erst beim Aufsetzen spielbar – während des Flugs wird er von Interaktion, Stolpern und Bodenbewegung übersprungen. Die Auftakt-Gegenstände liegen weiterhin von Anfang an in der Halle.
+- Die Quelle ist ein reines Rand-Prop ohne Laufkollision und verengt den knapp getunten Laufraum nicht. Bei reduzierter Bewegung erscheinen neue Gegenstände ruhig an Ort und Stelle.
+
 ### Qualität
 
-- Drei neue Babylon-unabhängige Module: `src/flow-shield.js` (Ladung, Verbrauch, Zerfall des Schilds), `src/rolling-hazard.js` (Bahn, Abprall, Treffererkennung) und `src/character-reactions.js` (charaktereigene Reaktions- und Leerlaufposen) für deterministische Tests.
-- 22 neue Tests decken den Flow-Schild, die rollende Gefahr (Bahngrenzen, Phasenaktivierung, Abprall auch bei großem Zeitschritt, Achsen, Trefferreichweite) und die Charakterreaktionen (Kanaltrennung, neutrale Stolper-Enden, Fibis elastisches Überschwingen gegen Roccos schweres Nachsacken, seitenrichtige Neigung, positiver Siegeshüpfer, lebhafterer Leerlauf) ab; die Suite umfasst nun 252 Tests.
-- Service Worker, Offline-App-Shell-Test und Cache-Version wurden um alle drei Module ergänzt.
+- Vier neue Babylon-unabhängige Module: `src/flow-shield.js` (Ladung, Verbrauch, Zerfall des Schilds), `src/rolling-hazard.js` (Bahn, Abprall, Treffererkennung), `src/character-reactions.js` (charaktereigene Reaktions- und Leerlaufposen) und `src/wave-origin.js` (Quellpositionen und Wurfparabel) für deterministische Tests.
+- 27 neue Tests decken den Flow-Schild, die rollende Gefahr, die Charakterreaktionen (Kanaltrennung, neutrale Stolper-Enden, Fibis elastisches Überschwingen gegen Roccos schweres Nachsacken, seitenrichtige Neigung, positiver Siegeshüpfer, lebhafterer Leerlauf) und die Wellen-Herkunft (Randlage der Quellen, exakter Bogenanfang/-abschluss, angehobener Scheitel, geklemmtes t) ab; die Suite umfasst nun 257 Tests.
+- Service Worker, Offline-App-Shell-Test und Cache-Version wurden um alle vier Module ergänzt.
 
 ## V5.1.0 – Crew Terminal (2026-07-18)
 
