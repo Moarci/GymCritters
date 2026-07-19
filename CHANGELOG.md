@@ -1,5 +1,15 @@
 # Changelog
 
+## Unveröffentlicht
+
+### Accessoires und Optik
+
+- Die im Shop kaufbaren tragbaren Accessoires wurden vollständig neu modelliert und sitzen jetzt maßgenau am Körper – für Waschbär und Eichhörnchen gleichermaßen, abgeleitet aus der jeweiligen Kopf- und Armgeometrie statt aus geratenen Festwerten.
+- Das Stirnband ist kein frei stehender Ring mehr, sondern ein flacher, an den Kopf-Ellipsoid geschmiegter Band-Reifen auf Brauenhöhe: leicht nach vorn abgesenkt, mit erhabenem Zierstreifen, seitlichem Knoten und zwei herabhängenden Bändern.
+- Die Sonnenbrille besitzt jetzt gewölbte, ovale Gläser mit eigener Fassung, einem erhöhten Nasensteg und zwei Bügeln, die den Kopfseiten entlang zu den Ohren laufen und dort in einem kurzen Ohrbügel enden – statt zweier flacher Klötzchen mit Balken.
+- Die Schweißbänder sind volle Frottee-Manschetten mit abgesetzten Zierringen und sitzen am Handgelenk nahe der Pfote, sodass sie jede Ellbogenbeugung mitmachen.
+- Zierstreifen und Fassungen leiten ihren Kontrastton automatisch aus der Grundfarbe des jeweiligen Shop-Artikels ab; alle Metallic-Varianten (Chrom, Gold) bleiben erhalten.
+
 ## V5.1.0 – Crew Terminal (2026-07-18)
 
 ### Gameplay und Schichtplanung
