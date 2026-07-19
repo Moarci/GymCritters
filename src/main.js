@@ -595,7 +595,7 @@ function applyHeadband() {
 
   const center = playerParts.headCenter;
   const radii = playerParts.headRadii;
-  const browFrac = 0.4;                                        // Anteil des vertikalen Radius über Kopfmitte
+  const browFrac = 0.52;                                       // Anteil des vertikalen Radius über Kopfmitte
   const shrink = Math.sqrt(Math.max(0.2, 1 - browFrac * browFrac)); // horizontale Verjüngung auf Brauenhöhe
   const rx = radii[0] * shrink + 0.02;
   const rz = radii[2] * shrink + 0.02;
