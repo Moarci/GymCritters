@@ -1,4 +1,4 @@
-const CACHE_VERSION = "gym-critters-v5-2026-07-19-r15";
+const CACHE_VERSION = "gym-critters-v5-2026-07-19-r19";
 const LOCAL_CACHE = `${CACHE_VERSION}-local`;
 const ENGINE_CACHE = `${CACHE_VERSION}-engine`;
 const APP_SCOPE = new URL("./", self.location.href);
@@ -15,7 +15,9 @@ const CORE_ASSETS = [
   "./src/camera-fov.js",
   "./src/challenges.js",
   "./src/character-motion.js",
+  "./src/character-reactions.js",
   "./src/config.js",
+  "./src/flow-shield.js",
   "./src/game-feel.js",
   "./src/impact.js",
   "./src/item-placement.js",
@@ -23,6 +25,7 @@ const CORE_ASSETS = [
   "./src/materials.js",
   "./src/progression.js",
   "./src/round-coach.js",
+  "./src/rolling-hazard.js",
   "./src/round-planner.js",
   "./src/save.js",
   "./src/shift-director.js",
@@ -30,6 +33,7 @@ const CORE_ASSETS = [
   "./src/targeting.js",
   "./src/trip-physics.js",
   "./src/utils.js",
+  "./src/wave-origin.js",
   "./src/environment/decor.js",
   "./src/environment/index.js",
   "./src/environment/level-decor-specs.js",

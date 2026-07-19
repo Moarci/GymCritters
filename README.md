@@ -1,14 +1,14 @@
 <div align="center">
 
-# 🦝🐿️ Gym Critters V5.2 — Crew Terminal
+# 🦝🐿️ Gym Critters V5.3 — Mechanische Tiefe
 
 **Ein lokal-first 3D-Browsergame ohne Build-Schritt, Backend oder Account.**
 
-**v5.2.0** — Fünf neue Spielmodi (Sprint, Marathon, Nachtschicht, Perfektionist und Flow) erweitern das Crew-Terminal um Ausdauer-, Tempo- und Präzisionsschichten samt eigener Achievements und Tagesverträge.
+**v5.3.0** — Flow-Schild, rollende Gefahr, charaktereigene Reaktionen und sichtbare Wellen-Herkunft vertiefen den Kern-Loop von Zahlen zu spürbarer Mechanik – aufbauend auf den neun Spielmodi aus V5.2.
 
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES2020%2B-F7DF1E?style=flat-square&logo=javascript&logoColor=black)](https://developer.mozilla.org/docs/Web/JavaScript)
 [![Babylon.js](https://img.shields.io/badge/Babylon.js-via_CDN-BB464B?style=flat-square&logo=babylondotjs&logoColor=white)](https://www.babylonjs.com)
-[![Version](https://img.shields.io/badge/version-5.2.0-a7f46a?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.3.0-a7f46a?style=flat-square)](CHANGELOG.md)
 [![Dependencies](https://img.shields.io/badge/npm_dependencies-0-success?style=flat-square)](package.json)
 [![Play](https://img.shields.io/badge/▶_Live_Demo-2ea44f?style=flat-square)](https://moarci.github.io/GymCritters/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
@@ -36,6 +36,10 @@ V5 macht aus der einfachen Aufräumrunde eine kleine Gym-Schicht: Gegenstände e
 | **Verlässliche Interaktion** | Reichweite, Blickrichtung und freie Sicht bestimmen das Ziel. Sichtbare Hindernisse blockieren Bewegung und Aufnahme konsistent; Matten und Hanteln landen in maßgenau abgestimmten, kollisionsfreien Ablage-Slots. |
 | **Physische Stolperfallen** | Dynamische Bodenimpulse warnen beim schnellen Annähern; beim Überlaufen stolpert die Figur, verliert ihre Combo und lässt getragene Dinge fallen. |
 | **Flow-Feedback** | Combo-Zeitleiste, dreistufige Flow-Vignette, eskalierende Lieferimpacts und animierte Wellen machen erfolgreiche Serien unmittelbar spürbar. |
+| **Flow-Schild** | Gehaltener Spitzenflow bankt einen Serienschutz, der den nächsten Stolperer oder die nächste Fehlablage abfängt – eine knappe Ressource für mutige Routenentscheidungen unter Druck. |
+| **Rollende Gefahr** | Ab dem Rush quert ein rollender Medizinball einen offenen Laufweg – ein mechanisches Schichtereignis, das Timing und Umrouten erzwingt statt nur Punkte zu verändern. |
+| **Eigene Reaktionen** | Rocco und Fibi greifen, stolpern, jubeln und warten spürbar unterschiedlich: geerdet-wuchtig gegen flink-federnd, inklusive charaktertypischem Leerlaufwiegen. |
+| **Sichtbare Wellen-Herkunft** | Neue Wellen kommen aus einer Nachschubquelle am Hallenrand – Kiste öffnet sich, Gegenstände fliegen im Bogen an ihren Platz, statt einfach zu erscheinen. |
 | **Neun Spielmodi** | Entspannt, Standard, Blitz, Sprint, Marathon, Nachtschicht, Perfektionist sowie die zeitlosen Zen- und Flow-Schichten. |
 | **Level-Feintuning** | Gegenstandsmenge, Schichtdynamik, Stolperrisiko und Zielhilfe werden für jedes Level separat gespeichert. |
 | **Entwicklung über Zeit** | Bis zu 120 Runden bilden eine lokale Historie mit vergleichbarem Leistungsindex, Trend, Filterung und Verlaufskurve. |
@@ -55,6 +59,42 @@ Jede Runde entwickelt sich über drei Abschnitte:
 3. **Finale:** Die letzten Gegenstände erscheinen und gewichtete Bonusziele belohnen eine passende Route.
 
 Die Boni gelten nur für passende Gegenstände. Der Spieler entscheidet dadurch zwischen kurzem Weg, wertvoller Lieferung, Combo-Sicherung und Tagesvertrag.
+
+## Flow-Schild
+
+Der Flow-Schild vertieft die zentrale Combo-Schleife um eine echte Risiko-/Belohnungsentscheidung. Wer den höchsten Flow (**MAX FLOW**, Combo ≥ 8) rund 2,6 Sekunden hält, lädt einen Serienschutz auf – sichtbar als kleiner Ladering in der Combo-Karte. Sobald ein Schild bereitliegt, leuchtet der Ring und ein Toast kündigt ihn an.
+
+- Der nächste Combo-Bruch – ein Stolperer oder eine Fehlablage – wird abgefangen: die Serie überlebt, statt auf null zurückzufallen.
+- Der Schild ist eine knappe Ressource: höchstens einer gleichzeitig, und unter Spitzenflow gehaltener Fortschritt zerfällt langsam wieder, wenn der Flow abbricht.
+- Ein Stolperer bleibt körperlich – getragene Gegenstände fallen weiterhin –, und eine abgefangene Fehlablage zählt weiterhin für Rang und Statistik. Der Schild rettet ausschließlich die mühsam aufgebaute Serie.
+
+So entsteht ein neues Spielmuster: erst Spitzenflow aufbauen, den Schutz banken und danach bewusst die riskantere, aber wertvollere Route wählen.
+
+## Rollende Gefahr
+
+Schichtereignisse waren bisher rein numerisch – sie veränderten nur Bonuspunkte. Das erste **mechanische** Ereignis macht daraus eine körperliche Konsequenz: Ab dem **Rush** quert ein rollender Medizinball einen offenen Laufweg und wird zu einer echten, beweglichen Gefahr.
+
+- Jedes Level besitzt eine eigene Bahn – der Eingangsstreifen (Feierabend), der mittlere Kursgang (Nach dem Kurs) und der zentrale Korridor (Leg Day) – mit passender Ballgröße und Geschwindigkeit. Der Ball prallt an den Enden ab und rollt pausenlos hin und her.
+- Ein Treffer wirft die Figur um, lässt getragene Gegenstände fallen und nutzt dieselbe Stolperreaktion wie eine Bodenfalle – inklusive Flow-Schild-Rettung. Anders als eine liegende Stolperfalle knockt der Ball auch eine stehende Figur um, denn er kommt zu ihr.
+- Ein pulsierender Warnring am Boden, ein Ankündigungstoast und ein dauerhaftes „⚠ Rollende Gefahr" in der Schicht-Statusleiste kündigen die Bahn rechtzeitig an.
+
+Der Spieler entscheidet dadurch bei jeder Querung zwischen Warten, schnellem Timing und einem Umweg – die Route wird zur echten Frage statt zur reinen Distanz.
+
+## Charaktereigene Reaktionen
+
+Rocco und Fibi unterscheiden sich nicht mehr nur in Tempo und Traglast, sondern in ihrer ganzen Körpersprache. Jede Reaktion – Greifen, Fehler-Kopfschütteln, Stolpern, Siegesgeste und Leerlauf – bezieht ihre Werte aus einem charaktereigenen Profil.
+
+- **Rocco** (kräftig, geerdet): ruhiger Griff mit kurzer Antizipation, schweres langsames Kopfschütteln, ein wuchtiger Stolperer, der beim Aufsetzen nachsackt, und ein solides Doppel-Pumpen zum Sieg.
+- **Fibi** (flink, federnd): ein hoher Pop beim Greifen, schnelles zappeliges Zucken, ein leichter Stolperer, der elastisch über die Senkrechte zurückfedert, und ein energiegeladener Siegesdreh.
+- Im Leerlauf wiegt sich der ganze Körper charaktertypisch. Bewusst wird nie der Kopf allein gedreht – Gesicht, Ohren und Nase hängen eigenständig an der Figur und würden sonst abkoppeln.
+
+## Sichtbare Wellen-Herkunft
+
+Neue Wellen erscheinen nicht mehr aus dem Nichts, sondern haben eine sichtbare Ursache. Jedes Level besitzt eine **Nachschubquelle** am Hallenrand – ein Nachschubwagen (Feierabend), eine Kursraumtür (Nach dem Kurs) oder eine Geräte-Palette (Leg Day) – als Kiste mit aufklappbarem Deckel in der Levelfarbe.
+
+- Öffnet sich eine **Rush- oder Finale-Welle**, klappt der Deckel auf, die Kiste federt kurz nach und die neuen Gegenstände fliegen einzeln in einem Bogen an ihren Platz.
+- Ein ankommender Gegenstand ist erst beim **Aufsetzen** spielbar – während des Flugs wird er von Interaktion, Stolpern und Bodenbewegung übersprungen. Die Auftakt-Gegenstände liegen weiterhin von Anfang an in der Halle.
+- Die Quelle ist ein reines Rand-Prop ohne Laufkollision und verengt den knapp getunten Laufraum nicht. Bei reduzierter Bewegung erscheinen neue Gegenstände ruhig an Ort und Stelle.
 
 ### Level-Identitäten
 
@@ -193,6 +233,10 @@ GymCritters/
     ├── main.js               # Szenen- und UI-Orchestrierung
     ├── config.js             # Balancing, Inhalte, Verträge und Meisterschaft
     ├── game-feel.js          # Gefahrenlesbarkeit, Combo-Flow und Charakter-Lieferbonus
+    ├── flow-shield.js        # Serienschutz aus gehaltenem Spitzenflow
+    ├── rolling-hazard.js     # Bahn, Abprall und Treffer der rollenden Gefahr
+    ├── character-reactions.js # Charaktereigene Reaktions- und Leerlaufposen
+    ├── wave-origin.js        # Quellpositionen und Wurfparabel neuer Wellen
     ├── save.js               # Persistenz, Migration, Export/Import, Achievements
     ├── progression.js        # Bestwerte, Karriere und Meisterschaft
     ├── challenges.js         # Deterministische Tagesverträge
@@ -245,7 +289,7 @@ npm run smoke     # App-Shell über einen temporären HTTP-Server prüfen
 npm run test:ci   # alle drei Prüfungen in derselben Reihenfolge
 ```
 
-Die V5.2-Suite umfasst **236 Tests**. Sie deckt unter anderem Save-Migrationen, Rundentrends, die Konfiguration aller neun Modi, Zen- und Flow-Wertung, Stolperphysik, geometrisch geprüfte Ablageplätze, den fünfstufigen Schicht-Wizard, Level-Feintuning, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
+Die Suite umfasst **263 Tests**. Sie deckt unter anderem Save-Migrationen, Rundentrends, die Konfiguration aller neun Modi, Zen- und Flow-Wertung, Flow-Schild, rollende Gefahr, charaktereigene Reaktionen, Wellen-Herkunft, Stolperphysik, geometrisch geprüfte Ablageplätze, den fünfstufigen Schicht-Wizard, Level-Feintuning, Import/Export, Verträge, Meisterschaft, Levelhindernisse, Schichtwellen, IK, Ziel-Sichtlinien, Kamera, Touch, adaptive Qualität und die zugängliche Offline-App-Shell ab.
 
 [`.github/workflows/quality.yml`](.github/workflows/quality.yml) führt `npm run test:ci` bei Pull Requests, Pushes auf `main` und manuellen Workflow-Starts mit Node.js 22 aus.
 

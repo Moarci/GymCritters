@@ -86,6 +86,51 @@ button, canvas { -webkit-tap-highlight-color: transparent; }
 }
 .combo-stat[data-tier="2"] .combo-time-track i { background: var(--blue); }
 .combo-stat[data-tier="3"] .combo-time-track i { background: var(--orange); }
+/* Flow-Schild: kleiner Ladering oben rechts in der Combo-Karte. Leer und
+   unauffällig, füllt sich beim Halten des Spitzenflows und leuchtet, sobald ein
+   Schutz gebankt ist. */
+.flow-shield-pip {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(.7);
+  transition: opacity .25s ease, transform .25s ease;
+  pointer-events: none;
+}
+.flow-shield-pip.charging,
+.flow-shield-pip.banked { opacity: 1; transform: scale(1); }
+.flow-shield-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--lime) calc(var(--shield-charge, 0) * 360deg), rgba(255,255,255,.08) 0);
+  -webkit-mask: radial-gradient(circle, transparent 5px, #000 5.5px);
+  mask: radial-gradient(circle, transparent 5px, #000 5.5px);
+}
+.flow-shield-glyph {
+  position: relative;
+  z-index: 1;
+  font-size: 10px;
+  line-height: 1;
+  filter: grayscale(1) brightness(1.5);
+  opacity: .5;
+}
+.flow-shield-pip.banked { animation: shield-pulse 1.8s ease-in-out infinite; }
+.flow-shield-pip.banked .flow-shield-fill { box-shadow: 0 0 8px rgba(167,244,106,.6); }
+.flow-shield-pip.banked .flow-shield-glyph { filter: none; opacity: 1; }
+@keyframes shield-pulse {
+  0%, 100% { box-shadow: 0 0 5px rgba(167,244,106,.3); }
+  50% { box-shadow: 0 0 13px rgba(167,244,106,.7); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-shield-pip.banked { animation: none; }
+}
 .hud-actions { display: flex; align-items: stretch; gap: 8px; }
 .coins { padding: 11px 15px; font-size: 18px; white-space: nowrap; }
 .carry { padding: 9px 13px; min-width: 142px; }

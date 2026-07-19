@@ -1,6 +1,40 @@
 # Changelog
 
-## Unveröffentlicht
+## V5.3.0 – Mechanische Tiefe (2026-07-19)
+
+### Gameplay – Flow-Schild
+
+- **Neuer Flow-Schild:** Wer den höchsten Flow (MAX FLOW, Combo ≥ 8) rund 2,6 Sekunden hält, bankt einen Serienschutz. Der nächste Combo-Bruch – ob Stolperer oder Fehlablage – wird abgefangen: die Serie überlebt, statt auf null zurückzufallen.
+- Der Schild ist bewusst eine knappe Ressource (höchstens einer gleichzeitig) und schafft eine echte Risiko-/Belohnungsentscheidung: Spitzenflow aufbauen, Schutz banken und danach eine mutigere Route unter Stolpergefahr wagen.
+- Ein Stolperer bleibt körperlich – getragene Gegenstände fallen weiterhin –, der Schild rettet nur die mühsam aufgebaute Serie. Eine abgefangene Fehlablage zählt weiterhin für Rang und Statistik, kostet aber nicht mehr die Combo.
+- Ein kleiner Ladering in der Combo-Karte füllt sich beim Halten des Spitzenflows und leuchtet, sobald ein Schild bereitliegt; ein eigenes Toast, Sprachfeedback und Vibrationsmuster kündigen den geladenen Schutz an.
+
+### Gameplay – Erstes mechanisches Schichtereignis
+
+- **Rollende Gefahr:** Schichtereignisse verändern nicht mehr nur die Punktzahl. Ab dem Rush quert ein rollender Medizinball auf jedem Level einen offenen Laufweg und wird zu einer echten, beweglichen Gefahr, die Timing und Umrouten erzwingt.
+- Jedes Level besitzt eine eigene Bahn (Eingangsstreifen, mittlerer Kursgang, zentraler Leg-Day-Korridor) mit passender Geschwindigkeit und Ballgröße; der Ball prallt an den Enden ab und rollt pausenlos hin und her.
+- Ein Treffer wirft die Figur um, lässt getragene Gegenstände fallen und nutzt dieselbe Stolperreaktion wie eine Bodenfalle – inklusive Flow-Schild-Rettung. Anders als eine liegende Stolperfalle knockt der Ball auch eine stehende Figur um.
+- Ein pulsierender Warnring am Boden, ein Ankündigungstoast und ein dauerhaftes „⚠ Rollende Gefahr" in der Schicht-Statusleiste machen die Gefahr rechtzeitig lesbar.
+
+### Gameplay – Charaktereigene Reaktionen
+
+- **Rocco und Fibi reagieren jetzt spürbar unterschiedlich.** Griff, Fehler-Kopfschütteln, Stolpern, Siegesgeste und Leerlauf beziehen ihre Werte aus einem charaktereigenen Profil statt aus geteilten Konstanten.
+- Rocco (kräftig, geerdet): ruhiger Griff mit kurzer Antizipation, schweres langsames Kopfschütteln, ein wuchtiger Stolperer, der beim Aufsetzen nachsackt, und ein solides Doppel-Pumpen zum Sieg.
+- Fibi (flink, federnd): hoher Pop beim Greifen, schnelles zappeliges Zucken, ein leichter Stolperer, der elastisch über die Senkrechte zurückfedert, und ein energiegeladener Siegesdreh.
+- Im Leerlauf wiegt sich der ganze Körper charaktertypisch – Rocco langsam und nachdenklich, Fibi schnell und wach –, ohne das eigenständig gebaute Gesicht abzukoppeln.
+
+### Gameplay – Sichtbare Wellen-Herkunft
+
+- **Neue Wellen kommen jetzt aus einer Nachschubquelle**, statt einfach zu erscheinen. Jedes Level besitzt eine Kiste mit aufklappbarem Deckel am Hallenrand (Nachschubwagen, Kursraumtür, Geräte-Palette).
+- Beim Öffnen einer Rush- oder Finale-Welle klappt der Deckel auf, die Kiste federt kurz nach und die neuen Gegenstände fliegen einzeln in einem Bogen an ihren Platz.
+- Ein ankommender Gegenstand ist erst beim Aufsetzen spielbar – während des Flugs wird er von Interaktion, Stolpern und Bodenbewegung übersprungen. Die Auftakt-Gegenstände liegen weiterhin von Anfang an in der Halle.
+- Die Quelle ist ein reines Rand-Prop ohne Laufkollision und verengt den knapp getunten Laufraum nicht. Bei reduzierter Bewegung erscheinen neue Gegenstände ruhig an Ort und Stelle.
+
+### Qualität
+
+- Vier neue Babylon-unabhängige Module: `src/flow-shield.js` (Ladung, Verbrauch, Zerfall des Schilds), `src/rolling-hazard.js` (Bahn, Abprall, Treffererkennung), `src/character-reactions.js` (charaktereigene Reaktions- und Leerlaufposen) und `src/wave-origin.js` (Quellpositionen und Wurfparabel) für deterministische Tests.
+- 27 neue Tests decken den Flow-Schild, die rollende Gefahr, die Charakterreaktionen (Kanaltrennung, neutrale Stolper-Enden, Fibis elastisches Überschwingen gegen Roccos schweres Nachsacken, seitenrichtige Neigung, positiver Siegeshüpfer, lebhafterer Leerlauf) und die Wellen-Herkunft (Randlage der Quellen, exakter Bogenanfang/-abschluss, angehobener Scheitel, geklemmtes t) ab.
+- Service Worker, Offline-App-Shell-Test und Cache-Version wurden um alle vier Module ergänzt.
 
 ### Accessoires und Optik
 

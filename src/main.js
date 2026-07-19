@@ -54,6 +54,17 @@ import { itemDisplaySlot, MEDBALL_DIAMETER, ROPE_ITEM_LAYOUT } from "./item-plac
 import { buildRoundTypes, planSpawnPositions } from "./round-planner.js";
 import { roundCoaching } from "./round-coach.js";
 import { comboFlowState, courierBatchBonus, hazardCueIntensity } from "./game-feel.js";
+import { chargeFlowShield, createFlowShieldState, hasFlowShield, spendFlowShield } from "./flow-shield.js";
+import {
+  createRollingHazard,
+  laneFor,
+  rollingHazardActive,
+  rollingHazardHit,
+  rollingHazardPoint,
+  stepRollingHazard,
+} from "./rolling-hazard.js";
+import { idleGesture, reactionPose, reactionProfile } from "./character-reactions.js";
+import { waveArcPoint, waveSourceFor } from "./wave-origin.js";
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 const ui = {
@@ -64,7 +75,7 @@ const ui = {
   tutorialText: $("tutorialText"), prompt: $("prompt"), toast: $("toast"),
   achievementToast: $("achievementToast"), achievementIcon: $("achievementIcon"), achievementName: $("achievementName"),
   scorePopLayer: $("scorePopLayer"), score: $("score"), progress: $("progress"), combo: $("combo"),
-  comboStat: $("comboStat"), comboTimeBar: $("comboTimeBar"), flowVignette: $("flowVignette"), flowLabel: $("flowLabel"),
+  comboStat: $("comboStat"), comboTimeBar: $("comboTimeBar"), flowShieldPip: $("flowShieldPip"), flowVignette: $("flowVignette"), flowLabel: $("flowLabel"),
   timer: $("timer"), coins: $("coins"), carrying: $("carrying"), carryCard: $("carryCard"),
   contractHud: $("contractHud"), contractTitle: $("contractTitle"), contractProgress: $("contractProgress"), contractProgressBar: $("contractProgressBar"),
   shiftStatus: $("shiftStatus"), shiftPhase: $("shiftPhase"), shiftWaveDots: $("shiftWaveDots"),
@@ -163,8 +174,8 @@ const state = {
   droppedItems: 0, trips: 0, tripTime: 0, tripCooldown: 0,
   maxCombo: 0, deliveredDumbbells: 0, deliveredByType: {}, heldItems: [], nearestItem: null, nearestZone: null,
   keys: new Set(), interactPressed: false, elapsed: 0, roundElapsed: 0, hudAccumulator: 0,
-  velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 }, lean: 0,
-  activeWave: 0, shiftEventId: null,
+  velocity: new B.Vector3(0, 0, 0), reaction: { type: null, time: 0 }, lean: 0, idleSway: { swayY: 0, swayZ: 0 },
+  activeWave: 0, shiftEventId: null, flowShield: createFlowShieldState(), rollingAnnounced: false,
   cameraPreferredRadius: 5.6, cameraOccluded: false,
   toastTimer: null, speechTimer: null, achievementTimer: null,
 };
@@ -199,6 +210,8 @@ let highlightedItem = null;
 let deliveryObservers = [];
 let trailAccumulator = 0;
 let trailSparkPool = [];
+let rollingHazard = null;
+let waveSource = null;
 
 const CARRY_PROFILES = {
   dumbbell: { scale: 0.72, rootY: -0.12, gripX: 0.22, gripY: 0.84, rotationZ: 0 },
@@ -303,6 +316,8 @@ function rebuildSceneForQuality() {
   obstacles = [];
   deliveryObservers = [];
   trailSparkPool = [];
+  rollingHazard = null;
+  waveSource = null;
   highlightedItem = null;
   createScene();
   renderMenu();
@@ -784,6 +799,8 @@ function spawnItems() {
     items.push(item);
     if (active) animateItemReveal(item, index * 34);
   });
+  if (state.tutorial) hideWaveSource();
+  else showWaveSourceForLevel();
 }
 
 function updateShiftDirector(initial = false) {
@@ -793,15 +810,18 @@ function updateShiftDirector(initial = false) {
     state.activeWave = nextWave;
     let activated = 0;
     for (const item of items) {
-      if (!item.active && item.wave <= state.activeWave) {
-        item.active = true;
+      if (!item.active && !item.launching && item.wave <= state.activeWave) {
+        // Der Gegenstand wird erst beim Landen „active“ — bis dahin fliegt er als
+        // reines Prop und wird von Interaktion, Stolpern und Bob übersprungen.
+        item.launching = true;
         item.root.setEnabled(true);
-        animateItemReveal(item, activated * 55);
+        animateItemFromSource(item, activated * 90);
         activated += 1;
       }
     }
     if (activated && !initial) {
-      showToast(`Neue Chaos-Welle: ${activated} Gegenstände`, "good");
+      emitFromWaveSource();
+      showToast(`Nachschub trifft ein: ${activated} Gegenstände`, "good");
       audio.play("wave");
     }
   }
@@ -827,7 +847,8 @@ function updateShiftStatus() {
   const targets = event.types
     ? event.types.map((type) => ITEM_TYPES[type]?.icon).filter(Boolean).join(" ")
     : "Schwer & sperrig";
-  ui.shiftPhase.textContent = `${shiftPhaseLabel(phase)} · Welle ${state.activeWave + 1}/3`;
+  const hazardActive = rollingHazardActive(state.level, phase);
+  ui.shiftPhase.textContent = `${shiftPhaseLabel(phase)} · Welle ${state.activeWave + 1}/3${hazardActive ? " · ⚠ Rollende Gefahr" : ""}`;
   ui.shiftEventTitle.textContent = event.title;
   ui.shiftEventBonus.textContent = `${targets} +${shiftEventBonusPercent(event, dynamics)} % Bonus`;
   [...ui.shiftWaveDots.children].forEach((dot, index) => {
@@ -874,6 +895,126 @@ function animateItemReveal(item, delay = 0) {
     item.root.metadata.revealPulse = 0;
     scene.onBeforeRenderObservable.remove(observer);
     deliveryObservers = deliveryObservers.filter((entry) => entry !== observer);
+  });
+  deliveryObservers.push(observer);
+}
+
+// Die Nachschubquelle: eine Kiste mit aufklappbarem Deckel am Hallenrand. Ein
+// reines Rand-Prop (keine Laufkollision), aus dem neue Wellen sichtbar in die
+// Halle kommen, statt einfach zu erscheinen.
+function ensureWaveSource() {
+  if (waveSource) return waveSource;
+  const root = new B.TransformNode("waveSource", scene);
+  const bodyMat = material("waveSourceBody", "#5b4634", 0.86);
+  const accentMat = material("waveSourceAccent", "#a7f46a", 0.62);
+  accentMat.emissiveColor = B.Color3.FromHexString("#a7f46a").scale(0.14);
+  const lidMat = material("waveSourceLid", "#6d5540", 0.84);
+
+  const body = B.MeshBuilder.CreateBox("waveSourceCrate", { width: 1.4, height: 1.05, depth: 1.15 }, scene);
+  body.parent = root; body.position.y = 0.52; body.material = bodyMat; body.isPickable = false;
+  // Akzentband in Levelfarbe rund um den Kistenbauch.
+  const band = B.MeshBuilder.CreateBox("waveSourceBand", { width: 1.44, height: 0.16, depth: 1.19 }, scene);
+  band.parent = root; band.position.y = 0.6; band.material = accentMat; band.isPickable = false;
+  // Deckel dreht am hinteren Rand auf (Scharnier über einen Pivot-Knoten).
+  const hinge = new B.TransformNode("waveSourceHinge", scene);
+  hinge.parent = root; hinge.position.set(0, 1.04, 0.55);
+  const lid = B.MeshBuilder.CreateBox("waveSourceLid", { width: 1.42, height: 0.14, depth: 1.16 }, scene);
+  lid.parent = hinge; lid.position.set(0, 0, -0.58); lid.material = lidMat; lid.isPickable = false;
+
+  for (const mesh of [body, band, lid]) shadowGenerator.addShadowCaster(mesh);
+  root.setEnabled(false);
+  waveSource = { root, hinge, accentMat, bounce: null, lidAnim: null };
+  return waveSource;
+}
+
+function showWaveSourceForLevel() {
+  const source = ensureWaveSource();
+  const spec = waveSourceFor(state.level);
+  source.root.position.set(spec.position[0], 0, spec.position[1]);
+  // Kiste zur Hallenmitte drehen, damit der Deckel nach innen aufklappt.
+  source.root.rotation.y = Math.atan2(-spec.position[0], -spec.position[1]);
+  source.accentMat.diffuseColor = B.Color3.FromHexString(LEVELS[state.level].accent || "#a7f46a");
+  source.accentMat.emissiveColor = B.Color3.FromHexString(LEVELS[state.level].accent || "#a7f46a").scale(0.14);
+  source.hinge.rotation.x = 0;
+  source.root.scaling.setAll(1);
+  source.root.setEnabled(true);
+}
+
+function hideWaveSource() {
+  if (!waveSource) return;
+  if (waveSource.lidAnim) { scene.onBeforeRenderObservable.remove(waveSource.lidAnim); deliveryObservers = deliveryObservers.filter((e) => e !== waveSource.lidAnim); waveSource.lidAnim = null; }
+  waveSource.hinge.rotation.x = 0;
+  waveSource.root.setEnabled(false);
+}
+
+// Deckel klappt auf und zu, während die Kiste kurz nachfedert — der sichtbare
+// Auslöser für eine ankommende Welle.
+function emitFromWaveSource() {
+  if (!waveSource || !waveSource.root.isEnabled()) return;
+  if (prefersReducedMotion()) return;
+  if (waveSource.lidAnim) { scene.onBeforeRenderObservable.remove(waveSource.lidAnim); deliveryObservers = deliveryObservers.filter((e) => e !== waveSource.lidAnim); }
+  const started = performance.now();
+  const duration = 620;
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    const t = Math.min(1, (performance.now() - started) / duration);
+    // Schnell auf, langsam zu: sin-Puls für den Deckel, kleiner Stauch-Impuls.
+    const open = Math.sin(Math.min(1, t / 0.35) * Math.PI * 0.5) * (t < 0.65 ? 1 : Math.max(0, 1 - (t - 0.65) / 0.35));
+    waveSource.hinge.rotation.x = -1.15 * open;
+    const bounce = Math.sin(t * Math.PI) * 0.06;
+    waveSource.root.scaling.set(1 + bounce * 0.4, 1 - bounce, 1 + bounce * 0.4);
+    if (t >= 1) {
+      waveSource.hinge.rotation.x = 0;
+      waveSource.root.scaling.setAll(1);
+      scene.onBeforeRenderObservable.remove(observer);
+      deliveryObservers = deliveryObservers.filter((e) => e !== observer);
+      waveSource.lidAnim = null;
+    }
+  });
+  waveSource.lidAnim = observer;
+  deliveryObservers.push(observer);
+}
+
+// Ein neuer Wellen-Gegenstand fliegt im Bogen von der Nachschubquelle an seinen
+// Platz und wird erst beim Aufsetzen spielbar (active). Bei reduzierter Bewegung
+// erscheint er ruhig an Ort und Stelle.
+function animateItemFromSource(item, delay = 0) {
+  if (!item?.root) return;
+  const target = item.root.position.clone();
+  const land = () => {
+    item.root.position.copyFrom(target);
+    item.root.scaling.setAll(1);
+    item.root.metadata.revealPulse = 0;
+    item.active = true;
+    item.launching = false;
+  };
+  if (prefersReducedMotion() || !waveSource) {
+    item.root.metadata.revealPulse = 1;
+    land();
+    return;
+  }
+  const spec = waveSourceFor(state.level);
+  const from = { x: spec.position[0], y: spec.emitY, z: spec.position[1] };
+  const to = { x: target.x, y: target.y, z: target.z };
+  const started = performance.now() + Math.max(0, delay);
+  const duration = 620;
+  item.root.position.set(from.x, from.y, from.z);
+  item.root.scaling.setAll(0.32);
+  item.root.metadata.revealPulse = 1;
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    const now = performance.now();
+    if (now < started) return;
+    const t = Math.min(1, (now - started) / duration);
+    const eased = 1 - Math.pow(1 - t, 2);
+    const point = waveArcPoint(from, to, eased, 1.6);
+    item.root.position.set(point.x, point.y, point.z);
+    item.root.rotation.y += 0.16;
+    item.root.scaling.setAll(0.32 + eased * 0.68);
+    item.root.metadata.revealPulse = 1 - t;
+    if (t >= 1) {
+      land();
+      scene.onBeforeRenderObservable.remove(observer);
+      deliveryObservers = deliveryObservers.filter((entry) => entry !== observer);
+    }
   });
   deliveryObservers.push(observer);
 }
@@ -1033,7 +1174,9 @@ function update() {
   if (!state.tutorial && MODES[state.mode].timed !== false && !updateTimer(dt)) return;
   if (!state.tutorial && MODES[state.mode].timed === false) updateUntimedHud(dt);
   updateComboTimer(dt);
+  updateFlowShield(dt);
   updatePlayer(dt);
+  updateRollingHazard(dt);
   updateInteraction();
   if (state.interactPressed) {
     state.interactPressed = false;
@@ -1190,7 +1333,7 @@ function updatePlayer(dt) {
     })),
   });
   if (hazard) {
-    triggerTrip(hazard.source);
+    triggerTrip(hazard.source, "floor");
     animateCharacter(dt, false, false);
     return;
   }
@@ -1258,6 +1401,9 @@ function animateCharacter(dt, moving, sprinting) {
   playerParts.leftKnee.rotation.x = 0.55 * gait.intensity * Math.max(0, Math.sin(phase + 0.4));
   playerParts.rightKnee.rotation.x = 0.55 * gait.intensity * Math.max(0, -Math.sin(phase + 0.4));
   const idle = !moving && !state.heldItems.length ? idleMotion(state.elapsed) : null;
+  // Charaktereigenes Wiegen im Leerlauf: Rocco langsam und nachdenklich, Fibi
+  // schnell und wach. updateReaction legt es als Ruhelage auf playerVisual an.
+  state.idleSway = idle ? idleGesture(reactionProfile(state.character), state.elapsed) : { swayY: 0, swayZ: 0 };
   playerParts.body.scaling.y = 1 + (idle ? idle.breath : 0);
   playerParts.tailRoot.rotation.y = Math.sin(state.elapsed * (state.character === "squirrel" ? 4 : 3.2)) * 0.28 + (idle ? idle.tailFlick : 0);
   playerParts.tailRoot.rotation.x = 0.13 + Math.sin(state.elapsed * 2.1) * 0.06;
@@ -1278,6 +1424,34 @@ function updateComboTimer(dt) {
 function comboWindowSeconds() {
   const window = Number(MODES[state.mode]?.comboWindow);
   return Number.isFinite(window) && window > 0 ? window : 14;
+}
+
+// Lädt den Flow-Schild aus gehaltenem Spitzenflow. Nur während einer echten
+// Runde (kein Tutorial) — dort gibt es keine nennenswerte Combo.
+function updateFlowShield(dt) {
+  if (state.tutorial) return;
+  const tier = comboFlowState(state.combo, state.comboTime, comboWindowSeconds()).tier;
+  const next = chargeFlowShield(state.flowShield, { tier, dt });
+  state.flowShield = { charge: next.charge, shields: next.shields };
+  if (next.earned) {
+    audio.play("wave");
+    vibrate([15, 20, 30]);
+    showToast("Flow-Schild bereit – ein Fehler ist verziehen", "good");
+    characterSays(state.character === "squirrel" ? "Flow-Schild geladen!" : "Rocco hält die Serie zusammen.");
+  }
+}
+
+// Ein Combo-Bruch (Stolpern oder Fehlablage) versucht zuerst, den Flow-Schild
+// einzulösen. Gelingt das, überlebt die Serie und der comboTime wird auf ein
+// volles Fenster aufgefrischt, damit die gerettete Serie nicht sofort verfällt.
+// Liefert true, wenn der Schild den Bruch abgefangen hat.
+function absorbComboBreak() {
+  if (!hasFlowShield(state.flowShield)) return false;
+  const result = spendFlowShield(state.flowShield);
+  state.flowShield = result.state;
+  if (!result.absorbed) return false;
+  state.comboTime = comboWindowSeconds();
+  return true;
 }
 
 function applyCarryIK() {
@@ -1344,26 +1518,30 @@ function setReaction(type, duration = 0.7) {
 
 function updateReaction(dt) {
   if (!state.reaction.type) {
-    playerVisual.rotation.z = B.Scalar.Lerp(playerVisual.rotation.z, state.lean, 0.22);
-    playerVisual.rotation.y = B.Scalar.Lerp(playerVisual.rotation.y, 0, 0.22);
+    // Ruhelage: Kurvenneigung plus charaktereigenes Leerlaufwiegen.
+    const sway = state.idleSway || { swayY: 0, swayZ: 0 };
+    playerVisual.rotation.z = B.Scalar.Lerp(playerVisual.rotation.z, state.lean + sway.swayZ, 0.22);
+    playerVisual.rotation.y = B.Scalar.Lerp(playerVisual.rotation.y, sway.swayY, 0.22);
     playerVisual.scaling.copyFrom(B.Vector3.Lerp(playerVisual.scaling, B.Vector3.One(), 0.18));
     return;
   }
   state.reaction.time -= dt;
   const elapsed = state.reaction.duration - state.reaction.time;
-  if (state.reaction.type === "wrong") playerVisual.rotation.z = Math.sin(elapsed * 26) * 0.14;
-  if (state.reaction.type === "pickup") playerVisual.scaling.setAll(1 + Math.sin(Math.min(1, elapsed / state.reaction.duration) * Math.PI) * 0.07);
-  if (state.reaction.type === "trip") {
-    const phase = Math.min(1, elapsed / state.reaction.duration);
-    const stumble = Math.sin(phase * Math.PI);
-    playerVisual.rotation.x = 0.52 * stumble;
-    playerVisual.rotation.z = state.reaction.side * 0.18 * stumble;
-    playerVisual.position.y = -0.84 - 0.09 * stumble;
-  }
-  if (state.reaction.type === "celebrate") {
-    playerVisual.rotation.y = Math.sin(elapsed * 8) * 0.35;
-    playerVisual.position.y = -0.84 + Math.abs(Math.sin(elapsed * 8)) * 0.14;
-  }
+  // Rocco und Fibi teilen sich denselben Applier, aber jede Reaktion bespielt
+  // nur ihre eigenen Kanäle (null = unberührt lassen); die Werte stammen aus dem
+  // charaktereigenen Profil.
+  const pose = reactionPose({
+    type: state.reaction.type,
+    elapsed,
+    duration: state.reaction.duration,
+    side: state.reaction.side ?? 1,
+    profile: reactionProfile(state.character),
+  });
+  if (pose.rotationX !== null) playerVisual.rotation.x = pose.rotationX;
+  if (pose.rotationY !== null) playerVisual.rotation.y = pose.rotationY;
+  if (pose.rotationZ !== null) playerVisual.rotation.z = pose.rotationZ;
+  if (pose.scale !== null) playerVisual.scaling.setAll(pose.scale);
+  if (pose.offsetY !== null) playerVisual.position.y = -0.84 + pose.offsetY;
   if (state.reaction.time <= 0) state.reaction = { type: null, time: 0, duration: 0 };
 }
 
@@ -1435,6 +1613,77 @@ function animateWorld(dt) {
     item.root.position.y = item.root.metadata.baseY + Math.sin(state.elapsed * 2.3 + Number(item.id.split("-")[1])) * 0.025;
   }
   if (!state.playing && state.reaction.type) updateReaction(dt);
+}
+
+// Baut die rollende Gefahr einmal pro Szene: ein sichtbarer Medizinball mit
+// Nahtlinien und ein pulsierender Warnring am Boden, der die Bahn ankündigt.
+function ensureRollingBall(lane) {
+  if (rollingHazard) return rollingHazard;
+  const diameter = lane.radius * 2;
+  const root = new B.TransformNode("rollingHazard", scene);
+  const ballMat = material("rollingHazardBall", "#d36b61", 0.6);
+  ballMat.emissiveColor = B.Color3.FromHexString("#d36b61").scale(0.08);
+  const seamMat = material("rollingHazardSeam", "#242832", 0.82);
+  const ball = B.MeshBuilder.CreateSphere("rollingHazardBall", { diameter, segments: 22 }, scene);
+  ball.parent = root; ball.position.y = lane.radius; ball.material = ballMat; ball.isPickable = false;
+  shadowGenerator.addShadowCaster(ball);
+  const seams = [];
+  for (const [rotationX, rotationZ] of [[0, 0], [Math.PI / 2, 0], [0, Math.PI / 2]]) {
+    const seam = B.MeshBuilder.CreateTorus("rollingHazardSeam", { diameter: diameter * 1.01, thickness: 0.02, tessellation: 24 }, scene);
+    seam.parent = ball; seam.rotation.set(rotationX, 0, rotationZ); seam.material = seamMat; seam.isPickable = false;
+    seams.push(seam);
+  }
+  // Der Warnring liegt flach auf dem Boden (Torus-Grundlage ist die XZ-Ebene).
+  const ring = B.MeshBuilder.CreateTorus("rollingHazardRing", { diameter: diameter + 1, thickness: 0.05, tessellation: 32 }, scene);
+  ring.parent = root; ring.position.y = 0.03; ring.isPickable = false;
+  const ringMat = material("rollingHazardRingMat", "#ff6f4f", 0.6);
+  ringMat.emissiveColor = B.Color3.FromHexString("#ff5a3c").scale(0.85);
+  ringMat.unlit = true;
+  ring.material = ringMat;
+  root.setEnabled(false);
+  rollingHazard = { root, ball, ring, seams, sim: null, roll: 0 };
+  return rollingHazard;
+}
+
+function hideRollingHazard() {
+  if (!rollingHazard) return;
+  rollingHazard.root.setEnabled(false);
+  rollingHazard.sim = null;
+}
+
+// Führt die rollende Gefahr fort: aktiv erst ab dem Rush, danach quert der Ball
+// pausenlos seinen Laufweg. Ein Treffer nutzt dieselbe Stolperreaktion wie eine
+// Bodenfalle — inklusive Flow-Schild-Rettung — knockt aber auch eine stehende
+// Figur um, denn der Ball kommt zu ihr.
+function updateRollingHazard(dt) {
+  if (state.tutorial || !items.length) { hideRollingHazard(); return; }
+  const phase = shiftPhase(state.delivered, items.length);
+  if (!rollingHazardActive(state.level, phase)) { hideRollingHazard(); return; }
+  const lane = laneFor(state.level);
+  if (!lane) { hideRollingHazard(); return; }
+  const hazard = ensureRollingBall(lane);
+  if (!hazard.sim) {
+    hazard.sim = createRollingHazard(lane);
+    hazard.roll = 0;
+    hazard.root.setEnabled(true);
+    if (!state.rollingAnnounced) {
+      state.rollingAnnounced = true;
+      showToast("Achtung – rollende Gefahr auf dem Laufweg!", "bad");
+      characterSays(state.character === "squirrel" ? "Ball von der Seite – ausweichen!" : "Vorsicht, der Medizinball rollt!");
+      audio.play("wave");
+    }
+  }
+  const previous = hazard.sim.pos;
+  hazard.sim = stepRollingHazard(hazard.sim, dt);
+  const point = rollingHazardPoint(hazard.sim);
+  hazard.root.position.set(point.x, 0, point.z);
+  hazard.roll -= (hazard.sim.pos - previous) / lane.radius;
+  hazard.ball.rotation.z = hazard.roll;
+  const pulse = 1 + Math.sin(state.elapsed * 8) * 0.06;
+  hazard.ring.scaling.setAll(pulse);
+  if (state.tripCooldown <= 0 && state.tripTime <= 0 && rollingHazardHit(hazard.sim, player.position, player.metadata.radius)) {
+    triggerTrip({ root: { position: new B.Vector3(point.x, 0, point.z) } }, "rolling");
+  }
 }
 
 function canPickUp(item) {
@@ -1672,7 +1921,7 @@ function findSafeDropPosition(baseAngle = player.rotation.y) {
   return new B.Vector3(player.position.x, 0.12, player.position.z);
 }
 
-function triggerTrip(hazard) {
+function triggerTrip(hazard, cause = "floor") {
   const risk = tripRule(currentLevelSettings().tripRisk);
   const dropped = [...state.heldItems];
   state.heldItems = [];
@@ -1684,8 +1933,13 @@ function triggerTrip(hazard) {
   state.trips += 1;
   state.tripTime = prefersReducedMotion() ? Math.min(0.35, risk.stumbleDuration) : risk.stumbleDuration;
   state.tripCooldown = risk.cooldown;
-  state.combo = 0;
-  state.comboTime = 0;
+  // Der Sturz ist körperlich und passiert trotzdem; der Flow-Schild rettet nur
+  // die mühsam aufgebaute Serie, nicht die getragenen Gegenstände.
+  const shielded = absorbComboBreak();
+  if (!shielded) {
+    state.combo = 0;
+    state.comboTime = 0;
+  }
   state.velocity.scaleInPlace(-0.12);
   state.lean = 0;
   setReaction("trip", state.tripTime);
@@ -1694,8 +1948,18 @@ function triggerTrip(hazard) {
   reflowHeldItems(false);
   audio.play("trip");
   vibrate([35, 25, 55]);
-  showToast(dropped.length ? `Gestolpert – ${dropped.length > 1 ? "alles" : dropped[0].label} fallen gelassen!` : "Hoppla – über etwas gestolpert!", "bad");
-  characterSays(state.character === "squirrel" ? "Uff! Alles noch dran?" : "Rocco, Augen auf den Boden!");
+  const rolling = cause === "rolling";
+  const stumbleText = rolling
+    ? (dropped.length ? `Medizinball erwischt – ${dropped.length > 1 ? "alles" : dropped[0].label} verloren!` : "Vom rollenden Medizinball umgerollt!")
+    : (dropped.length ? `Gestolpert – ${dropped.length > 1 ? "alles" : dropped[0].label} fallen gelassen!` : "Hoppla – über etwas gestolpert!");
+  if (shielded) {
+    showToast(`${stumbleText} Flow-Schild rettet die Serie!`, "good");
+    characterSays(state.character === "squirrel" ? "Schild hält – Serie lebt!" : "Der Flow-Schild fängt das ab!");
+  } else {
+    showToast(stumbleText, "bad");
+    if (rolling) characterSays(state.character === "squirrel" ? "Autsch! Der kam von der Seite!" : "Dieser Ball wieder …");
+    else characterSays(state.character === "squirrel" ? "Uff! Alles noch dran?" : "Rocco, Augen auf den Boden!");
+  }
   updateHUD();
 }
 
@@ -1715,14 +1979,24 @@ function deliverAtZone(zone) {
     // Gegenständen rutscht die Tonleiter vernehmbar wieder herunter; darunter
     // gab es nichts zu verlieren und der Fehlerton allein genügt.
     const hatteSerie = state.combo >= 3;
-    state.combo = 0; state.comboTime = 0; state.wrongPlacements += 1; audio.play("wrong"); vibrate([30, 30, 30]); setReaction("wrong", 0.7);
-    if (hatteSerie) {
+    // Die Fehlablage bleibt eine Fehlablage (zählt für Rang und Statistik), der
+    // Flow-Schild bewahrt aber die Serie vor dem Zusammenbruch.
+    const shielded = absorbComboBreak();
+    if (!shielded) { state.combo = 0; state.comboTime = 0; }
+    state.wrongPlacements += 1; audio.play("wrong"); vibrate([30, 30, 30]); setReaction("wrong", 0.7);
+    if (shielded) {
+      showScorePop("Flow-Schild!", true);
+      showToast(`Flow-Schild rettet die Serie – hierhin gehören ${ITEM_TYPES[zone.type].plural}`, "good");
+      characterSays("Knapp! Schild eingelöst.");
+    } else if (hatteSerie) {
       window.setTimeout(() => audio.play("comboBreak"), 180);
       showToast(`Serie gerissen – hierhin gehören ${ITEM_TYPES[zone.type].plural}`, "bad");
+      characterSays("Das gehört woanders hin …");
     } else {
       showToast(`Falscher Platz – hierhin gehören ${ITEM_TYPES[zone.type].plural}`, "bad");
+      characterSays("Das gehört woanders hin …");
     }
-    characterSays("Das gehört woanders hin …"); updateHUD(); return;
+    updateHUD(); return;
   }
 
   const mode = MODES[state.mode];
@@ -1966,9 +2240,9 @@ function resetRoundState() {
   state.score = 0; state.combo = 0; state.comboTime = 0; state.delivered = 0; state.wrongPlacements = 0; state.droppedItems = 0;
   state.trips = 0; state.tripTime = 0; state.tripCooldown = 0; state.roundElapsed = 0;
   state.maxCombo = 0; state.deliveredDumbbells = 0; state.deliveredByType = {}; state.heldItems = []; state.nearestItem = null; state.nearestZone = null;
-  state.activeWave = 0; state.shiftEventId = null;
+  state.activeWave = 0; state.shiftEventId = null; state.flowShield = createFlowShieldState(); state.rollingAnnounced = false;
   state.hudAccumulator = 0; state.interactPressed = false; state.keys.clear(); state.velocity.set(0, 0, 0);
-  touchInput.reset(); resetZoneGuidance(); clearItemHighlight();
+  touchInput.reset(); resetZoneGuidance(); clearItemHighlight(); hideRollingHazard(); hideWaveSource();
   // Jede Runde beginnt mit frischer Warmlaufphase: Szenenaufbau verzerrt die Messung.
   qualityState = createAdaptiveState();
   zones.forEach((zone) => { zone.deliveredCount = 0; });
@@ -2034,7 +2308,7 @@ function finishTutorial() {
 function endRound(completed) {
   if (state.ended) return;
   state.ended = true; state.playing = false; state.paused = false; state.finishing = false; state.velocity.set(0, 0, 0);
-  touchInput.reset(); resetZoneGuidance(); clearItemHighlight(); hidePrompt(); audio.stopMusic();
+  touchInput.reset(); resetZoneGuidance(); clearItemHighlight(); hidePrompt(); hideRollingHazard(); hideWaveSource(); audio.stopMusic();
   const mode = MODES[state.mode];
   const completionBonus = completed
     ? Math.round((mode.timed === false ? 250 : state.timeLeft * 4 + 250) * mode.scoreMultiplier)
@@ -2115,7 +2389,7 @@ function calculateRank(completed) {
 
 function returnToMenu() {
   state.playing = false; state.paused = false; state.ended = true; state.finishing = false; state.tutorial = false;
-  state.keys.clear(); state.velocity.set(0, 0, 0); audio.stopMusic(); touchInput.reset(); clearItemHighlight(); hidePrompt();
+  state.keys.clear(); state.velocity.set(0, 0, 0); audio.stopMusic(); touchInput.reset(); clearItemHighlight(); hidePrompt(); hideRollingHazard(); hideWaveSource();
   ui.hud.classList.add("hidden"); ui.objective.classList.add("hidden"); ui.contractHud.classList.add("hidden"); ui.shiftStatus.classList.add("hidden"); ui.progressTrack.classList.add("hidden"); ui.navigator.classList.add("hidden");
   ui.flowVignette.classList.remove("active");
   ui.mobileControls.classList.add("hidden"); ui.pauseScreen.classList.add("hidden"); ui.resultScreen.classList.add("hidden"); ui.tutorialCoach.classList.add("hidden");
@@ -2153,6 +2427,10 @@ function updateHUD() {
   ui.flowVignette.style.setProperty("--flow-strength", flow.intensity.toFixed(2));
   ui.flowVignette.classList.toggle("active", flow.tier > 0 && state.playing && !state.ended);
   ui.flowLabel.textContent = flow.label;
+  const shieldBanked = hasFlowShield(state.flowShield);
+  ui.flowShieldPip.classList.toggle("banked", shieldBanked);
+  ui.flowShieldPip.classList.toggle("charging", !shieldBanked && state.flowShield.charge > 0.001);
+  ui.flowShieldPip.style.setProperty("--shield-charge", (shieldBanked ? 1 : state.flowShield.charge).toFixed(3));
   const untimed = state.tutorial || MODES[state.mode].timed === false;
   ui.timer.textContent = untimed ? "∞" : formatTime(state.timeLeft);
   ui.timer.style.color = !untimed && state.timeLeft <= 20 ? "#ff7c74" : "";
