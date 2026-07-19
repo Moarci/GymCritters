@@ -1276,7 +1276,8 @@ function updateComboTimer(dt) {
 }
 
 function comboWindowSeconds() {
-  return state.mode === "relaxed" ? 18 : state.mode === "blitz" ? 10 : 14;
+  const window = Number(MODES[state.mode]?.comboWindow);
+  return Number.isFinite(window) && window > 0 ? window : 14;
 }
 
 function applyCarryIK() {
@@ -2100,9 +2101,9 @@ function calculateRank(completed) {
     return { grade: "D", detail: ratio >= 0.5 ? "Solider Anfang" : "Noch einmal ran" };
   }
   if (MODES[state.mode].timed === false) {
-    if (state.wrongPlacements === 0 && state.trips === 0 && state.maxCombo >= items.length) return { grade: "S", detail: "Zen in perfekter Ordnung" };
+    if (state.wrongPlacements === 0 && state.trips === 0 && state.maxCombo >= items.length) return { grade: "S", detail: "In perfekter Ordnung" };
     if (state.wrongPlacements === 0 && state.trips <= 1) return { grade: "A", detail: "Ruhig und aufmerksam" };
-    if (state.wrongPlacements <= 1) return { grade: "B", detail: "Saubere Zen-Schicht" };
+    if (state.wrongPlacements <= 1) return { grade: "B", detail: "Saubere zeitlose Schicht" };
     return { grade: "C", detail: "Ohne Eile ans Ziel" };
   }
   const timeRatio = state.timeLeft / state.roundSeconds;
