@@ -1453,13 +1453,13 @@ button { font: inherit; cursor: pointer; }
   .coins { min-height: 38px; padding: 8px 10px; }
   .icon-button { min-height: 38px; }
 
-  /* Die Abstände sind für ein ZWEIZEILIGES Objective gerechnet: bei 390px Breite
-     bricht der Text um und die Karte wird rund 50px hoch. Mit den Werten für eine
-     Zeile schnitt die Fortschrittsleiste mitten hinein. Im Browser nachgemessen. */
-  /* Harte Deckelung auf zwei Zeilen: die Abstände darunter sind fest, ein längerer
-     Aufgabentext würde sonst in die Fortschrittsleiste laufen. */
+  /* Die Objective-Pille nur beim Tragen einblenden. Im Ruhezustand doppelt sie
+     ohnehin den Ereignistitel (steht in der Schicht-Karte) und die Restanzahl
+     (HUD-Zähler „Aufgeräumt“) – auf dem schmalen Hochkant-Display schwebte sie
+     dadurch nur zusätzlich über dem Spielfeld. Beim Tragen bleibt der
+     Zielzonen-Hinweis erhalten; zweizeilige Deckelung gegen zu langen Text. */
   .objective {
-    top: 96px;
+    top: 108px;
     font-size: 12px;
     max-width: 92vw;
     display: -webkit-box;
@@ -1467,9 +1467,10 @@ button { font: inherit; cursor: pointer; }
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .progress-track { top: 154px; width: min(320px, 86vw); }
-  .navigator { top: 174px; transform: translateX(-50%) scale(.82); }
-  .toast { top: 226px; }
+  .objective:not(.carrying) { display: none; }
+  .progress-track { top: 100px; width: min(320px, 86vw); }
+  .navigator { top: 230px; transform: translateX(-50%) scale(.82); }
+  .toast { top: 230px; }
   .speech-bubble { top: 200px; }
   .prompt { bottom: 232px; max-width: 90vw; white-space: normal; text-align: center; }
 
@@ -1477,9 +1478,15 @@ button { font: inherit; cursor: pointer; }
   .mobile-buttons { gap: 9px; }
   .tutorial-coach { bottom: max(206px, calc(env(safe-area-inset-bottom) + 206px)); width: calc(100vw - 24px); }
   .flow-vignette span { bottom: max(218px, calc(env(safe-area-inset-bottom) + 218px)); }
-  .contract-hud { top: 232px; left: 8px; width: min(250px, calc(100vw - 16px)); }
-  .shift-status { top: 310px; left: 8px; width: min(250px, calc(100vw - 16px)); }
-  #contractHud:not(.hidden) ~ .toast { top: 310px; }
+
+  /* Info-Karten kompakter und dicht unter das HUD in die obere linke Ecke,
+     damit sie nicht mehr mitten im Spielfeld über dem Critter hängen. Solange
+     etwas getragen wird, zeigt die Pille oben ihren Ziel-Hinweis – dann rutschen
+     die Karten darunter, damit sich beide nicht überlagern. */
+  .contract-hud { top: 108px; left: 8px; width: min(250px, calc(100vw - 16px)); padding: 8px 11px; border-radius: 12px; }
+  .shift-status { top: 166px; left: 8px; width: min(250px, calc(100vw - 16px)); padding: 8px 11px; border-radius: 12px; }
+  body:has(.objective.carrying) .contract-hud { top: 160px; }
+  body:has(.objective.carrying) .shift-status { top: 218px; }
 }
 
 @media (max-width: 460px) {
